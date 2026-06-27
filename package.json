@@ -1,0 +1,27 @@
+{
+  "name": "business-os",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FathomXO Academic — Business OS (modular monolith). See /docs.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @business-os/db migrate",
+    "db:seed": "pnpm --filter @business-os/db seed",
+    "db:reset": "docker compose down -v && docker compose up -d && pnpm --filter @business-os/db wait && pnpm db:migrate && pnpm db:seed",
+    "db:test": "pnpm --filter @business-os/db test"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
+  }
+}

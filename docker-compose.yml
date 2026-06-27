@@ -1,0 +1,35 @@
+# Local dev infrastructure for Business OS.
+# Postgres is the system of record (RLS, JSONB, ledger). Adminer is for manual inspection.
+services:
+  db:
+    image: postgres:16
+    container_name: businessos_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-business_os}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - businessos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-business_os}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:4
+    container_name: businessos_adminer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+
+volumes:
+  businessos_pgdata:

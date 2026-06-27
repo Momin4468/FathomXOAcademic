@@ -1,0 +1,10 @@
+// The typed Drizzle mirror of /docs/SCHEMA.md A–F (+ dependencies).
+// SQL migrations in ../migrations are the source of truth for DDL; this is for
+// typed queries in the app and tests.
+export * from "./a-tenancy.js";
+export * from "./b-reference.js";
+export * from "./c-work.js";
+export * from "./d-legs.js";
+export * from "./e-rules.js";
+export * from "./f-billing.js";
+export * from "./g-crosscutting.js";
