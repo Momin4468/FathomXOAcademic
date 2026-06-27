@@ -30,6 +30,7 @@ export const party = pgTable("party", {
   contactJson: jsonb("contact_json").default({}),
   expertiseTags: text("expertise_tags").array().default([]),
   notes: text("notes"),
+  referredByPartyId: uuid("referred_by_party_id"), // directory "referred-by" (self-ref)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

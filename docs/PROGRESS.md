@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-27
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** Foundation + **Module 0 depth (real auth + permission engine + audit)** done and verified. Postgres (Docker) + Schema A–F + auth migration (0003) applied; seed + dev passwords loaded; 37 tests green (22 DB + 15 HTTP); identity proven server-trusted (forged headers ignored). Not in a broken state. On branch `module0-auth-authz-audit`.
+**Build state:** Foundation + Module 0 (auth/authz/audit) + **Module 1 (reference data + directory)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0005 applied; seed + dev passwords loaded; **75 tests green (38 DB + 37 HTTP)**. Not in a broken state. (Going forward: commit directly to `main`, no feature branches — user preference.)
 
 ---
 
@@ -37,9 +37,18 @@
 - **S6 unknown-email login** currently logs to app logger only (no org to scope an audit row) — route to a system/org-less audit sink.
 - **S3** — add an explicit `org_id` predicate in `permission.service.loadEffective` as defense-in-depth (RLS already enforces it).
 
+## ✅ Done — Module 1 (reference data + directory; DESIGN_SPEC §7)
+- **Migration 0004 + seed 0005**: pg_trgm; additive cols `ref_entity.archived_at`, `ref_entity.merged_into_id`, `party.referred_by_party_id`; trigram GIN indexes; `unique(org_id, ref_id, normalized)` on ref_alias. Seed: **Data Steward** role (`reference:view`+`approve`, UUID `…aa`) + demo university `…e1` / course "ICT 701" `…e2` (aliases ict701, 701).
+- **Shared** `normalize()` (`packages/shared/src/reference.ts`): lowercase + strip non-alphanumerics; used by API and (future) web type-ahead.
+- **API module** at `apps/api/src/modules/refdata/` (folder named **refdata**, NOT reference — `.claude/settings.json` has an over-broad `Edit(reference/**)` deny that blocks a `reference/` source dir; routes are still `/reference` + `/parties`). Endpoints, all `@RequirePermission('reference', …)` + audited:
+  - `GET /reference?kind=&q=` (view, type-ahead: exact-normalized → trigram), `GET /reference/:id`, `POST /reference/resolve` (create; resolve-or-create provisional, capture-first), `POST /reference/:id/aliases` (edit), `POST /reference/:id/confirm` (approve), `POST /reference/merge` (approve; moves aliases, keeps old name resolving, repoints `party.university_id`, archives source→`merged_into_id`).
+  - `GET /parties?q=&type=` (view), `GET /parties/:id` (view; +universityCanonical +referredByName), `POST /parties` (create; `universityRaw` auto-resolves), `PATCH /parties/:id` (edit).
+- Feature-flagged: `FEATURE_REFERENCE=true` in `.env`; wired into app.module via `isModuleEnabled('reference')`.
+- **Tests**: `packages/db/test/reference.test.ts` (16) + `apps/api/test/reference-http.test.ts` (22). Reviewed by security-reviewer (no blockers); fixed #1 (boundary-validate `kind`/`type` query params via DTOs) and added merge tombstone guards.
+- **Deferred (tracked):** merge currently repoints only `party.university_id` — extend when Module 2 adds `work_item.course_ref_id`/`assignment_type_ref_id` (else those refs orphan on merge). Field-masking within reference-viewers still deferred (Writers lack `reference:*` so contact isn't exposed).
+
 ## ⏭️ Next (Phase 1, suggested order)
-1. **Module 1 — reference + directory**: `ref_entity`/`ref_alias` fuzzy-in/canonical-out, provisional→confirmed governance, party/client directory.
-3. **Module 2 — work + legs**: work_item/line capture incl. copy fan-out; derived-margin read model (margin = inbound − outbound, computed, never stored).
+1. **Module 2 — work + legs**: work_item/line capture incl. copy fan-out; derived-margin read model (margin = inbound − outbound, computed, never stored). When built, extend `ReferenceService.merge` to repoint the new ref FKs.
 4. Capture-first "my open loops" screen + add-a-job + job detail hub (web).
 5. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances.
 

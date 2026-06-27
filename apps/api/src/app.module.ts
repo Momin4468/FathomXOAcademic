@@ -2,7 +2,9 @@ import { Module } from "@nestjs/common";
 import { AuditModule } from "./common/audit/audit.module.js";
 import { AuthModule } from "./common/auth/auth.module.js";
 import { DbModule } from "./common/db/db.module.js";
+import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
+import { ReferenceModule } from "./modules/refdata/reference.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -10,6 +12,12 @@ import { PlatformModule } from "./modules/platform/platform.module.js";
  * modules 1–6 are added here behind feature flags as they're built.
  */
 @Module({
-  imports: [DbModule, AuditModule, AuthModule, PlatformModule],
+  imports: [
+    DbModule,
+    AuditModule,
+    AuthModule,
+    PlatformModule,
+    ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
+  ],
 })
 export class AppModule {}

@@ -18,6 +18,9 @@ export const refEntity = pgTable("ref_entity", {
   status: text("status").notNull().default("provisional"), // provisional | confirmed
   confirmedBy: uuid("confirmed_by"),
   confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  // Module 1 merge support: a merged duplicate is archived and points at the survivor.
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+  mergedIntoId: uuid("merged_into_id"),
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

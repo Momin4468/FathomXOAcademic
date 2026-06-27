@@ -2,7 +2,12 @@ import { env } from "./env.js";
 import { applyMigrations, ensureAppRole } from "./run-migrations.js";
 
 // Schema + RLS migrations (NOT the seed — that's `pnpm db:seed`).
-const SCHEMA_MIGRATIONS = ["0000_init.sql", "0001_rls.sql", "0003_auth.sql"];
+const SCHEMA_MIGRATIONS = [
+  "0000_init.sql",
+  "0001_rls.sql",
+  "0003_auth.sql",
+  "0004_reference.sql",
+];
 
 async function main() {
   // The app role must exist before 0001_rls.sql grants privileges to it.
