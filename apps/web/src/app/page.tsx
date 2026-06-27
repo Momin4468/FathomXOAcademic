@@ -1,21 +1,51 @@
-export default function HomePage() {
-  return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
-      <h1 className="text-2xl font-semibold tracking-tight">Business OS</h1>
-      <p className="mt-1 text-sm text-gray-500">FathomXO — Academic · Phase 1 foundation</p>
+"use client";
+import Link from "next/link";
+import { useApi } from "@/lib/api";
+import { can, type WhoAmI } from "@/lib/types";
+import { AppShell } from "@/components/AppShell";
+import { WorkList } from "@/components/WorkList";
+import { Button, Spinner } from "@/components/ui";
 
-      <div className="mt-8 rounded-lg border border-gray-200 p-5">
-        <h2 className="text-sm font-medium text-gray-700">Foundation in place</h2>
-        <ul className="mt-3 space-y-1 text-sm text-gray-600">
-          <li>• Tenancy + identity + access (org_id everywhere)</li>
-          <li>• Money chain (legs) with database-enforced visibility (RLS)</li>
-          <li>• Append-only ledger; profit derived, never stored</li>
-        </ul>
-        <p className="mt-4 text-xs text-gray-400">
-          Capture-first screens (&ldquo;my open loops&rdquo;, add-a-job, job detail) arrive in
-          module 4. The visual design language is a later round.
-        </p>
+export default function HomePage() {
+  const { data: me, isLoading } = useApi<WhoAmI>("platform/whoami");
+
+  return (
+    <AppShell>
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">My open loops</h1>
+          <p className="text-xs text-gray-500">What&rsquo;s open and whose move is it?</p>
+        </div>
+        {can(me?.permissions, "work:create") && (
+          <Link href="/work/new">
+            <Button>+ Log new</Button>
+          </Link>
+        )}
       </div>
-    </main>
+
+      {isLoading && <Spinner />}
+
+      {me && (
+        <div className="space-y-6">
+          {/* Admin / approver: the confirmation queue + active work. */}
+          {can(me.permissions, "work:approve") && (
+            <>
+              <WorkList title="Confirmation queue" path="work?workState=pending" emptyHint="No jobs awaiting confirmation." />
+              <WorkList title="In progress" path="work?workState=confirmed" emptyHint="No active jobs." />
+            </>
+          )}
+
+          {/* The viewer's own work (if they're a party / doer). */}
+          {me.party && (
+            <WorkList title="My work" path={`work?doerPartyId=${me.party.id}`} emptyHint="You have no assigned work yet." />
+          )}
+
+          {/* Fallback for a work:view role that's neither approver nor a doer. */}
+          {!can(me.permissions, "work:approve") && !me.party && can(me.permissions, "work:view") && (
+            <WorkList title="Work" path="work" emptyHint="No work items." />
+          )}
+        </div>
+      )}
+    </AppShell>
   );
 }

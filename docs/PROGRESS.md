@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-27
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** Foundation + Modules 0–2 + **Module 3 (deal terms + comp rules — effective-dated rules engine)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0008 applied; seed + dev passwords loaded; **198 tests green (107 DB + 91 HTTP)**; leg-leak + effective-dating guarantees proven. Not in a broken state. (Commit directly to `main`, no feature branches — user preference.) NOTE: a pre-existing flake in the auth-http bizadmin test can surface once under concurrent file load; passes on rerun.
+**Build state:** Foundation + Modules 0–3 (backend) + **Module 4 (capture-first web front end)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0008; **198 backend tests green (107 DB + 91 HTTP) + 6 web unit tests**; web builds + boots; BFF cookie auth and the money-safety guarantee proven end-to-end (Writer gets redacted data the UI can't render). Not in a broken state. (Commit directly to `main`.) NOTE: a pre-existing flake in the auth-http bizadmin test can surface once under concurrent file load; passes on rerun.
 
 ---
 
@@ -65,9 +65,19 @@
 - **Effective-dating**: renegotiation = **supersede** (close prior `effective_to`, insert new version; value/rate never mutated). A March job resolves to March's terms after a June renegotiation — proven at DB + HTTP. Legs stay explicit; auto-deriving leg amounts from terms is Module 5 (`leg.deal_term_id` nullable for now).
 - **Tests: 198 green (107 DB + 91 HTTP)**, up from 125 (+42 pure/DB, +31 HTTP). security-reviewer: fixed **#2** (supersede refuses an already-closed version → no overlapping windows), **#5** (comp supersede audits old/new rate + cost-bearer), **#6** (comp_rule provenance, migration 0008), **#8** (strict client UUID regex). Deferred: **#3** (assert prior is the *latest* open version — mitigated by #2), **#7** (jobtype is exact-match free text → a typo silently no-ops; canonical-jobtype tie-in later), and party-scoped term visibility (only `rules:*` holders see terms; Writers don't → no leak).
 
+## ✅ Done — Module 4 (capture-first web front end; DESIGN_SPEC §10)
+- **`apps/web`** (Next 15 App Router + Tailwind, mobile-first; shadcn/visual language still deferred). Runnable: `pnpm --filter @business-os/web build` / `dev` / `start` (port 3000). Needs `apps/web/.env` `API_URL=http://localhost:3001`.
+- **Auth = BFF + httpOnly cookies** (tokens never in JS): `src/app/api/auth/{login,logout}/route.ts` + `src/app/api/proxy/[...path]/route.ts` (attaches Bearer from cookie, refreshes once on 401 via a single-flight that avoids reuse-detection logout). `src/lib/server-auth.ts` (`server-only`). `middleware.ts` gates unauthenticated → `/login`.
+- **Data layer**: SWR + `src/lib/api.ts` (all browser calls go through `/api/proxy`; 401 → `/login`).
+- **Screens**: `/login`; `/` role-aware **My open loops** (admin confirmation queue / in-progress; the viewer's own work; view-only fallback); `/work/new` few-clicks add-a-job (title + optional detail; **pick-don't-type** course/assignment/client/writer via `EntityPicker` with create-provisional; **Save draft** = draft-now/complete-later); `/work/[id]` job-detail hub (states, course, lines, money chain + margins, state-transition actions) rendered through the viewer's scope.
+- **Money-safety**: the UI renders ONLY what the (already-redacted) API returns — `<Money>` / `formatMoney` render nothing when a value is absent (no 0/— placeholder); no client-side margin/price derivation. Proven end-to-end (Writer view lacks clientRate/amount, sees only own leg, no margin).
+- **Tests**: 6 web unit tests (`apps/web/test/guards.test.ts`: `formatMoney` presence-gating, proxy path-sanitizer, CSRF `isAllowedRequest`) + a manual integration smoke (BFF cookies, 401, Writer-vs-admin money diff). Backend 198 still green (no backend change).
+- **Reviews**: ui-reviewer + security-reviewer. Fixed: **CSRF BLOCKER** (proxy now requires same-origin for state-changing methods via Origin/Sec-Fetch-Site — verified cross-site POST → 403), proxy forces JSON content-type, extracted+tested guards, plus UX wins (detail field on add-a-job, "← My open loops" back link, EntityPicker searching/no-results + Esc/outside-click close).
+- **Deferred (tracked)**: tz-aware **deadline/urgency** (needs a `work_item` deadline field → task-board Module 6); viewer-tz date formatting; provenance *names* (needs a user-name lookup); full ARIA-combobox keyboard in EntityPicker; refresh single-flight is per-process (note for multi-instance deploys); access cookie maxAge 10d but the JWT exp is short (~30m) so the real expiry is server-side.
+
 ## ⏭️ Next (Phase 1, suggested order)
-1. Capture-first "my open loops" screen + add-a-job + job detail hub (web, Module 4).
-2. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances (Module 5) — incl. auto-deriving leg amounts from resolved deal terms (`leg.deal_term_id`).
+1. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances (Module 5) — incl. auto-deriving leg amounts from resolved deal terms (`leg.deal_term_id`).
+2. Task board + tz-aware deadlines/urgency (Module 6) — unlocks the deadline display deferred from Module 4.
 
 ## 🧱 Blocked / waiting on owner
 - (nothing)
