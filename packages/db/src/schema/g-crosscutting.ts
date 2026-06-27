@@ -1,7 +1,9 @@
 import {
   bigint,
   boolean,
+  date,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -20,6 +22,27 @@ export const fileObject = pgTable("file_object", {
   mime: text("mime"),
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** SCHEMA G — any cost with a cost-bearer (salary/subscription/promo/loss/event). */
+export const expense = pgTable("expense", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  category: text("category").notNull(), // subscription|salary|promo|loss|event|other
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  incurredAt: date("incurred_at").notNull(),
+  costBearer: text("cost_bearer").notNull(), // momin|emon|split|writer
+  costBearerSplitJson: jsonb("cost_bearer_split_json"),
+  payeePartyId: uuid("payee_party_id"),
+  campaignTag: text("campaign_tag"),
+  revenueLinkId: uuid("revenue_link_id"),
+  receiptFileId: uuid("receipt_file_id"),
+  note: text("note"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 /** SCHEMA G — immutable audit log (append-only; no update/delete grants). */

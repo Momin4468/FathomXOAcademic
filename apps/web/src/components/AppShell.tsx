@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useApi, logout } from "@/lib/api";
-import type { WhoAmI } from "@/lib/types";
+import { can, type WhoAmI } from "@/lib/types";
 import { Button } from "./ui";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -10,9 +10,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="text-sm font-semibold tracking-tight">
-            Business OS
-          </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link href="/" className="font-semibold tracking-tight">
+              Business OS
+            </Link>
+            {can(me?.permissions, "capture:view") && (
+              <Link href="/tasks" className="text-gray-600 hover:text-gray-900">
+                Tasks
+              </Link>
+            )}
+            {can(me?.permissions, "expenses:view") && (
+              <Link href="/expenses" className="text-gray-600 hover:text-gray-900">
+                Expenses
+              </Link>
+            )}
+          </nav>
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (
               <span className="hidden text-xs text-gray-500 sm:inline">{me.party.displayName}</span>

@@ -1,3 +1,6 @@
+// Re-export the shared date helpers so screens import one place (dd/mm/yyyy rule).
+export { formatDate, formatDateTime, urgency } from "@business-os/shared";
+
 /**
  * Format a money value, returning null when there's nothing to show. The API
  * redacts money the caller can't see, so "absent ⇒ null ⇒ render nothing" — we

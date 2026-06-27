@@ -5,8 +5,10 @@ import { DbModule } from "./common/db/db.module.js";
 import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
 import { BillingModule } from "./modules/billing/billing.module.js";
+import { ExpenseModule } from "./modules/expense/expense.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
 import { RulesModule } from "./modules/rules/rules.module.js";
+import { TaskModule } from "./modules/task/task.module.js";
 import { WorkModule } from "./modules/work/work.module.js";
 
 /**
@@ -24,6 +26,8 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("work") ? [WorkModule] : []),
     ...(isModuleEnabled("rules") ? [RulesModule] : []),
     ...(isModuleEnabled("billing") ? [BillingModule] : []),
+    ...(isModuleEnabled("expenses") ? [ExpenseModule] : []),
+    ...(isModuleEnabled("capture") ? [TaskModule] : []),
   ],
 })
 export class AppModule {}

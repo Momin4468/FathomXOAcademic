@@ -100,4 +100,30 @@ export interface PartyRow {
   programme: string | null;
 }
 
+export interface Expense {
+  id: string;
+  category: string;
+  amount: string;
+  incurredAt: string;
+  costBearer: string;
+  costBearerSplitJson: Record<string, unknown> | null;
+  payeePartyId: string | null;
+  campaignTag: string | null;
+  revenueLinkId: string | null;
+  note: string | null;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  details: string | null;
+  state: string;
+  dueAt: string | null;
+  dueTz: string | null;
+  assigneePartyId: string | null;
+  workItemId: string | null;
+  completedAt: string | null;
+  urgency: { overdue: boolean; msLeft: number | null; bucket: "overdue" | "soon" | "later" | "none" };
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

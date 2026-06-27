@@ -69,6 +69,46 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
     </select>
   );
 }
+/** Curated IANA zones (spec §8: UK / Melbourne / Sydney / Dhaka) + UTC. */
+export const TZ_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "Asia/Dhaka", label: "Dhaka" },
+  { value: "Europe/London", label: "UK (London)" },
+  { value: "Australia/Melbourne", label: "Melbourne" },
+  { value: "Australia/Sydney", label: "Sydney" },
+  { value: "America/New_York", label: "New York" },
+  { value: "UTC", label: "UTC" },
+];
+export const tzLabel = (tz: string | null | undefined): string =>
+  TZ_OPTIONS.find((z) => z.value === tz)?.label ?? tz ?? "";
+
+/** A date picker (native, never free text). Value is yyyy-mm-dd. */
+export function DateInput({ value, onChange, ...props }: { value: string; onChange: (v: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  return <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} {...props} />;
+}
+
+/** Deadline picker: date + time + IANA zone. Stored as an absolute instant + tz. */
+export function DateTimeTzInput({
+  value,
+  onChange,
+}: {
+  value: { date: string; time: string; tz: string };
+  onChange: (v: { date: string; time: string; tz: string }) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <Input type="date" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} />
+      <Input type="time" value={value.time} onChange={(e) => onChange({ ...value, time: e.target.value })} />
+      <Select value={value.tz} onChange={(e) => onChange({ ...value, tz: e.target.value })}>
+        {TZ_OPTIONS.map((z) => (
+          <option key={z.value} value={z.value}>
+            {z.label}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
 export function Field({
   label,
   error,

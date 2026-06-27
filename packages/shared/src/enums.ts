@@ -112,6 +112,14 @@ export type ProofSide = (typeof PROOF_SIDES)[number];
 export const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"] as const;
 export type ChargeCategory = (typeof CHARGE_CATEGORIES)[number];
 
+/** expense.category — one table, many flavors (Module 6, §3.5/§8). */
+export const EXPENSE_CATEGORIES = ["subscription", "salary", "promo", "loss", "event", "other"] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/** task.state — capture-first board (Module 6, §8). */
+export const TASK_STATES = ["open", "done", "cancelled"] as const;
+export type TaskState = (typeof TASK_STATES)[number];
+
 /** file_object.kind — small evidentiary files; large files are links (SCHEMA G, spec §1). */
 export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];

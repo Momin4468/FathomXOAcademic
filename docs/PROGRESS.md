@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-27
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** Foundation + Modules 0–4 + **Module 5 (invoicing, payments/allocation, bidirectional charges)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0010; **251 backend tests green (140 DB + 111 HTTP) + 6 web unit tests**; web builds + boots. Money loop closed: live-grouping invoices, partial+bulk allocation, two parallel closes, append-only with reversing-entry corrections, and a bidirectional `charge` (party→business dues netting into a party's two-way balance). Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
+**Build state:** **Phase 1 backend complete — Modules 0–6** + web (Modules 4 & 6 screens), all on `main`. Postgres (Docker) + migrations 0000–0012; **323 tests green (168 DB + 149 HTTP + 6 web)**; web builds + boots. Module 6 adds expenses (cost-bearer) + the task board (tz-aware deadlines, absolute instant + origin zone, computed urgency in the viewer's zone) + a global dd/mm/yyyy + picker date rule. Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
 
 ---
 
@@ -75,10 +75,17 @@
 - **Reviews**: ui-reviewer + security-reviewer. Fixed: **CSRF BLOCKER** (proxy now requires same-origin for state-changing methods via Origin/Sec-Fetch-Site — verified cross-site POST → 403), proxy forces JSON content-type, extracted+tested guards, plus UX wins (detail field on add-a-job, "← My open loops" back link, EntityPicker searching/no-results + Esc/outside-click close).
 - **Deferred (tracked)**: tz-aware **deadline/urgency** (needs a `work_item` deadline field → task-board Module 6); viewer-tz date formatting; provenance *names* (needs a user-name lookup); full ARIA-combobox keyboard in EntityPicker; refresh single-flight is per-process (note for multi-instance deploys); access cookie maxAge 10d but the JWT exp is short (~30m) so the real expiry is server-side.
 
-## ⏭️ Next (Phase 1, suggested order)
-1. Task board + tz-aware deadlines/urgency (Module 6) — unlocks the deadline display deferred from Module 4.
-2. Auto-derive leg amounts from resolved deal terms (`leg.deal_term_id`) — wire Module 3 resolution into Module 2 leg creation.
-3. Web screens for billing (invoices/payments/balance) — Module 5 has API only so far.
+## ✅ Done — Module 6 (expenses + task board; DESIGN_SPEC §3.5, §8)
+- **Migration 0011** (`expense` per SCHEMA §G: category, amount, incurred_at, cost_bearer, cost_bearer_split_json, payee, campaign_tag, revenue_link_id, receipt; `task`: title, details, state, due_at + due_tz, assignee party/user, work_item link, completed_at — both tenant-RLS, full-CRUD) + **0012** (revoke DELETE → soft-delete/cancel only). `EXPENSE_CATEGORIES` + `TASK_STATES` enums.
+- **Shared** `packages/shared/src/datetime.ts` (pure, unit-tested, no new dep): `zonedWallToInstant`/`instantToZoned` (Intl, DST-correct), `isValidTimeZone`, `formatDate`/`formatDateTime` (**dd/mm/yyyy**), `urgency` (overdue/soon/later/none).
+- **API**: `modules/expense` (gated `expenses:*`; create/update/list+total/get; split requires non-empty numeric `cost_bearer_split_json`) and `modules/task` (gated `capture:*`; create/update/complete/list with computed urgency; deadline from `dueAt` or `dueDate+dueTime+dueTz` → absolute instant; invalid tz → 400). Both audited; feature-flagged `FEATURE_EXPENSES`/`FEATURE_CAPTURE`.
+- **Web**: `formatDate`/`formatDateTime` re-exported from shared; `DateInput`/`DateTimeTzInput` **pickers** (never free text) + friendly tz labels; **retrofitted** job-detail dates to dd/mm/yyyy. `/expenses` (list + total + add, cost-bearer/split/campaign) and `/tasks` (board grouped by urgency; due shown in the **viewer's browser zone** + original zone when it differs + "time left"; quick Done). Nav + landing links.
+- **Tests: 323 green (168 DB + 149 HTTP + 6 web)**, +66 for Module 6. Reviews (security + qa + ui): fixed tz-validation→400, expense null-amount guard, split-shape validation, revoked hard-DELETE (0012), responsive DateTimeTzInput + tz clarity ("your time" / "set for <zone>"). **Decision/deferred**: tasks are an **org-wide shared board** (capture-gated), not party-row-scoped — `permission.scope_json` row-scoping is a future refinement; split-amount derivation + revenue-link ROI not built (no read-model yet).
+
+## ⏭️ Next (Phase 2+, suggested order)
+1. Auto-derive leg amounts from resolved deal terms (`leg.deal_term_id`) — wire Module 3 resolution into Module 2 leg creation.
+2. Web screens for billing (invoices/payments/balance) — Module 5 has API only so far.
+3. Phase 2 modules (settlement layer, reputation/outcomes, credential vault, knowledge base, check-service) per DESIGN_SPEC §12.
 
 ## ✅ Done — Module 5 (invoicing + payments/allocation + bidirectional charges; DESIGN_SPEC §6)
 - **Migration 0009** (append-only `charge` table: party→business dues, category, optional work_item/deal_term link, `reverses_charge_id`; `payment_allocation.charge_id`; leg-style party-RLS on `charge`) + **0010** (review fixes: `payment.reverses_payment_id`; `charge_summary()` SECURITY DEFINER so billing can validate party-RLS charges). `CHARGE_CATEGORIES` enum.

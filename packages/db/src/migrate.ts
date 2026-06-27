@@ -12,6 +12,8 @@ const SCHEMA_MIGRATIONS = [
   "0008_comp_provenance.sql",
   "0009_billing.sql",
   "0010_billing_fixes.sql",
+  "0011_expense_task.sql",
+  "0012_expense_task_nodelete.sql",
 ];
 
 async function main() {

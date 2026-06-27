@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
+import { formatDate } from "@/lib/format";
 import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { Badge, Button, Card, EmptyState, ErrorNote, Money, Spinner, StateBadge } from "@/components/ui";
@@ -67,8 +68,8 @@ export default function JobDetailPage() {
             </div>
             <p className="text-xs text-gray-500">
               {course?.canonical ? `${course.canonical} · ` : ""}
-              created {new Date(item.createdAt).toLocaleDateString()}
-              {item.confirmedAt ? ` · confirmed ${new Date(item.confirmedAt).toLocaleDateString()}` : ""}
+              created {formatDate(item.createdAt)}
+              {item.confirmedAt ? ` · confirmed ${formatDate(item.confirmedAt)}` : ""}
             </p>
             {mayTransition && (
               <div className="flex gap-2 pt-1">

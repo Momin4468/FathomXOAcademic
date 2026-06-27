@@ -84,6 +84,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@business-os/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: ^15.1.3
         version: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
