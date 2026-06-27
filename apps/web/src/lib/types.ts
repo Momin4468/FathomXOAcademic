@@ -126,4 +126,63 @@ export interface Task {
   urgency: { overdue: boolean; msLeft: number | null; bucket: "overdue" | "soon" | "later" | "none" };
 }
 
+// ─── Billing (Module 5) ───────────────────────────────────────────────────────
+// Money fields can be absent when the caller can't see them — treat absence as
+// "not visible to me" and render nothing (see the file header).
+
+export interface Invoice {
+  id: string;
+  clientPartyId: string;
+  status: string; // open | sent | partial | paid | void
+  isEstimate: boolean;
+  supersedesInvoiceId: string | null;
+  issuedAt: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceLine {
+  id: string;
+  invoiceId: string;
+  workLineId: string;
+  amount?: number | string; // present when money-visible
+  paid?: number; // derived from allocations
+  due?: number;
+  note: string | null;
+}
+
+export interface InvoiceDetail {
+  invoice: Invoice;
+  lines: InvoiceLine[];
+}
+
+export interface Payment {
+  id: string;
+  direction: "in" | "out";
+  counterpartyPartyId: string | null;
+  amount?: number | string; // present when money-visible
+  paidAt: string;
+  medium: string | null;
+  trxId: string | null;
+  note: string | null;
+  reversesPaymentId: string | null;
+  createdAt: string;
+}
+
+export interface ChargeItem {
+  id: string;
+  category: string;
+  amount?: number | string;
+  reason: string | null;
+  workItemId: string | null;
+  createdAt: string;
+  due?: number;
+}
+
+export interface Balance {
+  partyId: string | null;
+  earnings: { owed?: number; paid?: number; outstanding?: number };
+  charges: { owed?: number; paid?: number; outstanding?: number; items: ChargeItem[] };
+  net?: number;
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

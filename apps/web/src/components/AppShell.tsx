@@ -19,11 +19,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Tasks
               </Link>
             )}
+            {can(me?.permissions, "billing:view") && (
+              <Link href="/invoices" className="text-gray-600 hover:text-gray-900">
+                Invoices
+              </Link>
+            )}
+            {can(me?.permissions, "billing:view") && (
+              <Link href="/payments" className="text-gray-600 hover:text-gray-900">
+                Payments
+              </Link>
+            )}
             {can(me?.permissions, "expenses:view") && (
               <Link href="/expenses" className="text-gray-600 hover:text-gray-900">
                 Expenses
               </Link>
             )}
+            {/* Balance is universal — any party can see their own two-way position. */}
+            <Link href="/balance" className="text-gray-600 hover:text-gray-900">
+              Balance
+            </Link>
           </nav>
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (

@@ -30,12 +30,29 @@ export default function JobDetailPage() {
   });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [billedInvoiceId, setBilledInvoiceId] = useState<string | null>(null);
 
   const item = data?.item;
   const next = item ? NEXT_STATE[item.workState] : undefined;
   const canConfirm = can(me?.permissions, "work:approve");
   const canEdit = can(me?.permissions, "work:edit");
+  const canBill = can(me?.permissions, "billing:create");
   const mayTransition = next && (next === "confirmed" ? canConfirm : canEdit);
+
+  async function billLine(workLineId: string) {
+    setBusy(true);
+    setActionError("");
+    setBilledInvoiceId(null);
+    try {
+      const line = await apiSend<{ invoiceId: string }>("invoices/attach-line", "POST", { workLineId });
+      setBilledInvoiceId(line.invoiceId ?? null);
+      await mutate();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not bill this line");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function transition(toState: string) {
     setBusy(true);
@@ -84,6 +101,14 @@ export default function JobDetailPage() {
           {/* Lines — spec always; money only when the API includes it. */}
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-gray-700">Lines</h2>
+            {billedInvoiceId && (
+              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+                Added to the client's open invoice.{" "}
+                <Link href={`/invoices/${billedInvoiceId}`} className="font-medium underline">
+                  View invoice
+                </Link>
+              </p>
+            )}
             {data.lines.length === 0 ? (
               <EmptyState title="No lines yet" hint="Add copies or parts to this job." />
             ) : (
@@ -105,11 +130,19 @@ export default function JobDetailPage() {
                       </div>
                     </div>
                     {/* Money: rendered only when present (redacted ⇒ absent ⇒ hidden). */}
-                    {l.amount !== undefined && (
-                      <div className="text-right text-sm font-medium">
-                        <Money value={l.amount} />
-                      </div>
-                    )}
+                    <div className="flex flex-col items-end gap-1">
+                      {l.amount !== undefined && (
+                        <div className="text-right text-sm font-medium">
+                          <Money value={l.amount} />
+                        </div>
+                      )}
+                      {/* Bill a money-visible consumer line to the client's open invoice. */}
+                      {canBill && l.side === "consumer" && l.consumerPartyId && (
+                        <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={() => billLine(l.id)}>
+                          Bill to invoice
+                        </Button>
+                      )}
+                    </div>
                   </Card>
                 ))}
               </ul>

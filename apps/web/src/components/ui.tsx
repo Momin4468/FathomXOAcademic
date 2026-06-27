@@ -150,12 +150,17 @@ export function Badge({ tone = "gray", children }: { tone?: keyof typeof BADGE_T
   );
 }
 
-/** Map a work/money state to a badge tone (consistent across screens). */
+/** Map a work / money / invoice state to a badge tone (consistent across screens). */
 export function StateBadge({ state }: { state: string }) {
   const tone =
-    { draft: "gray", pending: "amber", confirmed: "blue", delivered: "green", unbilled: "gray", invoiced: "amber", partial: "amber", settled: "green" }[
-      state
-    ] ?? "gray";
+    {
+      // work-state
+      draft: "gray", pending: "amber", confirmed: "blue", delivered: "green",
+      // money-state
+      unbilled: "gray", invoiced: "amber", partial: "amber", settled: "green",
+      // invoice status
+      open: "gray", sent: "blue", paid: "green", void: "red",
+    }[state] ?? "gray";
   return <Badge tone={tone}>{state}</Badge>;
 }
 
