@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-27
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** Foundation + Modules 0–3 (backend) + **Module 4 (capture-first web front end)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0008; **198 backend tests green (107 DB + 91 HTTP) + 6 web unit tests**; web builds + boots; BFF cookie auth and the money-safety guarantee proven end-to-end (Writer gets redacted data the UI can't render). Not in a broken state. (Commit directly to `main`.) NOTE: a pre-existing flake in the auth-http bizadmin test can surface once under concurrent file load; passes on rerun.
+**Build state:** Foundation + Modules 0–4 + **Module 5 (invoicing, payments/allocation, bidirectional charges)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0010; **251 backend tests green (140 DB + 111 HTTP) + 6 web unit tests**; web builds + boots. Money loop closed: live-grouping invoices, partial+bulk allocation, two parallel closes, append-only with reversing-entry corrections, and a bidirectional `charge` (party→business dues netting into a party's two-way balance). Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
 
 ---
 
@@ -76,8 +76,26 @@
 - **Deferred (tracked)**: tz-aware **deadline/urgency** (needs a `work_item` deadline field → task-board Module 6); viewer-tz date formatting; provenance *names* (needs a user-name lookup); full ARIA-combobox keyboard in EntityPicker; refresh single-flight is per-process (note for multi-instance deploys); access cookie maxAge 10d but the JWT exp is short (~30m) so the real expiry is server-side.
 
 ## ⏭️ Next (Phase 1, suggested order)
-1. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances (Module 5) — incl. auto-deriving leg amounts from resolved deal terms (`leg.deal_term_id`).
-2. Task board + tz-aware deadlines/urgency (Module 6) — unlocks the deadline display deferred from Module 4.
+1. Task board + tz-aware deadlines/urgency (Module 6) — unlocks the deadline display deferred from Module 4.
+2. Auto-derive leg amounts from resolved deal terms (`leg.deal_term_id`) — wire Module 3 resolution into Module 2 leg creation.
+3. Web screens for billing (invoices/payments/balance) — Module 5 has API only so far.
+
+## ✅ Done — Module 5 (invoicing + payments/allocation + bidirectional charges; DESIGN_SPEC §6)
+- **Migration 0009** (append-only `charge` table: party→business dues, category, optional work_item/deal_term link, `reverses_charge_id`; `payment_allocation.charge_id`; leg-style party-RLS on `charge`) + **0010** (review fixes: `payment.reverses_payment_id`; `charge_summary()` SECURITY DEFINER so billing can validate party-RLS charges). `CHARGE_CATEGORIES` enum.
+- **Shared** `packages/shared/src/billing.ts` (pure, unit-tested): `lineBalance` (derived paid/due), `derivePosition` (earnings − charges netting), `deriveMoneyState`.
+- **API module** `apps/api/src/modules/billing/` (feature-flagged `FEATURE_BILLING`), all `@RequirePermission('billing', …)` + audited: invoices (`POST /invoices`, `/invoices/attach-line` auto-group to client's open invoice, `/invoices/move-line`, `/invoices/:id/supersede` estimate→final retained-as-void, `GET /invoices[/:id]` with derived paid/due); payments (`POST /payments`, `/payments/:id/allocate` partial+bulk, `/payments/:id/reverse` (approve), `/payments/:id/proof`, `GET /payments`); charges (`POST /charges`, `/charges/reverse` (approve), `GET /charges`); `GET /billing/balance/me` (any authenticated party — own two-way position) + `GET /billing/balance/:partyId` (view).
+- **Balances DERIVED** from allocation sums (never stored; §I); only `money_state` maintained (`recomputeMoneyState`), independent of `work_state` — the **two parallel closes**. Money tables append-only; corrections = reversing entries.
+- **Bidirectional ledger**: legs carry business→party earnings; `charge` carries party→business dues; a platform-fee charge surfaces as an itemized **due** on the writer's `/billing/balance/me`, netting to a position; party-scoped RLS so a party sees only their own dues.
+- **Reviews** (security-reviewer + qa-test-writer): fixed **B2** (no double/over-reversal of a payment — `reverses_payment_id` guard), **B3** (`reverseCharge` derives party/amount from the source via `charge_summary`, not client; can't reverse twice), **B4** (`allocate` validates each target is same-org/visible; rejects estimate/void lines = S5), **S2/S3** (attachProof org-check + audit), **S4** (allocate audit lists targets). **Deferred: S1** (concurrent-allocation lock — needs an advisory lock; append-only grant blocks `SELECT FOR UPDATE`; low risk single-operator) and **N1** (dormant `invoice_line.paid_amount` — never written/read, derive-only).
+
+## ✅ Module 5 QA (billing tests; DESIGN_SPEC §6 + bidirectional charges)
+- **Tests added (test files only, no prod change):**
+  - `packages/db/test/billing-money-math.test.ts` (pure units): `deriveMoneyState` boundaries (incl. allocated≥billed→settled, float-drift), `lineBalance` (reversal-aware paid, due), `sumAmounts`, `derivePosition` (net = earnings − charges, negative-net case).
+  - `packages/db/test/billing-rls.test.ts` (DB layer): append-only UPDATE/DELETE **rejected** on `payment`/`payment_allocation`/`charge` (INSERT allowed); charge structural opacity (owner sees, other writer = zero rows, SuperAdmin sees); tenant isolation on `charge`.
+  - `apps/api/test/billing-http.test.ts` (HTTP): live-grouping; partial-within-job; bulk-across-≥3-jobs (atomic) + over-allocation→400; estimate→supersede (void but GETtable); **two parallel closes independent**; **charge-as-a-DUE** in `/billing/balance/me` netted vs earnings + cross-party opacity; Writer (no billing perm) 403 on invoice/payment/charge; reverse needs approve; boundary validation + audit row per money write.
+- **Results:** DB 140/140 green (107 baseline + 33 new); API per-file all green (auth 15, reference 22, rules 31, work 23, **billing 20**) = 111. **All four mandated invariants HOLD** (append-only, two-closes independence, partial+bulk allocation, charge-as-a-due).
+- **No production bugs found** — Module 5 behaves to spec under test.
+- **Harness note:** `pnpm --filter @business-os/api test` (all files in one process) is flaky under concurrent server boot (`fetch failed`/cancelled — the pre-existing concurrent-file-load flake, PROGRESS §🔐). Run API test files **one process per file** for a clean result; each passes in isolation.
 
 ## 🧱 Blocked / waiting on owner
 - (nothing)

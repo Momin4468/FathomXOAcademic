@@ -108,6 +108,10 @@ export type PaymentMedium = (typeof PAYMENT_MEDIUMS)[number];
 export const PROOF_SIDES = ["payer", "payee"] as const;
 export type ProofSide = (typeof PROOF_SIDES)[number];
 
+/** charge.category — a party→business due (Module 5, bidirectional ledger). */
+export const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"] as const;
+export type ChargeCategory = (typeof CHARGE_CATEGORIES)[number];
+
 /** file_object.kind — small evidentiary files; large files are links (SCHEMA G, spec §1). */
 export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];

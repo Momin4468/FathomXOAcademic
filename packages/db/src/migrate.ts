@@ -10,6 +10,8 @@ const SCHEMA_MIGRATIONS = [
   "0006_work.sql",
   "0007_rules.sql",
   "0008_comp_provenance.sql",
+  "0009_billing.sql",
+  "0010_billing_fixes.sql",
 ];
 
 async function main() {

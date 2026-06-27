@@ -8,7 +8,8 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import { party } from "./a-tenancy.js";
-import { workLine } from "./c-work.js";
+import { workItem, workLine } from "./c-work.js";
+import { dealTerm } from "./e-rules.js";
 import { fileObject } from "./g-crosscutting.js";
 
 /** SCHEMA F — a live grouping of billable lines for a client. */
@@ -52,6 +53,7 @@ export const payment = pgTable("payment", {
   medium: text("medium"), // DBBL|Bank|bkash|Nagad|Sonali|cash
   trxId: text("trx_id"),
   note: text("note"),
+  reversesPaymentId: uuid("reverses_payment_id"), // correction link (no double-reverse)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -65,6 +67,7 @@ export const paymentAllocation = pgTable("payment_allocation", {
     .references(() => payment.id),
   invoiceLineId: uuid("invoice_line_id").references(() => invoiceLine.id),
   writerPartyId: uuid("writer_party_id").references(() => party.id),
+  chargeId: uuid("charge_id").references(() => charge.id), // settles a party→business charge
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
 });
 
@@ -81,4 +84,27 @@ export const paymentProof = pgTable("payment_proof", {
   side: text("side").notNull(), // payer | payee
   attachedBy: uuid("attached_by").notNull(),
   attachedAt: timestamp("attached_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * SCHEMA (Module 5) — a charge a party OWES the business (platform fee, AI-check
+ * fee, …). Bidirectional ledger: legs carry business→party earnings; `charge`
+ * carries party→business dues. Append-only; corrections are reversing entries
+ * (negative amount + reverses_charge_id). Party-scoped RLS (a party sees only
+ * their own dues). Settled via payment_allocation.charge_id.
+ */
+export const charge = pgTable("charge", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  partyId: uuid("party_id")
+    .notNull()
+    .references(() => party.id),
+  workItemId: uuid("work_item_id").references(() => workItem.id),
+  dealTermId: uuid("deal_term_id").references(() => dealTerm.id),
+  category: text("category").notNull(), // platform_fee | ai_check | adjustment | other
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  reason: text("reason"),
+  reversesChargeId: uuid("reverses_charge_id"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

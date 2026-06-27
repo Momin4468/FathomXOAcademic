@@ -4,6 +4,7 @@ import { AuthModule } from "./common/auth/auth.module.js";
 import { DbModule } from "./common/db/db.module.js";
 import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
+import { BillingModule } from "./modules/billing/billing.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
 import { RulesModule } from "./modules/rules/rules.module.js";
 import { WorkModule } from "./modules/work/work.module.js";
@@ -22,6 +23,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
     ...(isModuleEnabled("work") ? [WorkModule] : []),
     ...(isModuleEnabled("rules") ? [RulesModule] : []),
+    ...(isModuleEnabled("billing") ? [BillingModule] : []),
   ],
 })
 export class AppModule {}
