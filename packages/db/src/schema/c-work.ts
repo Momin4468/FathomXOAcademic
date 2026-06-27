@@ -109,5 +109,7 @@ export const workLine = pgTable("work_line", {
   clientRate: numeric("client_rate", { precision: 10, scale: 4 }),
   writerRate: numeric("writer_rate", { precision: 10, scale: 4 }),
   fixedAmount: numeric("fixed_amount", { precision: 14, scale: 2 }),
+  // Copy fan-out: a consumer line points back to the one producer line it came from.
+  sourceLineId: uuid("source_line_id"),
   note: text("note"),
 });

@@ -7,6 +7,7 @@ const SCHEMA_MIGRATIONS = [
   "0001_rls.sql",
   "0003_auth.sql",
   "0004_reference.sql",
+  "0006_work.sql",
 ];
 
 async function main() {

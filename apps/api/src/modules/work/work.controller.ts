@@ -1,0 +1,156 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common";
+import type { RlsContext, SessionPrincipal } from "@business-os/shared";
+import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.js";
+import { CurrentPermissions } from "../../common/authz/current-permissions.decorator.js";
+import type { EffectivePermissions } from "../../common/authz/permission.service.js";
+import { RequirePermission } from "../../common/authz/require-permission.decorator.js";
+import { DbService } from "../../common/db/db.service.js";
+import { CurrentRls } from "../../common/rls/rls-context.js";
+import {
+  AddLineDto,
+  AppendLegsDto,
+  CreateWorkItemDto,
+  FanOutDto,
+  ListWorkQueryDto,
+  TransitionDto,
+  UpdateWorkItemDto,
+} from "./dto.js";
+import { LegService } from "./leg.service.js";
+import { LineService } from "./line.service.js";
+import { WorkService } from "./work.service.js";
+
+/** Whether the caller may see money fields on work_line (the redaction gate). */
+function canSeeMoney(principal: SessionPrincipal, perms: EffectivePermissions): boolean {
+  return principal.isSystemSuperadmin || perms.perms.has("work:approve");
+}
+
+@Controller("work")
+export class WorkController {
+  constructor(
+    private readonly db: DbService,
+    private readonly work: WorkService,
+    private readonly lines: LineService,
+    private readonly legs: LegService,
+  ) {}
+
+  @Post()
+  @RequirePermission("work", "create")
+  create(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Body() dto: CreateWorkItemDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.create(tx, principal, dto));
+  }
+
+  @Get()
+  @RequirePermission("work", "view")
+  list(@CurrentRls() ctx: RlsContext, @Query() query: ListWorkQueryDto) {
+    return this.db.withTenant(ctx, (tx) =>
+      this.work.list(tx, {
+        doerPartyId: query.doerPartyId,
+        workState: query.workState,
+        includeArchived: query.includeArchived === "true",
+      }),
+    );
+  }
+
+  /** Job-detail hub: spec + lines (money redacted per caller) + visible legs + margins. */
+  @Get(":id")
+  @RequirePermission("work", "view")
+  getById(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.db.withTenant(ctx, (tx) =>
+      this.work.getDetail(tx, id, canSeeMoney(principal, perms)),
+    );
+  }
+
+  @Patch(":id")
+  @RequirePermission("work", "edit")
+  update(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateWorkItemDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.update(tx, principal, id, dto));
+  }
+
+  /** Work-state machine; →confirmed additionally requires work:approve. */
+  @Post(":id/transition")
+  @RequirePermission("work", "edit")
+  transition(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: TransitionDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) =>
+      this.work.transition(tx, principal, id, dto.toState, canSeeMoney(principal, perms)),
+    );
+  }
+
+  @Post(":id/lines")
+  @RequirePermission("work", "create")
+  addLine(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AddLineDto,
+  ) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const row = await this.lines.addLine(tx, principal, id, dto);
+      // Redact money/consumer identity in the response per the caller (B2).
+      return this.lines.mapLine(row, canSeeMoney(principal, perms));
+    });
+  }
+
+  /** Copy fan-out: one producer entry → N independent consumer lines. */
+  @Post(":id/fan-out")
+  @RequirePermission("work", "create")
+  fanOut(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: FanOutDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.lines.fanOutCopies(tx, principal, id, dto));
+  }
+
+  /** Build/append the money chain (sensitive → approve). Append-only. */
+  @Post(":id/legs")
+  @RequirePermission("work", "approve")
+  appendLegs(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AppendLegsDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.legs.appendLegs(tx, principal, id, dto));
+  }
+
+  /** Visible legs (RLS-filtered to the caller) + derived margins. */
+  @Get(":id/legs")
+  @RequirePermission("work", "view")
+  async getLegs(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const legs = await this.legs.getVisibleLegs(tx, id);
+      return { legs, margins: this.legs.marginsFor(legs) };
+    });
+  }
+}

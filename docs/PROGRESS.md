@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-27
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** Foundation + Module 0 (auth/authz/audit) + **Module 1 (reference data + directory)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0005 applied; seed + dev passwords loaded; **75 tests green (38 DB + 37 HTTP)**. Not in a broken state. (Going forward: commit directly to `main`, no feature branches — user preference.)
+**Build state:** Foundation + Module 0 (auth/authz/audit) + Module 1 (reference + directory) + **Module 2 (work + lines + leg chain, derived margins)** done and verified, all on `main`. Postgres (Docker) + migrations 0000–0006 applied; seed + dev passwords loaded; **125 tests green (65 DB + 60 HTTP)**; leg-leak guarantee proven. Not in a broken state. (Going forward: commit directly to `main`, no feature branches — user preference.)
 
 ---
 
@@ -47,10 +47,21 @@
 - **Tests**: `packages/db/test/reference.test.ts` (16) + `apps/api/test/reference-http.test.ts` (22). Reviewed by security-reviewer (no blockers); fixed #1 (boundary-validate `kind`/`type` query params via DTOs) and added merge tombstone guards.
 - **Deferred (tracked):** merge currently repoints only `party.university_id` — extend when Module 2 adds `work_item.course_ref_id`/`assignment_type_ref_id` (else those refs orphan on merge). Field-masking within reference-viewers still deferred (Writers lack `reference:*` so contact isn't exposed).
 
+## ✅ Done — Module 2 (work + lines + leg chain; DESIGN_SPEC §3, SCHEMA §C/§D)
+- **Migration 0006** (additive): `work_line.source_line_id` (fan-out: consumer line → its one producer line) + indexes on `leg(work_item_id,seq)`, `work_line(work_item_id)`, `work_line(source_line_id)`. Tables + leg-visibility RLS already existed (0000/0001).
+- **Shared** `packages/shared/src/work.ts`: `computeLineAmount` (fixed ?? rate×count) and `deriveMargins` (margin = inbound − outbound, computed ONLY from the legs the caller can see — one-sided-safe; never stored).
+- **API module** `apps/api/src/modules/work/` (feature-flagged `FEATURE_WORK`), all `@RequirePermission('work', …)` + audited:
+  - `POST /work` (create) · `GET /work` (list) · `GET /work/:id` (detail hub) · `PATCH /work/:id` (edit)
+  - `POST /work/:id/transition` (edit; **→confirmed requires work:approve**, governance — stamps confirmed_by/at; work-state machine draft→pending→confirmed→delivered, adjacent-forward only)
+  - `POST /work/:id/lines` (create) · `POST /work/:id/fan-out` (create; **copy fan-out**: 1 producer line + N independent consumer lines) · `POST /work/:id/legs` (**approve**; append-only money chain) · `GET /work/:id/legs` (view; RLS-filtered legs + derived margins)
+- **Money model**: read ONLY from `leg` (RLS — non-party gets zero rows); `work_line` money columns AND consumer identity are redacted unless caller is System SuperAdmin or holds `work:approve`. Legs are append-only; corrections are reversing legs; legs inserted with client-side ids + no RETURNING (an admin isn't a party to every leg).
+- **Tests: 125 green (65 DB + 60 HTTP)**, up from 75. Leg-leak guarantee proven at DB + HTTP (the true client price never reaches a downstream party). security-reviewer: fixed **B2** (redact `addLine` response), **S1** (redact consumer identity from non-money callers), **S2** (validate legs: no from===to / both-null / cross-item work_line), **S5** (audit per-leg figures). Deferred: **S3** (money-field visibility via `permission.scope_json` rather than the coarse `work:approve` gate), **S4** (explicit org_id predicate on spine reads — RLS already covers), and a DB unique index on `(work_item_id, seq)`.
+- **Cross-module follow-up still open**: `ReferenceService.merge` repoints only `party.university_id`; now that `work_item.course_ref_id`/`assignment_type_ref_id` exist, extend merge to repoint them (else those refs orphan on a ref merge).
+
 ## ⏭️ Next (Phase 1, suggested order)
-1. **Module 2 — work + legs**: work_item/line capture incl. copy fan-out; derived-margin read model (margin = inbound − outbound, computed, never stored). When built, extend `ReferenceService.merge` to repoint the new ref FKs.
-4. Capture-first "my open loops" screen + add-a-job + job detail hub (web).
-5. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances.
+1. **Module 3 — deal terms + comp rules**: effective-dated rules; precedence (most-specific→default); auto-derive leg amounts from terms (wire `leg.deal_term_id`); extend `ReferenceService.merge` for the new work_item ref FKs.
+2. Capture-first "my open loops" screen + add-a-job + job detail hub (web, Module 4).
+3. Billing/payments (open-item: partial-within-job + bulk-across-jobs) + writer-aggregate balances (Module 5).
 
 ## 🧱 Blocked / waiting on owner
 - (nothing)

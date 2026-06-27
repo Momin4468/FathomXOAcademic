@@ -5,6 +5,7 @@ import { DbModule } from "./common/db/db.module.js";
 import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
+import { WorkModule } from "./modules/work/work.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -18,6 +19,7 @@ import { ReferenceModule } from "./modules/refdata/reference.module.js";
     AuthModule,
     PlatformModule,
     ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
+    ...(isModuleEnabled("work") ? [WorkModule] : []),
   ],
 })
 export class AppModule {}
