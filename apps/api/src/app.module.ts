@@ -6,6 +6,7 @@ import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
 import { BillingModule } from "./modules/billing/billing.module.js";
 import { ExpenseModule } from "./modules/expense/expense.module.js";
+import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
 import { RulesModule } from "./modules/rules/rules.module.js";
 import { TaskModule } from "./modules/task/task.module.js";
@@ -23,7 +24,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     AuthModule,
     PlatformModule,
     ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
-    ...(isModuleEnabled("work") ? [WorkModule] : []),
+    ...(isModuleEnabled("work") ? [WorkModule, ProjectsModule] : []),
     ...(isModuleEnabled("rules") ? [RulesModule] : []),
     ...(isModuleEnabled("billing") ? [BillingModule] : []),
     ...(isModuleEnabled("expenses") ? [ExpenseModule] : []),

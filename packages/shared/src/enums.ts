@@ -55,6 +55,10 @@ export type LineKind = (typeof LINE_KINDS)[number];
 export const MILESTONE_STATES = ["pending", "in_progress", "done"] as const;
 export type MilestoneState = (typeof MILESTONE_STATES)[number];
 
+/** project.status — engagement lifecycle (SCHEMA C, spec §5). */
+export const PROJECT_STATUSES = ["active", "completed", "archived"] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
 /** deal_term.term_type — effective-dated rule on a relationship (SCHEMA E, spec §3.4). */
 export const TERM_TYPES = [
   "split_pct",

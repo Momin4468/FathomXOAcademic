@@ -30,6 +30,8 @@ export class CreateWorkItemDto {
   @IsOptional() @IsUUID() assignmentTypeRefId?: string;
   @IsOptional() @IsUUID() projectId?: string;
   @IsOptional() @IsUUID() milestoneId?: string;
+  @IsOptional() @IsBoolean() trackable?: boolean; // child of a project (default true)
+  @IsOptional() @IsBoolean() billable?: boolean; // child of a project (default false)
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
   @IsOptional() @IsBoolean() isEstimate?: boolean;
 }
@@ -43,6 +45,8 @@ export class UpdateWorkItemDto {
   @IsOptional() @IsUUID() assignmentTypeRefId?: string;
   @IsOptional() @IsUUID() projectId?: string;
   @IsOptional() @IsUUID() milestoneId?: string;
+  @IsOptional() @IsBoolean() trackable?: boolean;
+  @IsOptional() @IsBoolean() billable?: boolean;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
 }
 

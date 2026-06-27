@@ -33,6 +33,8 @@ export class WorkService {
         assignmentTypeRefId: dto.assignmentTypeRefId ?? null,
         projectId: dto.projectId ?? null,
         milestoneId: dto.milestoneId ?? null,
+        trackable: dto.trackable ?? undefined, // column default true
+        billable: dto.billable ?? undefined, // column default false
         isEstimate: dto.isEstimate ?? false,
         notes: dto.notes ?? null,
         createdBy: principal.userId,
@@ -67,6 +69,8 @@ export class WorkService {
       "assignmentTypeRefId",
       "projectId",
       "milestoneId",
+      "trackable",
+      "billable",
       "notes",
     ] as const) {
       if (dto[k] !== undefined) patch[k] = dto[k];

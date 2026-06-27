@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-06-28
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** **Phase 1 backend complete — Modules 0–6** + web (Modules 4, 5 & 6 screens) + **deal-term auto-pricing in the leg engine**, all on `main`. Postgres (Docker) + migrations 0000–0013 (no new migration — `leg.deal_term_id` already existed); **339 tests green (168 DB + 159 HTTP + 12 web)**; web builds + boots. Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
+**Build state:** **Phase 1 backend complete — Modules 0–6** + web (Modules 4, 5 & 6 screens) + **deal-term auto-pricing** + **projects/engagements** (§5), all on `main`. Postgres (Docker) + migrations 0000–0014; **369 tests green (180 DB + 177 HTTP + 12 web)**; web builds + boots. Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
 
 ---
 
@@ -99,10 +99,19 @@
 - **Tests: 339 green (168 DB + 159 HTTP + 12 web)**, +6 web units for `lib/billing.ts`.
 - **Deferred (tracked)**: payment-**proof** attachment — no file-upload/object-storage pipeline exists yet (nothing creates a `file_object`), so `POST /payments/:id/proof` has no UI; revisit in a file-handling round. Allocation **"remaining" is session-local** (payment.amount − amounts entered this session) because there's **no `GET /payments/:id`** / per-payment allocation read; the server's over-allocation cap (→400) is the authority. Backend follow-up: add `GET /payments/:id` (the detail page currently fetches the list and finds by id).
 
+## ✅ Done — Projects / engagements + milestones + milestone templates (DESIGN_SPEC §5)
+- **Migration 0014** (additive — spine tables existed since 0000): `work_item.trackable`/`billable` (child flags; trackable/billable/both), project provenance + completion stamp (`updated_by/at`, `confirmed_by/at`, `archived_at`), milestone provenance (`created_by/at`, `updated_by/at`), tree/ordering indexes. `PROJECT_STATUSES` enum (active/completed/archived); MILESTONE_STATES reused. Drizzle mirror updated.
+- **New module** `apps/api/src/modules/projects/` (gated by the existing **`work:*`** permission module — "same machinery"; registered under `FEATURE_WORK`; no new permission/seed). Endpoints: `POST/GET /projects`, `GET /projects/:id` (hub), `PATCH /projects/:id`, `POST /projects/:id/complete` (approve — firms estimate→actual, stamps confirmed_by), `POST /projects/:id/instantiate` (extend from a template), `POST/PATCH /projects/:id/milestones[/:mid]`, `POST .../:mid/transition` (pending→in_progress→done), `POST/GET /milestone-templates[/:id]`, `POST /milestone-templates/:id/items`.
+- **Templates → instantiate → extend**: a project created with `templateId` snapshots the template's items into milestones; `instantiate` appends more (callable repeatedly — fluid programmes). Template edits don't mutate in-flight projects (snapshot copy).
+- **Milestones** carry **tz-aware due** (absolute instant + IANA zone via the shared `zonedWallToInstant`/`isValidTimeZone`, reused from the task module) + derived `urgency` (never stored), trackable/billable flags, `sort` ordering, state machine.
+- **Estimate → actual (self-contained)**: `project.estimate_amount` stores the rough quote; the project's **actual is DERIVED** at read time = Σ over **billable** children of their consumer-line client amounts (`computeLineAmount`); both are **money-gated** (only System SuperAdmin / `work:approve` see `money.{estimate,actual}` — and `estimate_amount` is redacted from the raw project row for everyone else). Invoice firming stays in the billing screens (estimate→final supersede already built §6). A **plain job is the one-child case** — children are ordinary `work_item`s (added via `POST /work` with `projectId`/`milestoneId`/flags; work DTO+service gained `trackable`/`billable`).
+- **Tests: 369 green (180 DB + 177 HTTP + 12 web)**, +30 (12 DB + 18 HTTP). qa-test-writer **caught a real money leak** — `getDetail`/`list` returned the raw project row (incl. `estimateAmount`) to non-approvers despite the gated `money` block; **fixed** by redacting `estimate_amount` from the project projection in getDetail/list/update when `!canSeeMoney`. security-reviewer: no blockers; also fixed `complete` already-completed → 409 (was 403) and derived the milestone state order from `MILESTONE_STATES`.
+
 ## ⏭️ Next (Phase 2+, suggested order)
-1. Surface the leg `/legs/propose` rule-proposed prices in the add-a-job / job-hub UI.
-2. Add `GET /payments/:id` (per-payment detail + allocations) so the allocation screen shows true remaining; then a file-upload pipeline for payment proofs.
-3. Phase 2 modules (settlement layer, reputation/outcomes, credential vault, knowledge base, check-service) per DESIGN_SPEC §12.
+1. Web screens for projects/engagements (the §5 progress board: trackable children view + billable children view; milestone timeline) — API is ready, no UI yet.
+2. Surface the leg `/legs/propose` rule-proposed prices in the add-a-job / job-hub UI.
+3. Add `GET /payments/:id` (per-payment detail + allocations) so the allocation screen shows true remaining; then a file-upload pipeline for payment proofs.
+4. Phase 2 modules (settlement layer, reputation/outcomes, credential vault, knowledge base, check-service) per DESIGN_SPEC §12.
 
 ## ✅ Done — Module 5 (invoicing + payments/allocation + bidirectional charges; DESIGN_SPEC §6)
 - **Migration 0009** (append-only `charge` table: party→business dues, category, optional work_item/deal_term link, `reverses_charge_id`; `payment_allocation.charge_id`; leg-style party-RLS on `charge`) + **0010** (review fixes: `payment.reverses_payment_id`; `charge_summary()` SECURITY DEFINER so billing can validate party-RLS charges). `CHARGE_CATEGORIES` enum.

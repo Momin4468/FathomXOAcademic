@@ -42,9 +42,14 @@ export const project = pgTable("project", {
   clientPartyId: uuid("client_party_id").references(() => party.id),
   templateId: uuid("template_id").references(() => milestoneTemplate.id),
   estimateAmount: numeric("estimate_amount", { precision: 14, scale: 2 }),
-  status: text("status").notNull().default("active"),
+  status: text("status").notNull().default("active"), // active | completed | archived
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  confirmedBy: uuid("confirmed_by"),
+  confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
 });
 
 /** SCHEMA C — project milestone; trackable/billable; tz-aware due. */
@@ -59,8 +64,12 @@ export const milestone = pgTable("milestone", {
   billable: boolean("billable").notNull().default(false),
   dueAt: timestamp("due_at", { withTimezone: true }),
   dueTz: text("due_tz"),
-  state: text("state").notNull().default("pending"),
+  state: text("state").notNull().default("pending"), // pending | in_progress | done
   sort: integer("sort").default(0),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: uuid("updated_by"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /** SCHEMA C — the job. Producer-side anchor; two parallel closes (work/money). */
@@ -78,6 +87,9 @@ export const workItem = pgTable("work_item", {
   assignerUserId: uuid("assigner_user_id").references(() => userAccount.id),
   workState: text("work_state").notNull().default("draft"), // draft|pending|confirmed|delivered
   moneyState: text("money_state").notNull().default("unbilled"), // unbilled|invoiced|partial|settled
+  // Child flags within a project (trackable / billable / both); §5.
+  trackable: boolean("trackable").notNull().default(true),
+  billable: boolean("billable").notNull().default(false),
   isEstimate: boolean("is_estimate").notNull().default(false),
   customJson: jsonb("custom_json").default({}),
   briefFileId: uuid("brief_file_id").references(() => fileObject.id),
