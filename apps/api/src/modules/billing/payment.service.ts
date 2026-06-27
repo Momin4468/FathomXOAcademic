@@ -76,12 +76,14 @@ export class PaymentService {
    * call. Each item targets exactly one of invoiceLine | writer | charge.
    */
   async allocate(tx: Db, principal: SessionPrincipal, paymentId: string, dto: AllocateDto) {
+    // Serialize concurrent allocations on THIS payment so they can't jointly
+    // exceed the cap (S1). A transaction-scoped advisory lock — released at commit,
+    // and (unlike SELECT FOR UPDATE) it needs no table UPDATE privilege, so it
+    // works under the append-only payment grant. The cap read-check-insert below
+    // therefore runs serialized per payment.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${paymentId}))`);
     const [payment] = await tx.select().from(schema.payment).where(eq(schema.payment.id, paymentId));
     if (!payment) throw new NotFoundException("Payment not found");
-    // NOTE (S1, deferred): the over-allocation cap below is read-then-write within
-    // one tx; truly concurrent allocations on the SAME payment could race. A row
-    // lock needs UPDATE privilege the append-only grant withholds; an advisory
-    // lock is the eventual fix. Low risk for the current single-operator use.
 
     for (const item of dto.items) {
       const targets = [item.invoiceLineId, item.writerPartyId, item.chargeId].filter(Boolean);

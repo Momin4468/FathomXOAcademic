@@ -38,7 +38,9 @@ export const invoiceLine = pgTable("invoice_line", {
     .notNull()
     .references(() => workLine.id),
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
-  paidAmount: numeric("paid_amount", { precision: 14, scale: 2 }).notNull().default("0"),
+  // NOTE: the physical `paid_amount` column is DERIVE-ONLY (deprecated) and is
+  // intentionally NOT mapped here — paid/due are summed from payment_allocation
+  // at read time (SCHEMA §I, migration 0013). Do not add it back.
   note: text("note"),
 });
 

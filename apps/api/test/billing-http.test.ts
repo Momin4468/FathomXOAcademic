@@ -489,3 +489,28 @@ describe("boundary validation + immutable audit of money writes", () => {
     assert.ok(audit.rows[0].n >= 1, "recording a payment must be audited");
   });
 });
+
+// ─── S1: concurrent allocations on one payment can't jointly exceed the cap ──────
+
+describe("concurrent allocation safety (advisory lock on the payment)", () => {
+  it("two parallel 60-allocations against a 100 payment → exactly one 400; derived paid=60", async () => {
+    const workId = await createWorkItem();
+    const lineId = await addClientLine(workId, 100);
+    const { invoiceLineId, invoiceId } = await attachLine(lineId);
+    const payId = await recordPayment("in", 100, clientPartyId);
+
+    // Fire both at once; without the per-payment advisory lock both could pass the
+    // cap (each reads allocated=0). With it, they serialize → one wins, one 400s.
+    const [a, b] = await Promise.all([
+      api(BASE, `/payments/${payId}/allocate`, { method: "POST", token: mominToken, body: { items: [{ invoiceLineId, amount: 60 }] } }),
+      api(BASE, `/payments/${payId}/allocate`, { method: "POST", token: mominToken, body: { items: [{ invoiceLineId, amount: 60 }] } }),
+    ]);
+    assert.deepEqual([a.status, b.status].sort(), [201, 400], `exactly one allocation should win (got ${a.status},${b.status})`);
+
+    // Derived paid is 60 (one allocation committed), never 120 (over-allocated).
+    const inv = await api(BASE, `/invoices/${invoiceId}`, { token: mominToken });
+    const line = (inv.body.lines as Array<any>).find((l) => l.id === invoiceLineId);
+    assert.equal(Number(line.paid), 60, "only one 60 allocation committed");
+    assert.equal(Number(line.due), 40, "due reflects the single allocation");
+  });
+});
