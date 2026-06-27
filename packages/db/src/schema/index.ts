@@ -8,3 +8,4 @@ export * from "./d-legs.js";
 export * from "./e-rules.js";
 export * from "./f-billing.js";
 export * from "./g-crosscutting.js";
+export * from "./h-auth.js";
