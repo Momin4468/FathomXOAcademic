@@ -192,9 +192,16 @@ export class ReferenceService {
         normalized: normalize(source.canonical),
       })
       .onConflictDoNothing();
-    // Repoint known FK references (party.university_id; more as tables are added).
+    // Repoint known FK references to the survivor (more as ref-consuming tables
+    // are added). party.university_id + work_item course/assignment refs.
     await tx.execute(sql`
       update party set university_id = ${targetId} where university_id = ${sourceId}
+    `);
+    await tx.execute(sql`
+      update work_item set course_ref_id = ${targetId} where course_ref_id = ${sourceId}
+    `);
+    await tx.execute(sql`
+      update work_item set assignment_type_ref_id = ${targetId} where assignment_type_ref_id = ${sourceId}
     `);
     // Archive the source, redirecting to the survivor.
     await tx

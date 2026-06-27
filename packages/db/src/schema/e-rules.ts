@@ -37,4 +37,7 @@ export const compRule = pgTable("comp_rule", {
   cadence: text("cadence"),
   effectiveFrom: date("effective_from").notNull(),
   effectiveTo: date("effective_to"),
+  // Provenance (migration 0008) — comp rules are money-defining.
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
