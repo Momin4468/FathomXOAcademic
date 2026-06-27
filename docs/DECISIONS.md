@@ -40,4 +40,16 @@ SCHEMA A–F transitively FK to `ref_entity` (B), `milestone_template(_item)` (H
 A pre-existing host Postgres occupies 5432 (caused 28P01 auth failures); the Docker container publishes to 5433 and `.env` connection strings use it. Cosmetic/local only — clean machines can use 5432.
 
 ### 2026-06-27 · API compiled with tsc (not tsx/esbuild)
-NestJS DI relies on `emitDecoratorMetadata`, which esbuild/tsx do not emit. The API is built with `tsc` to ESM and run via `node dist/main.js`. Auth is currently a header stub in `rls-context.ts`, to be replaced by the real auth module.
+NestJS DI relies on `emitDecoratorMetadata`, which esbuild/tsx do not emit. The API is built with `tsc` to ESM and run via `node dist/main.js`. (Module 0 depth has since replaced the header stub with real token auth.)
+
+### 2026-06-27 · Module 0 auth: JWT access+refresh, bcryptjs, otplib TOTP
+Access token 30m; refresh is a per-device, hashed-at-rest token with a sliding 10-day expiry re-set on each use; rotation revokes the old token and reuse of a revoked token kills the whole family; logout revokes server-side. Passwords via bcryptjs (pure-JS, portable on Windows); 2FA via otplib TOTP, opt-in. JWT_SECRET must be ≥32 chars or the API refuses to boot, and HS256 is pinned (no alg-confusion / no silent insecure fallback).
+
+### 2026-06-27 · RLS context derives from the signed token, never client input
+`AuthGuard` verifies the Bearer access token and sets `req.principal`; `extractRlsContext` builds the RLS GUCs from the principal only — the old `x-org-id/x-party-id/x-superadmin` header path is deleted. Proven by tests: a forged `x-party-id`/`x-superadmin` header has no effect. This closes the impersonation hole the stub left open.
+
+### 2026-06-27 · `is_superadmin` GUC = System SuperAdmin role only (§4.4)
+The leg-visibility bypass is granted only when the authenticated principal holds the System SuperAdmin role (computed server-side from `user_role` at login/refresh). Business SuperAdmin deliberately does NOT get it — they get aggregated/settlement views (built later). So no single business seat renders every leg.
+
+### 2026-06-27 · `app_auth_lookup()` SECURITY DEFINER = the sole credential-lookup RLS bypass
+Login must read `user_account` by email before any org context exists, which RLS would block. A narrow `SECURITY DEFINER` function (owner-rights, `search_path` pinned, EXECUTE only to `app_user`, returns only auth columns for one email) is the single sanctioned bypass — preferred over a second privileged connection pool. Migration `0003_auth.sql`. The `auth_refresh_token` table is the one mutable security table (UPDATE granted for revoke/rotate); everything else stays append-only.

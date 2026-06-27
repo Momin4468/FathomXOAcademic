@@ -1,30 +1,28 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
-import type { RlsContext } from "@business-os/shared";
+import type { RlsContext, SessionPrincipal } from "@business-os/shared";
 import type { Request } from "express";
 
-/** The seed org/party, used as defaults so the demo works without real auth. */
-export const DEMO_ORG_ID = "00000000-0000-0000-0000-000000000001";
-export const DEMO_PARTY_MOMIN = "00000000-0000-0000-0000-0000000000c1";
-
 /**
- * STUB auth (replaced by the real auth module later). Today the security context
- * is taken from request headers so the RLS plumbing can be exercised end-to-end:
- *   x-org-id, x-party-id, x-superadmin: true|false
- * Defaults to the seed org + Momin so `GET /platform/whoami` works out of the box.
+ * Build the per-request RLS context from the AUTHENTICATED PRINCIPAL (set by
+ * AuthGuard from the signed access token) — never from client-supplied headers.
+ * This is the whole point of Module 0 depth: identity is server-trusted.
+ *
+ * isSuperadmin (the leg-visibility bypass GUC) is true ONLY for System
+ * SuperAdmin (spec §4.4); it comes from the signed token, computed at login.
  */
 export function extractRlsContext(req: Request): RlsContext {
-  const header = (name: string): string | undefined => {
-    const v = req.headers[name];
-    return Array.isArray(v) ? v[0] : v;
-  };
+  const principal = (req as Request & { principal?: SessionPrincipal }).principal;
+  if (!principal) {
+    throw new Error("No authenticated principal on request (AuthGuard missing or route public?)");
+  }
   return {
-    orgId: header("x-org-id") ?? DEMO_ORG_ID,
-    partyId: header("x-party-id") ?? DEMO_PARTY_MOMIN,
-    isSuperadmin: (header("x-superadmin") ?? "false").toLowerCase() === "true",
+    orgId: principal.orgId,
+    partyId: principal.partyId,
+    isSuperadmin: principal.isSystemSuperadmin,
   };
 }
 
-/** Inject the request's RlsContext into a controller handler. */
+/** Inject the request's RlsContext (derived from the signed token). */
 export const CurrentRls = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): RlsContext =>
     extractRlsContext(ctx.switchToHttp().getRequest<Request>()),
