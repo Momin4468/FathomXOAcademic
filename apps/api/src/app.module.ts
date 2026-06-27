@@ -7,6 +7,7 @@ import { PlatformModule } from "./modules/platform/platform.module.js";
 import { BillingModule } from "./modules/billing/billing.module.js";
 import { ExpenseModule } from "./modules/expense/expense.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
+import { SettlementModule } from "./modules/settlement/settlement.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
 import { RulesModule } from "./modules/rules/rules.module.js";
 import { TaskModule } from "./modules/task/task.module.js";
@@ -26,7 +27,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
     ...(isModuleEnabled("work") ? [WorkModule, ProjectsModule] : []),
     ...(isModuleEnabled("rules") ? [RulesModule] : []),
-    ...(isModuleEnabled("billing") ? [BillingModule] : []),
+    ...(isModuleEnabled("billing") ? [BillingModule, SettlementModule] : []),
     ...(isModuleEnabled("expenses") ? [ExpenseModule] : []),
     ...(isModuleEnabled("capture") ? [TaskModule] : []),
   ],

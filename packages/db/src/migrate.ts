@@ -16,6 +16,8 @@ const SCHEMA_MIGRATIONS = [
   "0012_expense_task_nodelete.sql",
   "0013_paid_amount_deprecate.sql",
   "0014_projects.sql",
+  "0015_settlement.sql",
+  "0016_platform_fee_unique.sql",
 ];
 
 async function main() {

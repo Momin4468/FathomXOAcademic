@@ -66,6 +66,7 @@ export const TERM_TYPES = [
   "referral_pct",
   "per_word",
   "fixed",
+  "platform_fee", // a % the party owes the business → generates a charge (§4.4)
 ] as const;
 export type TermType = (typeof TERM_TYPES)[number];
 
