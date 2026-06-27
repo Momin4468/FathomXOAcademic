@@ -3,6 +3,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -98,7 +99,10 @@ export class LegSpecDto {
   @IsInt() @Min(1) seq!: number;
   @IsOptional() @IsUUID() fromPartyId?: string;
   @IsOptional() @IsUUID() toPartyId?: string;
-  @IsNumber() @Min(0) amount!: number;
+  // Optional: omit to auto-price from the resolved deal term; provide to override.
+  @IsOptional() @IsNumber() @Min(0) amount?: number;
+  // Optional per-leg word count for per_word pricing (else the linked work_line's).
+  @IsOptional() @IsInt() @Min(0) wordCount?: number;
   @IsOptional() @IsUUID() workLineId?: string;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
@@ -109,4 +113,7 @@ export class AppendLegsDto {
   @ValidateNested({ each: true })
   @Type(() => LegSpecDto)
   legs!: LegSpecDto[];
+
+  // Pricing as-of date (defaults to the job's created_at). Reused by /propose.
+  @IsOptional() @IsDateString() asOf?: string;
 }

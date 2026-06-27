@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -142,6 +143,23 @@ export class WorkController {
     @Body() dto: AppendLegsDto,
   ) {
     return this.db.withTenant(ctx, (tx) => this.legs.appendLegs(tx, principal, id, dto));
+  }
+
+  /**
+   * Capture-first: propose leg prices from the resolved deal terms WITHOUT
+   * writing, so the add-a-job flow can show (and let the builder override)
+   * rule-derived amounts before committing. Same gate as appendLegs.
+   */
+  @Post(":id/legs/propose")
+  @HttpCode(200) // read-only: proposes prices, writes nothing
+  @RequirePermission("work", "approve")
+  proposeLegs(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: AppendLegsDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.legs.proposeLegs(tx, principal, id, dto));
   }
 
   /** Visible legs (RLS-filtered to the caller) + derived margins. */

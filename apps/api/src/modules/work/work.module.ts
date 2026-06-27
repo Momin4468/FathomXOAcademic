@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../../common/auth/auth.module.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
+import { PricingService } from "./pricing.service.js";
 import { WorkController } from "./work.controller.js";
 import { WorkService } from "./work.service.js";
 
@@ -14,6 +15,6 @@ import { WorkService } from "./work.service.js";
 @Module({
   imports: [AuthModule],
   controllers: [WorkController],
-  providers: [WorkService, LineService, LegService],
+  providers: [WorkService, LineService, LegService, PricingService],
 })
 export class WorkModule {}

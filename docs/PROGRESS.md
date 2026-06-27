@@ -2,9 +2,9 @@
 
 > The build agent's cross-session memory. **Update this after completing any task or migration** (per CLAUDE.md §1) — move items between sections, and always note where you stopped if mid-task. Read this first when resuming.
 
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
 **Current phase:** Phase 1 — Capture & core ledger (see DESIGN_SPEC.md §12)
-**Build state:** **Phase 1 backend complete — Modules 0–6** + web (Modules 4 & 6 screens), all on `main`. Postgres (Docker) + migrations 0000–0013; **324 tests green (168 DB + 150 HTTP + 6 web)**; web builds + boots. Module 5 deferrals S1/N1 now resolved (allocation advisory lock; paid_amount confirmed derive-only). Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
+**Build state:** **Phase 1 backend complete — Modules 0–6** + web (Modules 4 & 6 screens) + **deal-term auto-pricing in the leg engine**, all on `main`. Postgres (Docker) + migrations 0000–0013 (no new migration — `leg.deal_term_id` already existed); **333 tests green (168 DB + 159 HTTP + 6 web)**; web builds + boots. Not in a broken state. (Commit directly to `main`.) NOTE: run API HTTP tests **one file per process** (`node --import tsx --test test/<file>.test.ts`) — the all-in-one run can flake under concurrent server boot.
 
 ---
 
@@ -82,10 +82,18 @@
 - **Web**: `formatDate`/`formatDateTime` re-exported from shared; `DateInput`/`DateTimeTzInput` **pickers** (never free text) + friendly tz labels; **retrofitted** job-detail dates to dd/mm/yyyy. `/expenses` (list + total + add, cost-bearer/split/campaign) and `/tasks` (board grouped by urgency; due shown in the **viewer's browser zone** + original zone when it differs + "time left"; quick Done). Nav + landing links.
 - **Tests: 323 green (168 DB + 149 HTTP + 6 web)**, +66 for Module 6. Reviews (security + qa + ui): fixed tz-validation→400, expense null-amount guard, split-shape validation, revoked hard-DELETE (0012), responsive DateTimeTzInput + tz clarity ("your time" / "set for <zone>"). **Decision/deferred**: tasks are an **org-wide shared board** (capture-gated), not party-row-scoped — `permission.scope_json` row-scoping is a future refinement; split-amount derivation + revenue-link ROI not built (no read-model yet).
 
+## ✅ Done — Deal-term auto-pricing in the leg engine (DESIGN_SPEC §3; capture-first payoff)
+- **No migration** — `leg.deal_term_id` existed since 0006; this wires it. No schema/enum change.
+- **`PricingService`** (`apps/api/src/modules/work/pricing.service.ts`): reuses the **shared pure** `resolveDealTerm` (single source of precedence/effective-dating truth) and does its own `deal_term` candidate fetch, so the **work module stays decoupled from RulesModule** (no cross-module DI / feature-flag coupling). `priceLeg` prefers a `per_word` term (amount = value × word_count) and falls back to `fixed` (amount = value); `split/commission/referral` % terms are NOT leg prices (they divide margin → settlement, Phase 2). Returns null when nothing resolves.
+- **`LegService.appendLegs`** now auto-prices: a leg with **no `amount`** resolves the term as of the job date and fills `amount` + `leg.deal_term_id`; an **explicit `amount` overrides** and clears the term link (bespoke). Unpriceable + no amount → **400**. `asOf` defaults to the work_item's `created_at` (so a past job prices on past terms); word count comes from the leg's `wordCount` or the linked `work_line`. Audit detail records per-leg `dealTermId` + `source` (derived/manual). Still **no RETURNING** (leg-leak intact).
+- **`LegService.proposeLegs`** + **`POST /work/:id/legs/propose`** (read-only, `@HttpCode(200)`, gated `work:approve`): returns `{ proposals: [{ seq, from, to, amount|null, dealTermId|null, termType|null, source: derived|manual|unpriced }] }` so add-a-job can SHOW rule-proposed prices for review/override **before** committing. Writes nothing; never reads back existing legs.
+- **DTO** (`work/dto.ts`): `LegSpecDto.amount` now optional; added `wordCount`; `AppendLegsDto.asOf`.
+- **Tests: 333 green (168 DB + 159 HTTP + 6 web)**, +9 HTTP in `work-http.test.ts` ("deal-term auto-pricing in the leg chain"): per_word/fixed resolved price + `deal_term_id` provenance (DB-verified), manual override clears the link, effective-dating (2024 job→old term, 2026→new), client-specific applies_to beats global default, unpriceable→400, **propose writes nothing**, **leg-leak still holds on a fully auto-priced chain**, propose authz (Writer→403).
+- **Reviews**: security-reviewer (no blockers — derived-margins/leg-leak/append-only/effective-dating all hold) + qa-test-writer, which **caught a real defect**: propose returned `201` (POST default) for a read-only endpoint → fixed with `@HttpCode(200)`. Optional NOTEs left open: a single shared money-rounding helper (pricing uses `toFixed(2)`, margins use the shared epsilon-round — agree for these inputs).
+
 ## ⏭️ Next (Phase 2+, suggested order)
-1. Auto-derive leg amounts from resolved deal terms (`leg.deal_term_id`) — wire Module 3 resolution into Module 2 leg creation.
-2. Web screens for billing (invoices/payments/balance) — Module 5 has API only so far.
-3. Phase 2 modules (settlement layer, reputation/outcomes, credential vault, knowledge base, check-service) per DESIGN_SPEC §12.
+1. Web screens for billing (invoices/payments/balance) — Module 5 has API only so far; surface the new `/legs/propose` in the add-a-job UI.
+2. Phase 2 modules (settlement layer, reputation/outcomes, credential vault, knowledge base, check-service) per DESIGN_SPEC §12.
 
 ## ✅ Done — Module 5 (invoicing + payments/allocation + bidirectional charges; DESIGN_SPEC §6)
 - **Migration 0009** (append-only `charge` table: party→business dues, category, optional work_item/deal_term link, `reverses_charge_id`; `payment_allocation.charge_id`; leg-style party-RLS on `charge`) + **0010** (review fixes: `payment.reverses_payment_id`; `charge_summary()` SECURITY DEFINER so billing can validate party-RLS charges). `CHARGE_CATEGORIES` enum.

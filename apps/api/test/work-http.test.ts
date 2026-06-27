@@ -50,6 +50,7 @@ let clientPartyId = ""; // a pure-source client party for the chain top
 const createdUserIds: string[] = [];
 const createdPartyIds: string[] = [];
 const createdWorkItemIds: string[] = [];
+const createdDealTermIds: string[] = [];
 
 async function startServer(): Promise<void> {
   const mainJs = resolve(apiRoot, "dist", "main.js");
@@ -128,6 +129,9 @@ after(async () => {
     await admin.query("delete from leg where work_item_id=$1", [id]);
     await admin.query("delete from work_line where work_item_id=$1", [id]);
     await admin.query("delete from work_item where id=$1", [id]);
+  }
+  for (const id of createdDealTermIds) {
+    await admin.query("delete from deal_term where id=$1", [id]);
   }
   for (const id of createdUserIds) {
     await admin.query("delete from audit_log where actor_user_id=$1", [id]);
@@ -477,5 +481,309 @@ describe("boundary validation + authz (treat client input as hostile)", () => {
   it("GET /work/:id with a non-uuid → 400 (ParseUUIDPipe)", async () => {
     const res = await api(BASE, "/work/not-a-uuid", { token: mominToken });
     assert.equal(res.status, 400);
+  });
+});
+
+// ─── Deal-term auto-pricing in the leg engine (DESIGN_SPEC §3, SCHEMA §D/§E) ──────
+
+/**
+ * The leg auto-pricing feature: when a leg omits `amount`, it auto-prices from
+ * the resolved deal term on the (from→to) relationship as of the job date,
+ * recording leg.deal_term_id for provenance. A manual amount overrides and
+ * clears the link. /legs/propose previews the same resolution without writing.
+ *
+ * Deal terms are seeded DIRECTLY via the admin pg client (the work-http server
+ * mounts only FEATURE_WORK + FEATURE_REFERENCE, not rules). leg.deal_term_id is
+ * not exposed by the API, so provenance is asserted with a direct DB read.
+ */
+describe("deal-term auto-pricing in the leg chain", () => {
+  /** Insert a deal_term row directly (admin) and track it for teardown. */
+  async function seedDealTerm(opts: {
+    fromPartyId: string | null;
+    toPartyId: string | null;
+    termType: "per_word" | "fixed";
+    value: number;
+    effectiveFrom?: string;
+    effectiveTo?: string | null;
+    appliesTo?: string;
+  }): Promise<string> {
+    const id = randomUUID();
+    await admin.query(
+      `insert into deal_term
+         (id, org_id, from_party_id, to_party_id, applies_to, term_type, value, effective_from, effective_to)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [
+        id,
+        ORG,
+        opts.fromPartyId,
+        opts.toPartyId,
+        opts.appliesTo ?? "default",
+        opts.termType,
+        opts.value,
+        opts.effectiveFrom ?? "2000-01-01",
+        opts.effectiveTo ?? null,
+      ],
+    );
+    createdDealTermIds.push(id);
+    return id;
+  }
+
+  /** Read leg.deal_term_id directly (the API never exposes it). */
+  async function legDealTermId(workItemId: string, seq: number): Promise<string | null> {
+    const r = await admin.query(
+      "select deal_term_id from leg where work_item_id=$1 and seq=$2",
+      [workItemId, seq],
+    );
+    assert.equal(r.rows.length, 1, `exactly one leg seq ${seq} on ${workItemId}`);
+    return r.rows[0].deal_term_id as string | null;
+  }
+
+  it("per_word term auto-prices the leg (1.5×4000=6000) and records deal_term_id", async () => {
+    const termId = await seedDealTerm({
+      fromPartyId: clientPartyId,
+      toPartyId: MOMIN_PARTY,
+      termType: "per_word",
+      value: 1.5,
+    });
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { legs: [{ seq: 1, fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, wordCount: 4000 }] },
+    });
+    assert.equal(res.status, 201, `auto-priced append should succeed (got ${res.status}: ${JSON.stringify(res.body)})`);
+
+    const got = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    assert.equal(got.status, 200);
+    const leg = (got.body.legs as Array<any>).find((l) => l.seq === 1);
+    assert.ok(leg, "the leg is present");
+    assert.equal(Number(leg.amount), 6000, "amount = 1.5 × 4000");
+    assert.equal(await legDealTermId(workId, 1), termId, "provenance: leg.deal_term_id = the per_word term");
+  });
+
+  it("fixed term auto-prices the leg (value=5000, no wordCount) and records deal_term_id", async () => {
+    const termId = await seedDealTerm({
+      fromPartyId: MOMIN_PARTY,
+      toPartyId: EMON_PARTY,
+      termType: "fixed",
+      value: 5000,
+    });
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { legs: [{ seq: 1, fromPartyId: MOMIN_PARTY, toPartyId: EMON_PARTY }] },
+    });
+    assert.equal(res.status, 201, `fixed auto-price should succeed (got ${res.status}: ${JSON.stringify(res.body)})`);
+
+    const got = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    const leg = (got.body.legs as Array<any>).find((l) => l.seq === 1);
+    assert.equal(Number(leg.amount), 5000, "amount = fixed value");
+    assert.equal(await legDealTermId(workId, 1), termId, "provenance: leg.deal_term_id = the fixed term");
+  });
+
+  it("manual amount overrides a resolvable term and clears deal_term_id (NULL)", async () => {
+    // A term exists on this relationship, but the explicit amount must win.
+    await seedDealTerm({
+      fromPartyId: clientPartyId,
+      toPartyId: MOMIN_PARTY,
+      termType: "fixed",
+      value: 1234,
+    });
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { legs: [{ seq: 1, fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, amount: 9999 }] },
+    });
+    assert.equal(res.status, 201);
+    const got = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    const leg = (got.body.legs as Array<any>).find((l) => l.seq === 1);
+    assert.equal(Number(leg.amount), 9999, "the manual amount wins");
+    assert.equal(await legDealTermId(workId, 1), null, "a manual override clears the term link");
+  });
+
+  it("effective-dating: a past job settles on the OLD term, a current job on the NEW", async () => {
+    // Two per_word versions on the same (from→to): old 1.0 [2020..2025), new 2.0 [2025..open).
+    await seedDealTerm({
+      fromPartyId: writerPartyId, // reuse an otherwise-unused pair to avoid clashing terms
+      toPartyId: clientPartyId,
+      termType: "per_word",
+      value: 1.0,
+      effectiveFrom: "2020-01-01",
+      effectiveTo: "2025-01-01",
+    });
+    await seedDealTerm({
+      fromPartyId: writerPartyId,
+      toPartyId: clientPartyId,
+      termType: "per_word",
+      value: 2.0,
+      effectiveFrom: "2025-01-01",
+      effectiveTo: null,
+    });
+
+    // asOf in 2024 → OLD term (1.0 × 1000 = 1000).
+    const past = await createWorkItem();
+    const r1 = await api(BASE, `/work/${past}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { asOf: "2024-06-01", legs: [{ seq: 1, fromPartyId: writerPartyId, toPartyId: clientPartyId, wordCount: 1000 }] },
+    });
+    assert.equal(r1.status, 201, `past-dated append should succeed (got ${r1.status}: ${JSON.stringify(r1.body)})`);
+    const g1 = await api(BASE, `/work/${past}/legs`, { token: sysToken });
+    assert.equal(Number((g1.body.legs as Array<any>)[0].amount), 1000, "March-2024 job settles on the 1.0 term");
+
+    // asOf in 2026 → NEW term (2.0 × 1000 = 2000).
+    const now = await createWorkItem();
+    const r2 = await api(BASE, `/work/${now}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { asOf: "2026-06-01", legs: [{ seq: 1, fromPartyId: writerPartyId, toPartyId: clientPartyId, wordCount: 1000 }] },
+    });
+    assert.equal(r2.status, 201);
+    const g2 = await api(BASE, `/work/${now}/legs`, { token: sysToken });
+    assert.equal(Number((g2.body.legs as Array<any>)[0].amount), 2000, "a 2026 job settles on the 2.0 term");
+  });
+
+  it("a client-specific applies_to term beats a global default term for the same pair+type", async () => {
+    // Global default 1.0 vs client-specific 3.0 on the same (Momin→Writer) per_word pair.
+    await seedDealTerm({
+      fromPartyId: MOMIN_PARTY,
+      toPartyId: writerPartyId,
+      termType: "per_word",
+      value: 1.0,
+      appliesTo: "default",
+    });
+    const specific = await seedDealTerm({
+      fromPartyId: MOMIN_PARTY,
+      toPartyId: writerPartyId,
+      termType: "per_word",
+      value: 3.0,
+      appliesTo: `client:${clientPartyId}`,
+    });
+    // clientPartyId is resolved from the work item's sourcePartyId.
+    const workId = await createWorkItem({ sourcePartyId: clientPartyId });
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { legs: [{ seq: 1, fromPartyId: MOMIN_PARTY, toPartyId: writerPartyId, wordCount: 1000 }] },
+    });
+    assert.equal(res.status, 201, `append should succeed (got ${res.status}: ${JSON.stringify(res.body)})`);
+    const got = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    assert.equal(Number((got.body.legs as Array<any>)[0].amount), 3000, "the client-specific term (3.0) wins over default (1.0)");
+    assert.equal(await legDealTermId(workId, 1), specific, "provenance points at the client-specific term");
+  });
+
+  it("unpriceable leg (no term, no amount) → 400 with a clear message", async () => {
+    const lonely = await makeParty("M2TEST Lonely", "client");
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: { legs: [{ seq: 1, fromPartyId: lonely, toPartyId: MOMIN_PARTY, wordCount: 100 }] },
+    });
+    assert.equal(res.status, 400, "no term and no amount must be rejected");
+    assert.match(JSON.stringify(res.body), /no matching deal term/i, "the error names the missing term");
+  });
+
+  it("propose previews derived/manual/unpriced sources and writes NOTHING", async () => {
+    await seedDealTerm({
+      fromPartyId: clientPartyId,
+      toPartyId: MOMIN_PARTY,
+      termType: "per_word",
+      value: 1.5,
+    });
+    const noTermParty = await makeParty("M2TEST NoTerm", "writer");
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs/propose`, {
+      method: "POST",
+      token: mominToken,
+      body: {
+        legs: [
+          { seq: 1, fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, wordCount: 4000 }, // derived
+          { seq: 2, fromPartyId: MOMIN_PARTY, toPartyId: EMON_PARTY, amount: 7777 }, // manual
+          { seq: 3, fromPartyId: noTermParty, toPartyId: writerPartyId, wordCount: 50 }, // unpriced
+        ],
+      },
+    });
+    assert.equal(res.status, 200, `propose should be 200 (got ${res.status}: ${JSON.stringify(res.body)})`);
+    const byseq = new Map((res.body.proposals as Array<any>).map((p) => [p.seq, p]));
+
+    const p1 = byseq.get(1);
+    assert.equal(p1.source, "derived", "seq 1 derives from the per_word term");
+    assert.equal(Number(p1.amount), 6000, "derived amount = 1.5 × 4000");
+    assert.equal(p1.termType, "per_word");
+    assert.ok(p1.dealTermId, "a derived proposal carries the term id");
+
+    const p2 = byseq.get(2);
+    assert.equal(p2.source, "manual", "seq 2 is a manual amount");
+    assert.equal(Number(p2.amount), 7777);
+    assert.equal(p2.dealTermId, null, "a manual proposal has no term link");
+
+    const p3 = byseq.get(3);
+    assert.equal(p3.source, "unpriced", "seq 3 has no resolvable term");
+    assert.equal(p3.amount, null, "an unpriced proposal carries no amount");
+    assert.equal(p3.dealTermId, null);
+
+    // The crux: propose must not persist anything.
+    const after = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    assert.equal(after.status, 200);
+    assert.equal((after.body.legs as Array<any>).length, 0, "propose writes NOTHING — still zero legs");
+  });
+
+  it("🔴 leg-leak still holds on an AUTO-PRICED chain (Emon never sees the client price)", async () => {
+    // Seed a term for every hop so the whole chain auto-prices (no amounts passed):
+    //   Client→Momin per_word 1.5 × 4000 = 6000
+    //   Momin→Emon  fixed 5000
+    //   Emon→Writer fixed 3000
+    await seedDealTerm({ fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, termType: "per_word", value: 1.5 });
+    await seedDealTerm({ fromPartyId: MOMIN_PARTY, toPartyId: EMON_PARTY, termType: "fixed", value: 5000 });
+    await seedDealTerm({ fromPartyId: EMON_PARTY, toPartyId: writerPartyId, termType: "fixed", value: 3000 });
+
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs`, {
+      method: "POST",
+      token: mominToken,
+      body: {
+        legs: [
+          { seq: 1, fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, wordCount: 4000 },
+          { seq: 2, fromPartyId: MOMIN_PARTY, toPartyId: EMON_PARTY },
+          { seq: 3, fromPartyId: EMON_PARTY, toPartyId: writerPartyId },
+        ],
+      },
+    });
+    assert.equal(res.status, 201, `auto-priced chain should build (got ${res.status}: ${JSON.stringify(res.body)})`);
+
+    // SuperAdmin sees the whole chain and both derived margins.
+    const sys = await api(BASE, `/work/${workId}/legs`, { token: sysToken });
+    assert.deepEqual((sys.body.legs as Array<any>).map((l) => l.seq), [1, 2, 3]);
+    const margins = new Map((sys.body.margins as Array<any>).map((m) => [m.partyId, m.margin]));
+    assert.equal(margins.get(MOMIN_PARTY), 1000, "Momin margin = 6000 − 5000 (derived, not stored)");
+    assert.equal(margins.get(EMON_PARTY), 2000, "Emon margin = 5000 − 3000 (derived, not stored)");
+
+    // Emon must NOT see seq 1 (the 6000 client price).
+    const emon = await api(BASE, `/work/${workId}/legs`, { token: emonToken });
+    assert.equal(emon.status, 200, "non-owned legs are filtered, not an error");
+    const emonLegs = emon.body.legs as Array<any>;
+    assert.deepEqual(emonLegs.map((l) => l.seq), [2, 3], "Emon's two legs only");
+    assert.ok(!emonLegs.some((l) => Number(l.amount) === 6000), "the auto-priced 6000 client price is hidden from Emon");
+    assert.ok(!emonLegs.some((l) => l.fromPartyId === clientPartyId), "no leg from the client surfaces to Emon");
+
+    // The writer sees ONLY the final leg, neither 6000 nor 5000.
+    const writer = await api(BASE, `/work/${workId}/legs`, { token: writerToken });
+    const writerLegs = writer.body.legs as Array<any>;
+    assert.deepEqual(writerLegs.map((l) => l.seq), [3], "the writer sees only the terminal leg");
+    assert.ok(!writerLegs.some((l) => Number(l.amount) === 6000), "client price hidden from the writer");
+    assert.ok(!writerLegs.some((l) => Number(l.amount) === 5000), "the Momin→Emon price is hidden from the writer");
+  });
+
+  it("propose requires work:approve — a Writer is denied (403)", async () => {
+    const workId = await createWorkItem();
+    const res = await api(BASE, `/work/${workId}/legs/propose`, {
+      method: "POST",
+      token: writerToken,
+      body: { legs: [{ seq: 1, fromPartyId: clientPartyId, toPartyId: MOMIN_PARTY, wordCount: 100 }] },
+    });
+    assert.equal(res.status, 403, "previewing the money chain requires work:approve");
   });
 });
