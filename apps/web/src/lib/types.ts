@@ -285,4 +285,46 @@ export interface CheckPnl {
   marginPerCheck: number | null;
 }
 
+// ─── Referrers (Module 11) ────────────────────────────────────────────────────
+export interface Referrer {
+  id: string;
+  displayName: string;
+  partyType: string[];
+  externalRef: string | null;
+}
+
+export interface ReferrerTerm {
+  id: string;
+  basis: string | null; // revenue | margin | fixed
+  value: string;
+  appliesTo: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface ReferralSuggestion {
+  workItemId: string;
+  referrerId: string | null;
+  referrerName: string | null;
+  revenue: number;
+  margin: number;
+  term: { basis: string | null; value: string; appliesTo: string; effectiveFrom: string } | null;
+  suggestedAmount: number | null;
+  source: "derived" | "unpriced" | "no_referrer";
+}
+
+export interface ReferrerWork {
+  workItemId: string;
+  title: string;
+  clientName: string | null;
+  referralAmount: string;
+  referralAt: string;
+  jobCreatedAt: string;
+}
+
+export interface MyReferrals {
+  works: ReferrerWork[];
+  balance: Balance;
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

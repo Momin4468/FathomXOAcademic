@@ -17,6 +17,7 @@ export const dealTerm = pgTable("deal_term", {
   toPartyId: uuid("to_party_id").references(() => party.id),
   appliesTo: text("applies_to").notNull().default("default"), // default | client:<id> | jobtype:<x>
   termType: text("term_type").notNull(), // split_pct|commission_pct|referral_pct|per_word|fixed
+  basis: text("basis"), // referral_pct only: revenue | margin | fixed (0021); null otherwise
   value: numeric("value", { precision: 12, scale: 4 }).notNull(),
   effectiveFrom: date("effective_from").notNull(),
   effectiveTo: date("effective_to"),

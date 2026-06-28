@@ -39,6 +39,7 @@ export interface DealTermLike extends EffectiveDated {
   toPartyId: string | null;
   appliesTo: string;
   termType: string;
+  basis?: string | null; // referral_pct only: revenue | margin | fixed (0021)
   value: string;
   createdAt?: string | Date | null;
 }

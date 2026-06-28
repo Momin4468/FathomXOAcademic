@@ -22,6 +22,7 @@ const SCHEMA_MIGRATIONS = [
   "0018_credential_vault.sql",
   "0019_knowledge.sql",
   "0020_check_service.sql",
+  "0021_referrers.sql",
 ];
 
 async function main() {

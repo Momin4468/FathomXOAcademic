@@ -11,6 +11,7 @@ import { CredentialVaultModule } from "./modules/credential-vault/credential-vau
 import { FilesModule } from "./modules/files/files.module.js";
 import { KnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { ChecksModule } from "./modules/checks/checks.module.js";
+import { ReferrersModule } from "./modules/referrers/referrers.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { SettlementModule } from "./modules/settlement/settlement.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
@@ -41,6 +42,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("credential_vault") ? [CredentialVaultModule] : []),
     ...(isModuleEnabled("knowledge") ? [KnowledgeModule] : []),
     ...(isModuleEnabled("checks") ? [ChecksModule] : []),
+    ...(isModuleEnabled("referrers") ? [ReferrersModule] : []),
   ],
 })
 export class AppModule {}

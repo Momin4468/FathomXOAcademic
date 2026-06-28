@@ -157,8 +157,18 @@ export const MODULES = [
   "credential_vault", // module 8 — encrypted tool/portal credentials + per-item sharing (§8)
   "knowledge", // module 9 — knowledge base (docs/prompt packs/blogs) + cover-sheet templates (§7/§8)
   "checks", // module 10 — AI/plagiarism check service mini-business (§8)
+  "referrers", // module 11 — referral income as a claimant leg; referrer sees own slice (§4/§8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
+
+/**
+ * deal_term.basis for a referral_pct term (§4/§8). The referral agreement is a
+ * SUGGESTION: revenue = % of the job's top client price, margin = % of post-writer
+ * margin, fixed = a set amount (value is the amount, not a pct). An admin can
+ * always override the resulting leg amount.
+ */
+export const REFERRAL_BASES = ["revenue", "margin", "fixed"] as const;
+export type ReferralBasis = (typeof REFERRAL_BASES)[number];
 
 /** check_batch.status — claim→confirm governance (§8). */
 export const CHECK_BATCH_STATES = ["proposed", "confirmed"] as const;

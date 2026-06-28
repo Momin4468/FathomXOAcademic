@@ -232,7 +232,8 @@ create table deal_term (
   to_party_id uuid references party(id),
   applies_to text not null default 'default',  -- default | client:<id> | jobtype:<x>
   term_type text not null,           -- split_pct | commission_pct | referral_pct | per_word | fixed
-  value numeric(12,4) not null,
+  basis text,                        -- referral_pct only (0021): revenue | margin | fixed; null otherwise
+  value numeric(12,4) not null,      -- pct for revenue/margin; the amount for fixed
   effective_from date not null,
   effective_to date,
   created_by uuid, created_at timestamptz not null default now()
