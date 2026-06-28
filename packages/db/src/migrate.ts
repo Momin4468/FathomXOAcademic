@@ -24,6 +24,7 @@ const SCHEMA_MIGRATIONS = [
   "0020_check_service.sql",
   "0021_referrers.sql",
   "0022_resit.sql",
+  "0023_custom_fields.sql",
 ];
 
 async function main() {

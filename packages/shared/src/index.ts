@@ -10,3 +10,4 @@ export * from "./settlement.js";
 export * from "./reputation.js";
 export * from "./checks.js";
 export * from "./referrals.js";
+export * from "./custom-fields.js";

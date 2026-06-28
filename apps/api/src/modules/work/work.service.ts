@@ -5,9 +5,16 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
-import { deriveJobPnl, WORK_STATES, type SessionPrincipal, type WorkState } from "@business-os/shared";
+import {
+  deriveJobPnl,
+  WORK_STATES,
+  type RecordScope,
+  type SessionPrincipal,
+  type WorkState,
+} from "@business-os/shared";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
 import type { CreateWorkItemDto, UpdateWorkItemDto } from "./dto.js";
@@ -18,14 +25,40 @@ export class WorkService {
     private readonly audit: AuditService,
     private readonly lines: LineService,
     private readonly legs: LegService,
+    private readonly customFields: CustomFieldService,
   ) {}
 
+  /** A job's matchable custom-field scope: client, assignment-type, course + its
+   *  parent university (so a field can be scoped by client/type/uni). */
+  private async workScope(
+    tx: Db,
+    item: { sourcePartyId?: string | null; assignmentTypeRefId?: string | null; courseRefId?: string | null },
+  ): Promise<RecordScope> {
+    let universityRefId: string | null = null;
+    if (item.courseRefId) {
+      const [c] = await tx
+        .select({ parentId: schema.refEntity.parentId })
+        .from(schema.refEntity)
+        .where(eq(schema.refEntity.id, item.courseRefId));
+      universityRefId = c?.parentId ?? null;
+    }
+    return {
+      clientPartyId: item.sourcePartyId ?? null,
+      assignmentTypeRefId: item.assignmentTypeRefId ?? null,
+      courseRefId: item.courseRefId ?? null,
+      universityRefId,
+    };
+  }
+
   async create(tx: Db, principal: SessionPrincipal, dto: CreateWorkItemDto) {
+    const scope = await this.workScope(tx, dto);
+    const customJson = await this.customFields.validateValues(tx, "work_item", scope, dto.customJson);
     const [item] = await tx
       .insert(schema.workItem)
       .values({
         orgId: principal.orgId,
         title: dto.title.trim(),
+        customJson,
         details: dto.details ?? null,
         sourcePartyId: dto.sourcePartyId ?? null,
         doerPartyId: dto.doerPartyId ?? null,
@@ -58,8 +91,21 @@ export class WorkService {
   }
 
   async update(tx: Db, principal: SessionPrincipal, id: string, dto: UpdateWorkItemDto) {
-    await this.getRaw(tx, id);
+    const existing = await this.getRaw(tx, id);
     const patch: Record<string, unknown> = { updatedBy: principal.userId, updatedAt: new Date() };
+    if (dto.customJson !== undefined) {
+      // Validate against the EFFECTIVE scope (dto overrides, else existing).
+      const scope = await this.workScope(tx, {
+        sourcePartyId: dto.sourcePartyId ?? existing.sourcePartyId,
+        assignmentTypeRefId: dto.assignmentTypeRefId ?? existing.assignmentTypeRefId,
+        courseRefId: dto.courseRefId ?? existing.courseRefId,
+      });
+      // Validate only the INCOMING keys, then MERGE into the stored map so a
+      // partial edit never wipes other captured values (and stale values for a
+      // since-archived field aren't re-validated).
+      const validated = await this.customFields.validateValues(tx, "work_item", scope, dto.customJson);
+      patch.customJson = { ...((existing.customJson as Record<string, unknown>) ?? {}), ...validated };
+    }
     for (const k of [
       "title",
       "details",
@@ -111,6 +157,16 @@ export class WorkService {
     }
     if (toState === "confirmed" && !canApprove) {
       throw new ForbiddenException("Confirming a work item requires work:approve");
+    }
+    // Hard gate: required custom fields must be complete to advance the close.
+    if (toState === "confirmed" || toState === "delivered") {
+      const scope = await this.workScope(tx, item);
+      await this.customFields.assertRequiredComplete(
+        tx,
+        "work_item",
+        scope,
+        item.customJson as Record<string, unknown> | null,
+      );
     }
     const patch: Record<string, unknown> = {
       workState: toState,
@@ -189,12 +245,20 @@ export class WorkService {
         reworkCost: Number(oc?.reworkCost ?? 0),
       });
     }
+    const scope = await this.workScope(tx, item);
+    const customFields = await this.customFields.describeForRecord(
+      tx,
+      "work_item",
+      scope,
+      item.customJson as Record<string, unknown> | null,
+    );
     return {
       item,
       lines: lineRows.map((l) => this.lines.mapLine(l, canSeeMoney)),
       legs,
       margins: this.legs.marginsFor(legs),
       pnl,
+      customFields,
     };
   }
 }

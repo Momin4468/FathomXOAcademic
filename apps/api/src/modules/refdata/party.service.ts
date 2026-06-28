@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
-import type { PartyType, SessionPrincipal } from "@business-os/shared";
+import type { PartyType, RecordScope, SessionPrincipal } from "@business-os/shared";
 import { and, eq, ilike, isNull, or } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { ReferenceService } from "./reference.service.js";
 import type { CreatePartyDto, UpdatePartyDto } from "./dto.js";
 
@@ -27,7 +28,13 @@ export class PartyService {
   constructor(
     private readonly reference: ReferenceService,
     private readonly audit: AuditService,
+    private readonly customFields: CustomFieldService,
   ) {}
+
+  /** A party's matchable custom-field scope (by-university; global otherwise). */
+  private partyScope(p: { id?: string | null; universityId?: string | null }): RecordScope {
+    return { clientPartyId: p.id ?? null, universityRefId: p.universityId ?? null };
+  }
 
   async search(tx: Db, q: string | undefined, type: PartyType | undefined, limit = 50) {
     const filters = [isNull(schema.party.archivedAt)];
@@ -53,14 +60,23 @@ export class PartyService {
              p.external_ref as "externalRef", p.programme, p.contact_json as "contact",
              p.university_id as "universityId", u.canonical as "universityCanonical",
              p.referred_by_party_id as "referredByPartyId", r.display_name as "referredByName",
-             p.created_at as "createdAt"
+             p.custom_json as "customJson", p.created_at as "createdAt"
       from party p
       left join ref_entity u on u.id = p.university_id
       left join party r on r.id = p.referred_by_party_id
       where p.id = ${id} and p.archived_at is null
     `);
-    if (!res.rows[0]) throw new NotFoundException("Party not found");
-    return res.rows[0];
+    const row = res.rows[0] as
+      | { id: string; universityId: string | null; customJson: Record<string, unknown> | null }
+      | undefined;
+    if (!row) throw new NotFoundException("Party not found");
+    const customFields = await this.customFields.describeForRecord(
+      tx,
+      "party",
+      this.partyScope({ id: row.id, universityId: row.universityId }),
+      row.customJson,
+    );
+    return { ...row, customFields };
   }
 
   async create(tx: Db, principal: SessionPrincipal, dto: CreatePartyDto) {
@@ -74,6 +90,12 @@ export class PartyService {
       universityId = entity.id;
     }
 
+    const customJson = await this.customFields.validateValues(
+      tx,
+      "party",
+      this.partyScope({ universityId }),
+      dto.customJson,
+    );
     const [party] = await tx
       .insert(schema.party)
       .values({
@@ -85,6 +107,7 @@ export class PartyService {
         programme: dto.programme ?? null,
         contactJson: dto.contact ?? {},
         referredByPartyId: dto.referredByPartyId ?? null,
+        customJson,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })
@@ -109,6 +132,19 @@ export class PartyService {
     if (dto.programme !== undefined) patch.programme = dto.programme;
     if (dto.contact !== undefined) patch.contactJson = dto.contact;
     if (dto.referredByPartyId !== undefined) patch.referredByPartyId = dto.referredByPartyId;
+    if (dto.customJson !== undefined) {
+      const [cur] = await tx
+        .select({ universityId: schema.party.universityId, customJson: schema.party.customJson })
+        .from(schema.party)
+        .where(eq(schema.party.id, id));
+      const validated = await this.customFields.validateValues(
+        tx,
+        "party",
+        this.partyScope({ id, universityId: dto.universityId ?? cur?.universityId }),
+        dto.customJson,
+      );
+      patch.customJson = { ...((cur?.customJson as Record<string, unknown>) ?? {}), ...validated };
+    }
 
     const [row] = await tx
       .update(schema.party)

@@ -7,6 +7,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -34,6 +35,7 @@ export class CreateWorkItemDto {
   @IsOptional() @IsBoolean() billable?: boolean; // child of a project (default false)
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
   @IsOptional() @IsBoolean() isEstimate?: boolean;
+  @IsOptional() @IsObject() customJson?: Record<string, unknown>;
 }
 
 export class UpdateWorkItemDto {
@@ -48,6 +50,7 @@ export class UpdateWorkItemDto {
   @IsOptional() @IsBoolean() trackable?: boolean;
   @IsOptional() @IsBoolean() billable?: boolean;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
+  @IsOptional() @IsObject() customJson?: Record<string, unknown>;
 }
 
 export class TransitionDto {

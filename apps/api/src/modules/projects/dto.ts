@@ -4,6 +4,7 @@ import {
   IsIn,
   IsInt,
   IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -21,6 +22,7 @@ export class CreateProjectDto {
   @IsOptional() @IsUUID() templateId?: string;
   @IsOptional() @IsNumber() @Min(0) estimateAmount?: number;
   @IsOptional() @IsIn(PROJECT_STATUSES) status?: ProjectStatus;
+  @IsOptional() @IsObject() customJson?: Record<string, unknown>;
 }
 
 export class UpdateProjectDto {
@@ -28,6 +30,7 @@ export class UpdateProjectDto {
   @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsNumber() @Min(0) estimateAmount?: number;
   @IsOptional() @IsIn(PROJECT_STATUSES) status?: ProjectStatus;
+  @IsOptional() @IsObject() customJson?: Record<string, unknown>;
 }
 
 /** Extend a project with another template's items (callable repeatedly). */

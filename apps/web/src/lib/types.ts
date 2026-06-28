@@ -337,4 +337,28 @@ export interface MyReferrals {
   balance: Balance;
 }
 
+// ─── Custom fields (Module 12) ────────────────────────────────────────────────
+export interface CustomFieldDef {
+  id: string;
+  targetEntity: string; // work_item | party | project
+  fieldName: string;
+  fieldType: string; // text | number | date | select | bool
+  optionsJson: string[] | null;
+  scopeJson: Record<string, string> | null;
+  required: boolean;
+  sort: number;
+  archivedAt: string | null;
+}
+
+/** A field + current value for a record's detail (describeForRecord). */
+export interface CustomFieldOnRecord {
+  id: string;
+  fieldName: string;
+  fieldType: string;
+  options: string[] | null;
+  required: boolean;
+  value: unknown;
+  missingRequired: boolean;
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

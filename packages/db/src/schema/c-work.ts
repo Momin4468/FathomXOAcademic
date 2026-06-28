@@ -43,6 +43,7 @@ export const project = pgTable("project", {
   templateId: uuid("template_id").references(() => milestoneTemplate.id),
   estimateAmount: numeric("estimate_amount", { precision: 14, scale: 2 }),
   status: text("status").notNull().default("active"), // active | completed | archived
+  customJson: jsonb("custom_json").default({}), // admin-defined custom fields (0023)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

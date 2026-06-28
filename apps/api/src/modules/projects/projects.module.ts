@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../common/auth/auth.module.js";
+import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { MilestoneService } from "./milestone.service.js";
 import { ProjectService } from "./project.service.js";
 import { ProjectsController } from "./projects.controller.js";
@@ -14,6 +15,6 @@ import { TemplateService } from "./template.service.js";
 @Module({
   imports: [AuthModule],
   controllers: [ProjectsController],
-  providers: [ProjectService, MilestoneService, TemplateService],
+  providers: [ProjectService, MilestoneService, TemplateService, CustomFieldService],
 })
 export class ProjectsModule {}

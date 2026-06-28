@@ -103,6 +103,10 @@ export class CreatePartyDto {
   @IsOptional()
   @IsUUID()
   referredByPartyId?: string;
+
+  @IsOptional()
+  @IsObject()
+  customJson?: Record<string, unknown>;
 }
 
 export class UpdatePartyDto {
@@ -138,4 +142,8 @@ export class UpdatePartyDto {
   @IsOptional()
   @IsUUID()
   referredByPartyId?: string;
+
+  @IsOptional()
+  @IsObject()
+  customJson?: Record<string, unknown>;
 }

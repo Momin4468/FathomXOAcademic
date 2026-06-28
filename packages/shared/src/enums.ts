@@ -158,8 +158,17 @@ export const MODULES = [
   "knowledge", // module 9 — knowledge base (docs/prompt packs/blogs) + cover-sheet templates (§7/§8)
   "checks", // module 10 — AI/plagiarism check service mini-business (§8)
   "referrers", // module 11 — referral income as a claimant leg; referrer sees own slice (§4/§8)
+  "custom_fields", // module 12 — admin-defined structured fields on records (§2 #10, §8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
+
+/** custom_field_def.field_type (SCHEMA §G, spec §2 #10). */
+export const CUSTOM_FIELD_TYPES = ["text", "number", "date", "select", "bool"] as const;
+export type CustomFieldType = (typeof CUSTOM_FIELD_TYPES)[number];
+
+/** custom_field_def.target_entity — the records that carry a custom_json (0023). */
+export const CUSTOM_FIELD_TARGETS = ["work_item", "party", "project"] as const;
+export type CustomFieldTarget = (typeof CUSTOM_FIELD_TARGETS)[number];
 
 /**
  * deal_term.basis for a referral_pct term (§4/§8). The referral agreement is a

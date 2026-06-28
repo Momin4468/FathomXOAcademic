@@ -68,6 +68,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Resit
               </Link>
             )}
+            {can(me?.permissions, "custom_fields:view") && (
+              <Link href="/custom-fields" className="text-gray-600 hover:text-gray-900">
+                Custom fields
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (

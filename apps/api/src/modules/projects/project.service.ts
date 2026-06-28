@@ -1,8 +1,9 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, type Db } from "@business-os/db";
-import { computeLineAmount, type SessionPrincipal } from "@business-os/shared";
+import { computeLineAmount, type RecordScope, type SessionPrincipal } from "@business-os/shared";
 import { and, asc, desc, eq, isNotNull, type SQL } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import type { CreateProjectDto, ListProjectsQueryDto, UpdateProjectDto } from "./dto.js";
 import { MilestoneService } from "./milestone.service.js";
 import { TemplateService } from "./template.service.js";
@@ -19,9 +20,20 @@ export class ProjectService {
     private readonly audit: AuditService,
     private readonly templates: TemplateService,
     private readonly milestones: MilestoneService,
+    private readonly customFields: CustomFieldService,
   ) {}
 
+  private projectScope(p: { clientPartyId?: string | null }): RecordScope {
+    return { clientPartyId: p.clientPartyId ?? null };
+  }
+
   async create(tx: Db, principal: SessionPrincipal, dto: CreateProjectDto) {
+    const customJson = await this.customFields.validateValues(
+      tx,
+      "project",
+      this.projectScope({ clientPartyId: dto.clientPartyId }),
+      dto.customJson,
+    );
     const [project] = await tx
       .insert(schema.project)
       .values({
@@ -31,6 +43,7 @@ export class ProjectService {
         templateId: dto.templateId ?? null,
         estimateAmount: dto.estimateAmount != null ? String(dto.estimateAmount) : null,
         status: dto.status ?? "active",
+        customJson,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })
@@ -131,7 +144,13 @@ export class ProjectService {
       .where(eq(schema.workItem.projectId, id))
       .orderBy(asc(schema.workItem.createdAt));
 
-    const base = { project: this.redact(project, canSeeMoney), milestones, children };
+    const customFields = await this.customFields.describeForRecord(
+      tx,
+      "project",
+      this.projectScope(project),
+      (project as { customJson?: Record<string, unknown> | null }).customJson ?? null,
+    );
+    const base = { project: this.redact(project, canSeeMoney), milestones, children, customFields };
     if (!canSeeMoney) return base;
 
     // ACTUAL = Σ over billable children of Σ their consumer-line client amounts.
@@ -165,12 +184,24 @@ export class ProjectService {
   }
 
   async update(tx: Db, principal: SessionPrincipal, id: string, dto: UpdateProjectDto, canSeeMoney: boolean) {
-    await this.getRaw(tx, id);
+    const existing = await this.getRaw(tx, id);
     const patch: Record<string, unknown> = { updatedBy: principal.userId, updatedAt: new Date() };
     if (dto.title !== undefined) patch.title = dto.title.trim();
     if (dto.clientPartyId !== undefined) patch.clientPartyId = dto.clientPartyId;
     if (dto.estimateAmount !== undefined) patch.estimateAmount = String(dto.estimateAmount);
     if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.customJson !== undefined) {
+      const validated = await this.customFields.validateValues(
+        tx,
+        "project",
+        this.projectScope({ clientPartyId: dto.clientPartyId ?? existing.clientPartyId }),
+        dto.customJson,
+      );
+      patch.customJson = {
+        ...((existing as { customJson?: Record<string, unknown> | null }).customJson ?? {}),
+        ...validated,
+      };
+    }
     const [row] = await tx.update(schema.project).set(patch).where(eq(schema.project.id, id)).returning();
     await this.audit.record(tx, principal.orgId, {
       actorUserId: principal.userId,
@@ -191,6 +222,13 @@ export class ProjectService {
     if (!canApprove) throw new ForbiddenException("Completing a project requires work:approve");
     const project = await this.getRaw(tx, id);
     if (project.status === "completed") throw new ConflictException("Project is already completed");
+    // Hard gate: required custom fields must be complete to firm the engagement.
+    await this.customFields.assertRequiredComplete(
+      tx,
+      "project",
+      this.projectScope(project),
+      (project as { customJson?: Record<string, unknown> | null }).customJson ?? null,
+    );
     const [row] = await tx
       .update(schema.project)
       .set({

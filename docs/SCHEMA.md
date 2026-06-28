@@ -349,13 +349,19 @@ create table expense (
 create table custom_field_def (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references org(id),
-  target_entity text not null,       -- work_item | party | project | ...
+  target_entity text not null,       -- work_item | party | project
   field_name text not null,
   field_type text not null,          -- text|number|date|select|bool
-  options_json jsonb,
-  scope_json jsonb default '{}',      -- global, or by type/uni/client
-  created_by uuid
+  options_json jsonb,                 -- select only: dropdown options (string[])
+  scope_json jsonb not null default '{}', -- global ({}), or by client/uni/type
+  required boolean not null default false,   -- 0023
+  sort int not null default 0,               -- 0023
+  created_by uuid, created_at timestamptz not null default now(),  -- 0023
+  updated_by uuid, updated_at timestamptz not null default now(),  -- 0023
+  archived_at timestamptz            -- archive (not delete) to keep stored values; 0023
 );
+-- Values live in the target's custom_json (work_item/party/project all carry it),
+-- keyed by the def id. Validated against this catalog at the API boundary (0023).
 
 create table file_object (
   id uuid primary key default gen_random_uuid(),
