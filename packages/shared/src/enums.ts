@@ -164,6 +164,7 @@ export const MODULES = [
   "referrers", // module 11 — referral income as a claimant leg; referrer sees own slice (§4/§8)
   "custom_fields", // module 12 — admin-defined structured fields on records (§2 #10, §8)
   "dashboard", // module 13 — role-scoped "my numbers" + owner analytics (§8, §10)
+  "personal_finance", // module 14 — the SEPARATE, sellable personal-finance plane (§11)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
@@ -195,3 +196,41 @@ export type KnowledgeType = (typeof KNOWLEDGE_TYPES)[number];
 /** credential_vault_item.type — what kind of login an item holds (§8). */
 export const CREDENTIAL_TYPES = ["portal", "google", "github", "aws", "tool", "other"] as const;
 export type CredentialType = (typeof CREDENTIAL_TYPES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
+// Personal Finance plane (§11) — a SEPARATE, independently-sellable service.
+// Categories are USER-DEFINED data (these are only the kind tags + seeded defaults
+// the UI suggests); enums below are the small fixed dimensions of the model.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** pf_category.kind — a user-defined category is for income or expense. */
+export const PF_CATEGORY_KINDS = ["income", "expense"] as const;
+export type PfCategoryKind = (typeof PF_CATEGORY_KINDS)[number];
+
+/** pf_income.source — where an income row came from (business_payout = via the one-way bridge). */
+export const PF_INCOME_SOURCES = ["manual", "business_payout"] as const;
+export type PfIncomeSource = (typeof PF_INCOME_SOURCES)[number];
+
+/** pf_loan.direction — money the user GAVE out vs TOOK on. */
+export const PF_LOAN_DIRECTIONS = ["given", "taken"] as const;
+export type PfLoanDirection = (typeof PF_LOAN_DIRECTIONS)[number];
+
+/** pf_loan_event.kind — movements against a loan (outstanding is derived). */
+export const PF_LOAN_EVENT_KINDS = ["repayment", "disbursement", "adjustment"] as const;
+export type PfLoanEventKind = (typeof PF_LOAN_EVENT_KINDS)[number];
+
+/** pf_saving_event.kind — movements in a savings pot (balance is derived). */
+export const PF_SAVING_EVENT_KINDS = ["deposit", "withdraw"] as const;
+export type PfSavingEventKind = (typeof PF_SAVING_EVENT_KINDS)[number];
+
+/** pf_target.kind — a budget cap, an income goal, or a savings target (progress derived). */
+export const PF_TARGET_KINDS = ["budget_cap", "income_goal", "savings_target"] as const;
+export type PfTargetKind = (typeof PF_TARGET_KINDS)[number];
+
+/** pf_target.period — the window a target measures over. */
+export const PF_TARGET_PERIODS = ["month", "year"] as const;
+export type PfTargetPeriod = (typeof PF_TARGET_PERIODS)[number];
+
+/** Seeded default categories on PF account creation (user can add/rename/archive freely). */
+export const PF_DEFAULT_INCOME_CATEGORIES = ["Salary", "Freelance", "Business payout", "Gift", "Other"] as const;
+export const PF_DEFAULT_EXPENSE_CATEGORIES = ["Food", "Rent", "Transport", "Bills", "Shopping", "Health", "Other"] as const;

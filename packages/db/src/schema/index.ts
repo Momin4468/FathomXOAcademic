@@ -16,3 +16,4 @@ export * from "./l-credential-vault.js";
 export * from "./m-knowledge.js";
 export * from "./n-checks.js";
 export * from "./o-custom-fields.js";
+export * from "./p-personal.js";

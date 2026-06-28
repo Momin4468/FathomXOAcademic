@@ -3,6 +3,7 @@ export {
   createPool,
   createDb,
   withRlsTransaction,
+  withPfRlsTransaction,
   sql,
   type Db,
 } from "./client.js";

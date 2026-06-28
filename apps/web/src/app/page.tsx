@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ApiError, useApi } from "@/lib/api";
 import { can, type DashboardData, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { PersonalFinanceConnectCard } from "@/components/PersonalFinanceConnectCard";
 import { WorkList } from "@/components/WorkList";
 import { PartyName } from "@/components/PartyName";
 import { Button, Card, EmptyState, ErrorNote, Money, Spinner } from "@/components/ui";
@@ -115,6 +116,10 @@ export default function HomePage() {
           </div>
         </Card>
       )}
+
+      {/* Connect to the separate Personal Finance plane — only a party-linked user
+          has an income stream to connect (§11). */}
+      {me?.party && <PersonalFinanceConnectCard />}
 
       {me && (
         <div className="space-y-6">

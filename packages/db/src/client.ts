@@ -1,7 +1,7 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import pg from "pg";
-import type { RlsContext } from "@business-os/shared";
+import type { PfRlsContext, RlsContext } from "@business-os/shared";
 import * as schema from "./schema/index.js";
 
 export { schema };
@@ -41,6 +41,45 @@ export async function withRlsTransaction<T>(
         "set_config('app.current_party_id', $2, true), " +
         "set_config('app.is_superadmin', $3, true)",
       [ctx.orgId, ctx.partyId ?? "", ctx.isSuperadmin ? "true" : "false"],
+    );
+    const tx = drizzle(client, { schema });
+    const result = await fn(tx);
+    await client.query("commit");
+    return result;
+  } catch (err) {
+    await client.query("rollback").catch(() => undefined);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * THE PERSONAL-FINANCE ACCESS LAYER (§11). The PF plane is a separate tenancy
+ * domain scoped by `app.pf_account_id` (its analogue of org_id). This sets ONLY
+ * the pf GUC and explicitly BLANKS the business GUCs, so:
+ *   • pf_* RLS (using pf_account_id = app_current_pf_account()) binds to this
+ *     account and no other — one account can never read another's rows; AND
+ *   • a business transaction (which never sets app.pf_account_id) reads zero
+ *     pf_* rows, SuperAdmin included — the two planes are disjoint at the DB.
+ * Same non-owner app role as the business layer, so RLS actually binds.
+ */
+export async function withPfRlsTransaction<T>(
+  pool: pg.Pool,
+  ctx: PfRlsContext,
+  fn: (tx: Db) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("begin");
+    // Set the pf scope AND blank the business scope (defensive — GUCs are tx-local
+    // anyway, but this makes the plane boundary explicit on every pf transaction).
+    await client.query(
+      "select set_config('app.pf_account_id', $1, true), " +
+        "set_config('app.org_id', '', true), " +
+        "set_config('app.current_party_id', '', true), " +
+        "set_config('app.is_superadmin', 'false', true)",
+      [ctx.pfAccountId],
     );
     const tx = drizzle(client, { schema });
     const result = await fn(tx);

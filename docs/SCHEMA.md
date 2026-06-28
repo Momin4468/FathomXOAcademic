@@ -418,8 +418,19 @@ create table work_outcome (
 - **`service_sale`** — AI/plagiarism check sales (units sold/paid/checked) + credit-consumption against vault accounts (§8).
 - **`clock_pref`** — per-user timezones for the world-clock/urgency display (§8).
 - **`settlement`** / **`partner_transfer`** — Emon↔Momin running balance + dated transfers (derived from legs + transfers) (§4.4).
-- **Personal Finance service (separate identity + DB):** `pf_account`, `pf_income` (fed by one-way API from business payouts), `pf_expense`, `pf_loan`, `pf_saving`, `pf_target`. **Linked-but-separate from `user_account`; business cannot read it** (§11).
+- **Personal Finance service** — ✅ BUILT (migration 0027, module 14 `personal_finance`). See **§PF** below.
 - **Phase 4 (productize):** tenant provisioning, per-module licensing/entitlement, subscription billing.
+
+## PF. Personal Finance plane (BUILT · migration 0027, §11)
+
+A SEPARATE, independently-sellable service sharing this DB but designed as its own plane (physical split later = a swap). **Its own identity** (`pf_account`, separate credentials), **its own data** (`pf_*`), joined to the business by ONE seam: a one-way income bridge.
+
+- **Tenancy axis = `pf_account_id`** (the PF analogue of `org_id`; PF tables carry NO `org_id` — a standalone user has no org). New GUC `app.pf_account_id` + accessor `app_current_pf_account()`. The app access layer is `DbService.withPfAccount` (sets only the pf GUC, blanks the business GUCs).
+- **RLS:** every `pf_*` table is `enable+force` RLS with `pf_account_isolation using (pf_account_id = app_current_pf_account())`. `pf_account` is keyed on `id`. **These policies deliberately do NOT honor `app_is_superadmin`** — the business (SuperAdmin included) sets no `app.pf_account_id` and reads ZERO pf rows. That is the structural privacy guarantee.
+- **Tables:** `pf_account` (email/password_hash/twofa_secret/status/base_currency/`linked_party_id` soft link, unique where not null) · `pf_refresh_token` (rotating) · `pf_category` (user-defined income|expense) · `pf_income` / `pf_expense` (amount + currency recorded no-FX + optional converted_amount; append-only `reverses_id`; `pf_income` also source/source_ref/source_party_id, unique `(pf_account_id, source_ref)`) · `pf_loan` + `pf_loan_event` (outstanding DERIVED) · `pf_saving` + `pf_saving_event` (balance DERIVED) · `pf_target` (budget_cap|income_goal|savings_target; progress DERIVED at read) · `pf_subscription` (next_due_date/last_reminded_due; 3-days-before email via the shared EmailService) · `pf_audit_log` (pf-account-scoped) · `pf_link_token` (RLS on, no policy/grant — definer-only).
+- **SECURITY DEFINER functions (the sanctioned bypasses):** `pf_auth_lookup` (login), `pf_register` (self-service + seeds default categories), `pf_push_income` (the one-way bridge write — returns void, idempotent on source_ref), `pf_mint_link_token` (business mints for its own party, org-checked), `pf_consume_link_token` (PF consumes: sets linked_party_id + backfills past payouts), `pf_reminder_account_ids` (ids-only cron enumerator).
+- **Income bridge:** `payment.service.allocate()`/`reverse()` (direction `out` + writer party) call `IncomeBridgePort` → `pf_push_income` in the business tx; never reads PF back; reversal = negative mirror (nets to zero). Append-only + derived-not-stored preserved; `guard:no-stored-profit` passes.
+- New shared enums: `PF_CATEGORY_KINDS`, `PF_INCOME_SOURCES`, `PF_LOAN_DIRECTIONS`, `PF_LOAN_EVENT_KINDS`, `PF_SAVING_EVENT_KINDS`, `PF_TARGET_KINDS`, `PF_TARGET_PERIODS` (+ `PfPrincipal`/`PfRlsContext` types, `GUC.pfAccountId`).
 
 ---
 

@@ -26,4 +26,18 @@ export const GUC = {
   orgId: "app.org_id",
   partyId: "app.current_party_id",
   isSuperadmin: "app.is_superadmin",
+  /** The PERSONAL-FINANCE plane scope (§11). Disjoint from the business GUCs:
+   *  a business transaction never sets it, so the business — even SuperAdmin —
+   *  reads zero pf_* rows. A pf transaction sets ONLY this (business GUCs empty). */
+  pfAccountId: "app.pf_account_id",
 } as const;
+
+/**
+ * The per-request scope for the PERSONAL-FINANCE plane (§11). The PF plane's
+ * tenant unit is the ACCOUNT itself (a standalone PF user has no org), so this is
+ * the PF analogue of RlsContext.orgId. Set as `app.pf_account_id`; pf_* RLS
+ * policies filter every row by it and do NOT honor the business superadmin GUC.
+ */
+export interface PfRlsContext {
+  pfAccountId: string;
+}

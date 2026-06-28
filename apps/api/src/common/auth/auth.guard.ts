@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import type { SessionPrincipal } from "@business-os/shared";
+import { IS_PF_KEY } from "./pf-route.decorator.js";
 import { IS_PUBLIC_KEY } from "./public.decorator.js";
 import { TokenService } from "./token.service.js";
 
@@ -29,6 +30,14 @@ export class AuthGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) return true;
+
+    // Personal-finance routes are authenticated by their own PfAuthGuard with a
+    // PF token — the business guard yields so a business token can't reach them.
+    const isPf = this.reflector.getAllAndOverride<boolean>(IS_PF_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPf) return true;
 
     const req = context
       .switchToHttp()

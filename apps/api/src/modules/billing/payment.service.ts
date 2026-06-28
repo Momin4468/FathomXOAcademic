@@ -1,14 +1,19 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
 import { sumAmounts, type SessionPrincipal } from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { INCOME_BRIDGE, type IncomeBridgePort } from "./income-bridge/income-bridge.port.js";
 import { recomputeMoneyState, workItemForInvoiceLine } from "./money-state.js";
 import type { AllocateDto, RecordPaymentDto } from "./dto.js";
 
 @Injectable()
 export class PaymentService {
-  constructor(private readonly audit: AuditService) {}
+  constructor(
+    private readonly audit: AuditService,
+    @Inject(INCOME_BRIDGE) private readonly incomeBridge: IncomeBridgePort,
+  ) {}
 
   /** A payment is an EVENT (append-only). Allocation (the link) comes next. */
   async recordPayment(tx: Db, principal: SessionPrincipal, dto: RecordPaymentDto) {
@@ -107,7 +112,9 @@ export class PaymentService {
 
     const affectedJobs = new Set<string>();
     for (const item of dto.items) {
+      const allocationId = randomUUID();
       await tx.insert(schema.paymentAllocation).values({
+        id: allocationId,
         orgId: principal.orgId,
         paymentId,
         invoiceLineId: item.invoiceLineId ?? null,
@@ -115,6 +122,18 @@ export class PaymentService {
         chargeId: item.chargeId ?? null,
         amount: String(item.amount),
       });
+      // One-way income bridge (§11): a payout (direction 'out') allocated to a
+      // writer pushes an income row into that person's PF plane — if they've
+      // linked one. Idempotent on the allocation id; we never read PF back.
+      if (payment.direction === "out" && item.writerPartyId) {
+        await this.incomeBridge.pushPayout(tx, {
+          partyId: item.writerPartyId,
+          amount: item.amount,
+          currency: "BDT",
+          occurredOn: payment.paidAt,
+          sourceRef: allocationId,
+        });
+      }
       if (item.invoiceLineId) {
         const wi = await workItemForInvoiceLine(tx, item.invoiceLineId);
         if (wi) affectedJobs.add(wi);
@@ -175,7 +194,9 @@ export class PaymentService {
       .where(eq(schema.paymentAllocation.paymentId, paymentId));
     const affectedJobs = new Set<string>();
     for (const a of allocs) {
+      const revAllocId = randomUUID();
       await tx.insert(schema.paymentAllocation).values({
+        id: revAllocId,
         orgId: principal.orgId,
         paymentId: rev!.id,
         invoiceLineId: a.invoiceLineId,
@@ -183,6 +204,17 @@ export class PaymentService {
         chargeId: a.chargeId,
         amount: String(-Number(a.amount)),
       });
+      // Mirror the income push as a NEGATIVE row so the PF plane nets to zero when
+      // a payout is reversed (its own source_ref → append-only, idempotent).
+      if (orig.direction === "out" && a.writerPartyId) {
+        await this.incomeBridge.pushPayout(tx, {
+          partyId: a.writerPartyId,
+          amount: -Number(a.amount),
+          currency: "BDT",
+          occurredOn: orig.paidAt,
+          sourceRef: revAllocId,
+        });
+      }
       if (a.invoiceLineId) {
         const wi = await workItemForInvoiceLine(tx, a.invoiceLineId);
         if (wi) affectedJobs.add(wi);

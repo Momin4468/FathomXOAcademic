@@ -19,3 +19,13 @@ export const BUSINESS_SUPERADMIN_ROLE = "Business SuperAdmin";
 /** Access-token lifetime and the sliding refresh window (auth policy). */
 export const ACCESS_TOKEN_TTL = "30m";
 export const REFRESH_TOKEN_TTL_DAYS = 10;
+
+/**
+ * The authenticated identity for the PERSONAL-FINANCE plane (§11). Entirely
+ * separate from SessionPrincipal: a PF account has its OWN credentials and is the
+ * sole admin of its own plane. Its tokens carry a distinct `typ` so a business
+ * token can never authenticate a PF request and vice versa.
+ */
+export interface PfPrincipal {
+  pfAccountId: string;
+}

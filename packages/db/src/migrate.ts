@@ -28,6 +28,7 @@ const SCHEMA_MIGRATIONS = [
   "0024_dashboards.sql",
   "0025_hardening.sql",
   "0026_subscription_reminders.sql",
+  "0027_personal_finance.sql",
 ];
 
 async function main() {
