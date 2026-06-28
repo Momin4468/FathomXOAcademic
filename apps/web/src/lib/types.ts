@@ -242,4 +242,47 @@ export interface UniversityHub {
   coverSheets: CoverSheet[];
 }
 
+// ─── Check service (Module 10) ────────────────────────────────────────────────
+export interface CheckChannel {
+  id: string;
+  label: string;
+  employeePartyId: string;
+  active: boolean;
+}
+
+export interface CheckToolAccount {
+  id: string;
+  label: string;
+  vaultItemId: string | null;
+  active: boolean;
+  credit?: { purchased: number; consumed: number; remaining: number; spend: number; costPerCredit: number };
+}
+
+export interface CheckBatchRow {
+  id: string;
+  channelId: string;
+  channelLabel: string;
+  toolAccountId: string | null;
+  periodDate: string;
+  filesChecked: number;
+  filesPaid: number;
+  amountCollected: string;
+  customerPartyId: string | null;
+  workItemId: string | null;
+  status: string;
+  note: string | null;
+  recordedBy: string | null;
+  confirmedBy: string | null;
+}
+
+export interface CheckPnl {
+  revenue: number;
+  accountCost: number;
+  workerComp: number;
+  net: number;
+  filesChecked: number;
+  filesPaid: number;
+  marginPerCheck: number | null;
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

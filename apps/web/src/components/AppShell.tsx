@@ -48,6 +48,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Cover sheets
               </Link>
             )}
+            {can(me?.permissions, "checks:view") && (
+              <Link href="/checks" className="text-gray-600 hover:text-gray-900">
+                Checks
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (

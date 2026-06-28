@@ -160,6 +160,8 @@ export function StateBadge({ state }: { state: string }) {
       unbilled: "gray", invoiced: "amber", partial: "amber", settled: "green",
       // invoice status
       open: "gray", sent: "blue", paid: "green", void: "red",
+      // check-batch status (proposed claim → confirmed)
+      proposed: "amber",
     }[state] ?? "gray";
   return <Badge tone={tone}>{state}</Badge>;
 }

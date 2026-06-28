@@ -156,8 +156,13 @@ export const MODULES = [
   "outcomes", // module 7 — per-work outcomes + derived reputation + writer capacity (§8)
   "credential_vault", // module 8 — encrypted tool/portal credentials + per-item sharing (§8)
   "knowledge", // module 9 — knowledge base (docs/prompt packs/blogs) + cover-sheet templates (§7/§8)
+  "checks", // module 10 — AI/plagiarism check service mini-business (§8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
+
+/** check_batch.status — claim→confirm governance (§8). */
+export const CHECK_BATCH_STATES = ["proposed", "confirmed"] as const;
+export type CheckBatchState = (typeof CHECK_BATCH_STATES)[number];
 
 /** knowledge_article.type — docs / prompt packs / blogs (§8). */
 export const KNOWLEDGE_TYPES = ["doc", "prompt_pack", "blog"] as const;
