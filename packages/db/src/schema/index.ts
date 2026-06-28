@@ -13,3 +13,4 @@ export * from "./i-tasks.js";
 export * from "./j-settlement.js";
 export * from "./k-outcomes.js";
 export * from "./l-credential-vault.js";
+export * from "./m-knowledge.js";

@@ -126,7 +126,7 @@ export const TASK_STATES = ["open", "done", "cancelled"] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
 /** file_object.kind — small evidentiary files; large files are links (SCHEMA G, spec §1). */
-export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "other"] as const;
+export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "knowledge", "cover_sheet", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 /** work_outcome.revision_fault — whose fault a revision was (§8, SCHEMA G). */
@@ -155,8 +155,13 @@ export const MODULES = [
   "expenses", // module 6
   "outcomes", // module 7 — per-work outcomes + derived reputation + writer capacity (§8)
   "credential_vault", // module 8 — encrypted tool/portal credentials + per-item sharing (§8)
+  "knowledge", // module 9 — knowledge base (docs/prompt packs/blogs) + cover-sheet templates (§7/§8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
+
+/** knowledge_article.type — docs / prompt packs / blogs (§8). */
+export const KNOWLEDGE_TYPES = ["doc", "prompt_pack", "blog"] as const;
+export type KnowledgeType = (typeof KNOWLEDGE_TYPES)[number];
 
 /** credential_vault_item.type — what kind of login an item holds (§8). */
 export const CREDENTIAL_TYPES = ["portal", "google", "github", "aws", "tool", "other"] as const;

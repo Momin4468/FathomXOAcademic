@@ -8,6 +8,8 @@ import { BillingModule } from "./modules/billing/billing.module.js";
 import { ExpenseModule } from "./modules/expense/expense.module.js";
 import { OutcomesModule } from "./modules/outcomes/outcomes.module.js";
 import { CredentialVaultModule } from "./modules/credential-vault/credential-vault.module.js";
+import { FilesModule } from "./modules/files/files.module.js";
+import { KnowledgeModule } from "./modules/knowledge/knowledge.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { SettlementModule } from "./modules/settlement/settlement.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
@@ -26,6 +28,8 @@ import { WorkModule } from "./modules/work/work.module.js";
     AuditModule,
     AuthModule,
     PlatformModule,
+    FilesModule, // core plumbing (file pipeline) — always on, reused across modules
+
     ...(isModuleEnabled("reference") ? [ReferenceModule] : []),
     ...(isModuleEnabled("work") ? [WorkModule, ProjectsModule] : []),
     ...(isModuleEnabled("rules") ? [RulesModule] : []),
@@ -34,6 +38,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("capture") ? [TaskModule] : []),
     ...(isModuleEnabled("outcomes") ? [OutcomesModule] : []),
     ...(isModuleEnabled("credential_vault") ? [CredentialVaultModule] : []),
+    ...(isModuleEnabled("knowledge") ? [KnowledgeModule] : []),
   ],
 })
 export class AppModule {}

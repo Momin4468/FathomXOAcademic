@@ -185,4 +185,61 @@ export interface Balance {
   net?: number;
 }
 
+// ─── Files + knowledge base (Module 9) ────────────────────────────────────────
+export interface FileMeta {
+  id: string;
+  kind: string;
+  isLink: boolean;
+  filename: string | null;
+  mime: string | null;
+  sizeBytes: number | null;
+  url: string | null; // present only for links; stored files download via /api/files/:id
+  createdAt?: string;
+}
+
+export interface KnowledgeArticleRow {
+  id: string;
+  type: string;
+  title: string;
+  universityRefId: string | null;
+  programmeRefId: string | null;
+  status: string;
+  updatedAt: string;
+}
+
+export interface KnowledgeArticle extends KnowledgeArticleRow {
+  body: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface ArticleDetail {
+  article: KnowledgeArticle;
+  attachments: FileMeta[];
+}
+
+export interface CoverSheet {
+  id: string;
+  name: string;
+  universityRefId: string | null;
+  programmeRefId: string | null;
+  fileObjectId: string | null;
+  notes: string | null;
+  updatedAt: string;
+}
+
+export interface RefLite {
+  id: string;
+  kind: string;
+  canonical: string;
+}
+
+export interface UniversityHub {
+  university: RefLite;
+  programmes: RefLite[];
+  referencingStyles: RefLite[];
+  articles: KnowledgeArticleRow[];
+  coverSheets: CoverSheet[];
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);
