@@ -154,5 +154,10 @@ export const MODULES = [
   "billing", // module 5
   "expenses", // module 6
   "outcomes", // module 7 — per-work outcomes + derived reputation + writer capacity (§8)
+  "credential_vault", // module 8 — encrypted tool/portal credentials + per-item sharing (§8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
+
+/** credential_vault_item.type — what kind of login an item holds (§8). */
+export const CREDENTIAL_TYPES = ["portal", "google", "github", "aws", "tool", "other"] as const;
+export type CredentialType = (typeof CREDENTIAL_TYPES)[number];

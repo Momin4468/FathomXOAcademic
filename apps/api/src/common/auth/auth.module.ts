@@ -45,6 +45,6 @@ import { TotpService } from "./totp.service.js";
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
   ],
-  exports: [AuthService, TokenService, PermissionService, PasswordService],
+  exports: [AuthService, TokenService, PermissionService, PasswordService, TotpService],
 })
 export class AuthModule {}

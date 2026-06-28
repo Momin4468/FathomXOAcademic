@@ -19,6 +19,7 @@ const SCHEMA_MIGRATIONS = [
   "0015_settlement.sql",
   "0016_platform_fee_unique.sql",
   "0017_outcomes.sql",
+  "0018_credential_vault.sql",
 ];
 
 async function main() {
