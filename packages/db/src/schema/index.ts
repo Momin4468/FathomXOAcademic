@@ -11,3 +11,4 @@ export * from "./g-crosscutting.js";
 export * from "./h-auth.js";
 export * from "./i-tasks.js";
 export * from "./j-settlement.js";
+export * from "./k-outcomes.js";

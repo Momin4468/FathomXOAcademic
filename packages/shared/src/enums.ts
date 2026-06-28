@@ -129,6 +129,18 @@ export type TaskState = (typeof TASK_STATES)[number];
 export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
+/** work_outcome.revision_fault — whose fault a revision was (§8, SCHEMA G). */
+export const REVISION_FAULTS = ["writer", "brief_change", "client"] as const;
+export type RevisionFault = (typeof REVISION_FAULTS)[number];
+
+/** work_outcome.satisfaction — coarse client satisfaction (§8). */
+export const SATISFACTION_LEVELS = ["high", "neutral", "low"] as const;
+export type SatisfactionLevel = (typeof SATISFACTION_LEVELS)[number];
+
+/** party.availability — the writer-capacity surface (§8; load is derived). */
+export const AVAILABILITY_STATES = ["available", "limited", "unavailable"] as const;
+export type AvailabilityState = (typeof AVAILABILITY_STATES)[number];
+
 /**
  * Module keys for the feature-flag registry (spec §11/§12, CLAUDE.md §2/§5).
  * Each NestJS module is gated by one of these.
@@ -141,5 +153,6 @@ export const MODULES = [
   "capture", // module 4
   "billing", // module 5
   "expenses", // module 6
+  "outcomes", // module 7 — per-work outcomes + derived reputation + writer capacity (§8)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];

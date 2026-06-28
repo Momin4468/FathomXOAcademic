@@ -6,6 +6,7 @@ import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
 import { BillingModule } from "./modules/billing/billing.module.js";
 import { ExpenseModule } from "./modules/expense/expense.module.js";
+import { OutcomesModule } from "./modules/outcomes/outcomes.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { SettlementModule } from "./modules/settlement/settlement.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
@@ -30,6 +31,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("billing") ? [BillingModule, SettlementModule] : []),
     ...(isModuleEnabled("expenses") ? [ExpenseModule] : []),
     ...(isModuleEnabled("capture") ? [TaskModule] : []),
+    ...(isModuleEnabled("outcomes") ? [OutcomesModule] : []),
   ],
 })
 export class AppModule {}

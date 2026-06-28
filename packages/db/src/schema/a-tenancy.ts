@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -29,6 +30,8 @@ export const party = pgTable("party", {
   programme: text("programme"),
   contactJson: jsonb("contact_json").default({}),
   expertiseTags: text("expertise_tags").array().default([]),
+  availability: text("availability").notNull().default("available"), // available | limited | unavailable
+  maxConcurrent: integer("max_concurrent"), // optional capacity; load is derived
   notes: text("notes"),
   referredByPartyId: uuid("referred_by_party_id"), // directory "referred-by" (self-ref)
   createdBy: uuid("created_by"),

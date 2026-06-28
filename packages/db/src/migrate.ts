@@ -18,6 +18,7 @@ const SCHEMA_MIGRATIONS = [
   "0014_projects.sql",
   "0015_settlement.sql",
   "0016_platform_fee_unique.sql",
+  "0017_outcomes.sql",
 ];
 
 async function main() {
