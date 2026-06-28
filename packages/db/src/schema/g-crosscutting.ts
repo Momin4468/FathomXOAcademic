@@ -38,6 +38,11 @@ export const expense = pgTable("expense", {
   revenueLinkId: uuid("revenue_link_id"),
   receiptFileId: uuid("receipt_file_id"),
   note: text("note"),
+  // Subscription/recurring (0026): next payment date + currency (recorded, no FX);
+  // last_reminded_due makes the 3-day-before email idempotent per due-date.
+  nextDueDate: date("next_due_date"),
+  currency: text("currency"), // BDT (default) | USD | GBP | EUR | AUD
+  lastRemindedDue: date("last_reminded_due"),
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

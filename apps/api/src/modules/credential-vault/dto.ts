@@ -1,6 +1,10 @@
 import { IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from "class-validator";
 import { CREDENTIAL_TYPES, type CredentialType } from "@business-os/shared";
 
+export class ListVaultQueryDto {
+  @IsOptional() @IsUUID() clientPartyId?: string;
+}
+
 export class CreateCredentialDto {
   @IsString() @MinLength(1) @MaxLength(200) name!: string;
   @IsIn(CREDENTIAL_TYPES) type!: CredentialType;

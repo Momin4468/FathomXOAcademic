@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
+import { ScheduleModule } from "@nestjs/schedule";
 import { AuditModule } from "./common/audit/audit.module.js";
 import { AuthModule } from "./common/auth/auth.module.js";
 import { CryptoModule } from "./common/crypto/crypto.module.js";
+import { EmailModule } from "./common/email/email.module.js";
 import { DbModule } from "./common/db/db.module.js";
 import { isModuleEnabled } from "./feature-flags.js";
 import { PlatformModule } from "./modules/platform/platform.module.js";
@@ -29,9 +31,11 @@ import { WorkModule } from "./modules/work/work.module.js";
  */
 @Module({
   imports: [
+    ScheduleModule.forRoot(), // in-process cron (subscription reminders)
     DbModule,
     AuditModule,
     CryptoModule, // global AES-GCM (vault + 2FA-at-rest); VAULT_ENCRYPTION_KEY required at boot
+    EmailModule, // global swappable email sender (reminders; dev adapter by default)
     AuthModule,
     PlatformModule,
     FilesModule, // core plumbing (file pipeline) — always on, reused across modules

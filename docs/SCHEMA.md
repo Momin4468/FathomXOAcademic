@@ -334,6 +334,7 @@ create table expense (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references org(id),
   category text not null,            -- subscription | salary | promo | loss | event | other
+  -- subscription (0026): next_due_date date, currency text (BDT|USD|GBP|EUR|AUD, recorded no FX), last_reminded_due date (3-day reminder idempotency)
   amount numeric(14,2) not null,
   incurred_at date not null,
   cost_bearer text not null,         -- momin | emon | split | writer
@@ -363,6 +364,7 @@ create table custom_field_def (
 -- Values live in the target's custom_json (work_item/party/project all carry it),
 -- keyed by the def id. Validated against this catalog at the API boundary (0023).
 
+-- Reminders (0026): reminder_org_ids() (org ids only) lets the daily reminder cron enumerate tenants and run per-org under RLS; expense gains next_due_date/currency/last_reminded_due. EmailService is app-layer (swappable), not a DB object.
 -- Hardening (0025): file_owner_context() resolves a file's owner (brief/proof/receipt) for the kind-aware download ACL; settlement_legs() now nets from=null business costs (referral) out of the pool before the partner split. No table changes.
 -- Role-scoped dashboards (0024, §8/§10): NO new tables. Two aggregate-only
 -- SECURITY DEFINER read-models — dashboard_writer_pnl() (profit-per-writer =

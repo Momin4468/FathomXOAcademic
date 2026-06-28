@@ -10,7 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex items-center gap-4 overflow-x-auto whitespace-nowrap text-sm">
             <Link href="/" className="font-semibold tracking-tight">
               Business OS
             </Link>
@@ -27,6 +27,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {can(me?.permissions, "billing:view") && (
               <Link href="/payments" className="text-gray-600 hover:text-gray-900">
                 Payments
+              </Link>
+            )}
+            {can(me?.permissions, "billing:view") && (
+              <Link href="/settlement" className="text-gray-600 hover:text-gray-900">
+                Settlement
+              </Link>
+            )}
+            {can(me?.permissions, "reference:view") && (
+              <Link href="/clients" className="text-gray-600 hover:text-gray-900">
+                Clients
+              </Link>
+            )}
+            {can(me?.permissions, "credential_vault:view") && (
+              <Link href="/vault" className="text-gray-600 hover:text-gray-900">
+                Vault
+              </Link>
+            )}
+            {can(me?.permissions, "outcomes:view") && (
+              <Link href="/outcomes" className="text-gray-600 hover:text-gray-900">
+                Outcomes
               </Link>
             )}
             {can(me?.permissions, "expenses:view") && (

@@ -1,10 +1,10 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
 import type { RlsContext, SessionPrincipal } from "@business-os/shared";
 import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.js";
 import { RequirePermission } from "../../common/authz/require-permission.decorator.js";
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
-import { CreateCredentialDto, GrantShareDto, RevealDto, UpdateCredentialDto } from "./dto.js";
+import { CreateCredentialDto, GrantShareDto, ListVaultQueryDto, RevealDto, UpdateCredentialDto } from "./dto.js";
 import { CredentialVaultService } from "./credential-vault.service.js";
 
 /**
@@ -21,8 +21,8 @@ export class CredentialVaultController {
 
   @Get("items")
   @RequirePermission("credential_vault", "view")
-  listMine(@CurrentRls() ctx: RlsContext) {
-    return this.db.withTenant(ctx, (tx) => this.vault.listMine(tx));
+  listMine(@CurrentRls() ctx: RlsContext, @Query() q: ListVaultQueryDto) {
+    return this.db.withTenant(ctx, (tx) => this.vault.listMine(tx, q.clientPartyId));
   }
 
   @Post("items")

@@ -20,6 +20,7 @@ import {
 
 const CATEGORIES = ["subscription", "salary", "promo", "loss", "event", "other"];
 const COST_BEARERS = ["momin", "emon", "split", "writer"];
+const CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"];
 
 export default function ExpensesPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
@@ -34,11 +35,25 @@ export default function ExpensesPage() {
     splitEmon: "50",
     campaignTag: "",
     note: "",
+    nextDueDate: "",
+    currency: "BDT",
   });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [reminderMsg, setReminderMsg] = useState("");
 
   const canCreate = can(me?.permissions, "expenses:create");
+  const canApprove = can(me?.permissions, "expenses:approve");
+
+  async function runReminders() {
+    setReminderMsg("");
+    try {
+      const r = await apiSend<{ sent: number }>("expenses/reminders/run", "POST");
+      setReminderMsg(`Reminders sent: ${r.sent}`);
+    } catch (err) {
+      setReminderMsg(err instanceof Error ? err.message : "Could not run reminders");
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,9 +71,11 @@ export default function ExpensesPage() {
             : undefined,
         campaignTag: form.category === "promo" && form.campaignTag ? form.campaignTag : undefined,
         note: form.note || undefined,
+        nextDueDate: form.category === "subscription" && form.nextDueDate ? form.nextDueDate : undefined,
+        currency: form.category === "subscription" ? form.currency : undefined,
       });
       setOpen(false);
-      setForm({ ...form, amount: "", campaignTag: "", note: "" });
+      setForm({ ...form, amount: "", campaignTag: "", note: "", nextDueDate: "" });
       await mutate();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Could not save expense");
@@ -78,8 +95,12 @@ export default function ExpensesPage() {
             </p>
           )}
         </div>
-        {canCreate && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add expense"}</Button>}
+        <div className="flex items-center gap-2">
+          {canApprove && <Button variant="secondary" onClick={runReminders}>Run reminders</Button>}
+          {canCreate && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add expense"}</Button>}
+        </div>
       </div>
+      {reminderMsg && <p className="mb-3 text-xs text-green-700">{reminderMsg}</p>}
 
       {open && canCreate && (
         <Card className="mb-5">
@@ -125,6 +146,18 @@ export default function ExpensesPage() {
                 <Input value={form.campaignTag} onChange={(e) => setForm({ ...form, campaignTag: e.target.value })} placeholder="e.g. JuneAds" />
               </Field>
             )}
+            {form.category === "subscription" && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Next due date" hint="A reminder fires 3 days before.">
+                  <DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} />
+                </Field>
+                <Field label="Currency">
+                  <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                    {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </Select>
+                </Field>
+              </div>
+            )}
             <Field label="Note">
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </Field>
@@ -146,12 +179,15 @@ export default function ExpensesPage() {
               <div className="text-sm">
                 <span className="font-medium capitalize">{x.category}</span>
                 {x.campaignTag ? <span className="ml-2 text-xs text-gray-400">#{x.campaignTag}</span> : null}
+                {x.nextDueDate ? <span className="ml-2 text-xs text-amber-700">due {formatDate(x.nextDueDate)}</span> : null}
                 <div className="mt-0.5 text-xs text-gray-500">
                   {formatDate(x.incurredAt)} · <Badge>{x.costBearer}</Badge>
                 </div>
               </div>
-              <span className="text-sm font-medium">
-                <Money value={x.amount} />
+              <span className="text-sm font-medium tabular-nums">
+                {x.currency && x.currency !== "BDT"
+                  ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}`
+                  : <Money value={x.amount} />}
               </span>
             </li>
           ))}

@@ -38,6 +38,8 @@ export class ExpenseService {
         revenueLinkId: dto.revenueLinkId ?? null,
         receiptFileId: dto.receiptFileId ?? null,
         note: dto.note ?? null,
+        nextDueDate: dto.nextDueDate ? day(dto.nextDueDate) : null,
+        currency: dto.currency ?? null,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })
@@ -71,6 +73,12 @@ export class ExpenseService {
     if (dto.revenueLinkId !== undefined) patch.revenueLinkId = dto.revenueLinkId;
     if (dto.receiptFileId !== undefined) patch.receiptFileId = dto.receiptFileId;
     if (dto.note !== undefined) patch.note = dto.note;
+    if (dto.nextDueDate !== undefined) {
+      patch.nextDueDate = dto.nextDueDate ? day(dto.nextDueDate) : null;
+      // A changed due-date re-arms the reminder for the new date.
+      patch.lastRemindedDue = null;
+    }
+    if (dto.currency !== undefined) patch.currency = dto.currency;
     const [row] = await tx.update(schema.expense).set(patch).where(eq(schema.expense.id, id)).returning();
     await this.audit.record(tx, principal.orgId, {
       actorUserId: principal.userId,

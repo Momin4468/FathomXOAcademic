@@ -6,13 +6,25 @@ import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
 import { CreateExpenseDto, ListExpensesQueryDto, UpdateExpenseDto } from "./dto.js";
 import { ExpenseService } from "./expense.service.js";
+import { ReminderService } from "./reminder.service.js";
 
 @Controller("expenses")
 export class ExpenseController {
   constructor(
     private readonly db: DbService,
     private readonly expenses: ExpenseService,
+    private readonly reminders: ReminderService,
   ) {}
+
+  /** Manually fire due-subscription reminders for the caller's org (the daily
+   *  @Cron does this automatically across orgs). Testable + external-cron friendly. */
+  @Post("reminders/run")
+  @RequirePermission("expenses", "approve")
+  runReminders(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal) {
+    return this.db.withTenant(ctx, async (tx) => ({
+      sent: await this.reminders.runForOrg(tx, p.orgId, p.userId),
+    }));
+  }
 
   @Post()
   @RequirePermission("expenses", "create")

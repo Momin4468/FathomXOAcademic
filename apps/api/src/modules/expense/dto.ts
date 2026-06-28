@@ -11,8 +11,10 @@ import {
 } from "class-validator";
 import {
   COST_BEARERS,
+  CURRENCIES,
   EXPENSE_CATEGORIES,
   type CostBearer,
+  type Currency,
   type ExpenseCategory,
 } from "@business-os/shared";
 
@@ -27,6 +29,9 @@ export class CreateExpenseDto {
   @IsOptional() @IsUUID() revenueLinkId?: string;
   @IsOptional() @IsUUID() receiptFileId?: string;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  // Subscription/recurring: next payment date + currency (recorded, no FX).
+  @IsOptional() @IsDateString() nextDueDate?: string;
+  @IsOptional() @IsIn(CURRENCIES) currency?: Currency;
 }
 
 export class UpdateExpenseDto {
@@ -40,6 +45,8 @@ export class UpdateExpenseDto {
   @IsOptional() @IsUUID() revenueLinkId?: string;
   @IsOptional() @IsUUID() receiptFileId?: string;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  @IsOptional() @IsDateString() nextDueDate?: string;
+  @IsOptional() @IsIn(CURRENCIES) currency?: Currency;
 }
 
 export class ListExpensesQueryDto {

@@ -121,6 +121,9 @@ export interface Expense {
   campaignTag: string | null;
   revenueLinkId: string | null;
   note: string | null;
+  nextDueDate: string | null; // subscription (0026)
+  currency: string | null; // recorded, no FX
+  lastRemindedDue: string | null;
 }
 
 export interface Task {
@@ -397,6 +400,98 @@ export interface DashboardData {
     orgMargin: { revenue: number; writerCost: number; margin: number };
     openLoopsTotal: number;
   };
+}
+
+// ─── Settlement (§4.4) ────────────────────────────────────────────────────────
+export interface SettlementResult {
+  partnerA: string;
+  partnerB: string;
+  jobCount: number;
+  totalPool: number;
+  accrual: { partyA: number; partyB: number };
+  transfersNet: number;
+  net: { aMinusB: number; owedBy: string | null; owedTo: string | null; amount: number };
+}
+export interface SettlementTransfer {
+  id: string;
+  fromPartyId: string;
+  toPartyId: string;
+  amount: string;
+  transferredAt: string;
+  medium: string | null;
+  note: string | null;
+  reversesTransferId: string | null;
+}
+
+// ─── Credential vault (§8) ────────────────────────────────────────────────────
+export interface VaultItem {
+  id: string;
+  name: string;
+  type: string;
+  url: string | null;
+  clientPartyId: string | null;
+  createdAt: string;
+}
+export interface VaultSecret { username?: string; password?: string; totpRecovery?: string; notes?: string }
+export interface VaultReveal extends Omit<VaultItem, "createdAt"> { secret: VaultSecret }
+export interface VaultManageItem extends VaultItem { shareCount: number }
+export interface VaultShare { id: string; partyId: string; grantedAt: string; grantedBy: string | null }
+
+// ─── Outcomes + reputation (§8) ───────────────────────────────────────────────
+export interface Outcome {
+  id: string;
+  workItemId: string;
+  writerPartyId: string | null;
+  onTime: boolean | null;
+  daysLate: number | null;
+  revisionCount: number;
+  revisionFault: string | null;
+  grade: string | null;
+  markerFeedback: string | null;
+  complaint: boolean;
+  complaintReason: string | null;
+  failed: boolean;
+  aiScore: string | null;
+  satisfaction: string | null;
+  reworkCost: string | null;
+  disputed: boolean;
+  recordedAt: string;
+}
+export interface Reputation {
+  jobCount: number;
+  onTime: { count: number; measured: number; rate: number | null };
+  avgDaysLate: number | null;
+  revisionRate: number | null;
+  writerFaultRevisions: number;
+  complaint: { count: number; rate: number | null };
+  failRate: number | null;
+  avgAiScore: number | null;
+  satisfaction: { high: number; neutral: number; low: number };
+  gradedCount: number;
+  totalReworkCost: number;
+  disputedCount: number;
+  reliabilityScore: number | null;
+}
+export interface WriterCard {
+  profile: { partyId: string; displayName: string; expertiseTags: string[]; availability: string; maxConcurrent: number | null };
+  reputation: Reputation;
+  courseHistory: Array<{ courseRefId: string; courseName: string | null; jobCount: number; lastWorkedAt: string }>;
+  load: { openJobs: number; availability: string; maxConcurrent: number | null; atCapacity: boolean | null };
+}
+
+// ─── Party / client-360 detail ────────────────────────────────────────────────
+export interface PartyDetail {
+  id: string;
+  displayName: string;
+  partyType: string[];
+  externalRef: string | null;
+  programme: string | null;
+  universityId: string | null;
+  universityCanonical: string | null;
+  referredByPartyId: string | null;
+  referredByName: string | null;
+  customFields: CustomFieldOnRecord[];
+  createdAt: string;
 }
 
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

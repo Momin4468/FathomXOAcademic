@@ -195,11 +195,12 @@ export class WorkService {
   /** Capture-first list with light filters. Spec only (no money). */
   async list(
     tx: Db,
-    filters: { doerPartyId?: string; workState?: WorkState; includeArchived?: boolean },
+    filters: { doerPartyId?: string; sourcePartyId?: string; workState?: WorkState; includeArchived?: boolean },
   ) {
     const conds = [];
     if (!filters.includeArchived) conds.push(isNull(schema.workItem.archivedAt));
     if (filters.doerPartyId) conds.push(eq(schema.workItem.doerPartyId, filters.doerPartyId));
+    if (filters.sourcePartyId) conds.push(eq(schema.workItem.sourcePartyId, filters.sourcePartyId));
     if (filters.workState) conds.push(eq(schema.workItem.workState, filters.workState));
     return tx
       .select({

@@ -92,12 +92,15 @@ export class CredentialVaultService {
     return { id };
   }
 
-  /** Items the caller holds (RLS-scoped) — metadata only, never the secret. */
-  listMine(tx: Db) {
+  /** Items the caller holds (RLS-scoped) — metadata only, never the secret.
+   *  Optionally narrowed to one client (for the client-360 hub). */
+  listMine(tx: Db, clientPartyId?: string) {
+    const conds = [isNull(schema.credentialVaultItem.archivedAt)];
+    if (clientPartyId) conds.push(eq(schema.credentialVaultItem.clientPartyId, clientPartyId));
     return tx
       .select(ITEM_META)
       .from(schema.credentialVaultItem)
-      .where(isNull(schema.credentialVaultItem.archivedAt))
+      .where(and(...conds))
       .orderBy(asc(schema.credentialVaultItem.name));
   }
 

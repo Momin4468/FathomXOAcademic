@@ -62,6 +62,7 @@ export class WorkController {
     return this.db.withTenant(ctx, (tx) =>
       this.work.list(tx, {
         doerPartyId: query.doerPartyId,
+        sourcePartyId: query.sourcePartyId,
         workState: query.workState,
         includeArchived: query.includeArchived === "true",
       }),

@@ -121,6 +121,10 @@ export type ChargeCategory = (typeof CHARGE_CATEGORIES)[number];
 export const EXPENSE_CATEGORIES = ["subscription", "salary", "promo", "loss", "event", "other"] as const;
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
+/** Currency code for a subscription amount — recorded as entered, no FX (§8). */
+export const CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"] as const;
+export type Currency = (typeof CURRENCIES)[number];
+
 /** task.state — capture-first board (Module 6, §8). */
 export const TASK_STATES = ["open", "done", "cancelled"] as const;
 export type TaskState = (typeof TASK_STATES)[number];
