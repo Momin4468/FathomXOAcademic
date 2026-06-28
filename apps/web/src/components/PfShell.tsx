@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/personal-finance/savings", label: "Savings" },
   { href: "/personal-finance/targets", label: "Targets" },
   { href: "/personal-finance/subscriptions", label: "Subscriptions" },
+  { href: "/personal-finance/notes", label: "Notes" },
   { href: "/personal-finance/categories", label: "Categories" },
   { href: "/personal-finance/connect", label: "Connect income" },
 ];

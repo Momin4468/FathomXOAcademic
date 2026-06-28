@@ -4,6 +4,7 @@
 // PF analogue of org_id); RLS isolates every row to one account.
 import {
   bigint,
+  boolean,
   date,
   jsonb,
   numeric,
@@ -174,4 +175,33 @@ export const pfAuditLog = pgTable("pf_audit_log", {
   entityId: uuid("entity_id"),
   detailJson: jsonb("detail_json"),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Personal notes (§11, migration 0028) — lists/reminders/free text; editable (not a ledger). */
+export const pfNote = pgTable("pf_note", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  title: text("title"),
+  body: text("body"),
+  items: jsonb("items").notNull().default([]), // checklist: [{ text, done }]
+  color: text("color"),
+  pinned: boolean("pinned").notNull().default(false),
+  remindOn: date("remind_on"),
+  lastRemindedOn: date("last_reminded_on"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+});
+
+/** Note attachments (file rule): metadata + a reference (storage key or external URL). */
+export const pfNoteAttachment = pgTable("pf_note_attachment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  noteId: uuid("note_id").notNull(),
+  isLink: boolean("is_link").notNull(),
+  url: text("url").notNull(), // storage key (uploaded) or external URL (link)
+  filename: text("filename"),
+  sizeBytes: bigint("size_bytes", { mode: "number" }),
+  mime: text("mime"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -107,6 +107,48 @@ export interface PfDashboard {
   recent: Array<{ kind: string; id: string; amount: string; currency: string; occurredOn: string; note: string | null }>;
 }
 
+export interface PfNoteItem {
+  text: string;
+  done: boolean;
+}
+
+export interface PfNoteAttachment {
+  id: string;
+  noteId: string;
+  isLink: boolean;
+  url: string;
+  filename: string | null;
+  sizeBytes: number | null;
+  mime: string | null;
+}
+
+export interface PfNote {
+  id: string;
+  title: string | null;
+  body: string | null;
+  items: PfNoteItem[];
+  color: string | null;
+  pinned: boolean;
+  remindOn: string | null;
+  lastRemindedOn: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+  attachments?: PfNoteAttachment[];
+}
+
+export const NOTE_COLORS = ["default", "yellow", "green", "blue", "pink", "gray"] as const;
+
+/** Map a note color to a left-strip Tailwind class. */
+export const NOTE_COLOR_BG: Record<string, string> = {
+  default: "bg-gray-200",
+  yellow: "bg-amber-300",
+  green: "bg-emerald-300",
+  blue: "bg-blue-300",
+  pink: "bg-pink-300",
+  gray: "bg-gray-400",
+};
+
 /** Currency suggestions (recorded as entered; any value allowed). */
 export const PF_CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"];
 

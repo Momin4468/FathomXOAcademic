@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { AuthModule } from "../../common/auth/auth.module.js";
+import { StorageService } from "../../common/storage/storage.service.js";
 import { PfAuthController } from "./auth/pf-auth.controller.js";
 import { PfAuthGuard } from "./auth/pf-auth.guard.js";
 import { PfAuthService } from "./auth/pf-auth.service.js";
@@ -23,6 +24,9 @@ import { PfReminderService } from "./subscriptions/pf-reminder.service.js";
 import { PfSubscriptionService } from "./subscriptions/pf-subscription.service.js";
 import { PfTargetController } from "./targets/pf-target.controller.js";
 import { PfTargetService } from "./targets/pf-target.service.js";
+import { PfAttachmentController, PfNoteController } from "./notes/pf-note.controller.js";
+import { PfNoteService } from "./notes/pf-note.service.js";
+import { PfNoteReminderService } from "./notes/pf-note-reminder.service.js";
 
 /**
  * Module 14 — the PERSONAL FINANCE plane (§11). A SEPARATE, sellable service: its
@@ -60,8 +64,11 @@ import { PfTargetService } from "./targets/pf-target.service.js";
     PfTargetController,
     PfSubscriptionController,
     PfDashboardController,
+    PfNoteController,
+    PfAttachmentController,
   ],
   providers: [
+    StorageService,
     PfTokenService,
     PfAuthGuard,
     PfAuditService,
@@ -75,6 +82,8 @@ import { PfTargetService } from "./targets/pf-target.service.js";
     PfSubscriptionService,
     PfReminderService,
     PfDashboardService,
+    PfNoteService,
+    PfNoteReminderService,
   ],
 })
 export class PersonalFinanceModule {}

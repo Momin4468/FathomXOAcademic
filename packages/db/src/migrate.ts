@@ -29,6 +29,7 @@ const SCHEMA_MIGRATIONS = [
   "0025_hardening.sql",
   "0026_subscription_reminders.sql",
   "0027_personal_finance.sql",
+  "0028_personal_notes.sql",
 ];
 
 async function main() {

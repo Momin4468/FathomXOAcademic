@@ -234,3 +234,7 @@ export type PfTargetPeriod = (typeof PF_TARGET_PERIODS)[number];
 /** Seeded default categories on PF account creation (user can add/rename/archive freely). */
 export const PF_DEFAULT_INCOME_CATEGORIES = ["Salary", "Freelance", "Business payout", "Gift", "Other"] as const;
 export const PF_DEFAULT_EXPENSE_CATEGORIES = ["Food", "Rent", "Transport", "Bills", "Shopping", "Health", "Other"] as const;
+
+/** pf_note.color — a small fixed palette for visual organisation of notes (§11 personal plane). */
+export const NOTE_COLORS = ["default", "yellow", "green", "blue", "pink", "gray"] as const;
+export type NoteColor = (typeof NOTE_COLORS)[number];
