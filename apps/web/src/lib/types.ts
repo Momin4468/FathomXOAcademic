@@ -361,4 +361,18 @@ export interface CustomFieldOnRecord {
   missingRequired: boolean;
 }
 
+// ─── Dashboard (Module 13) ────────────────────────────────────────────────────
+export interface DashboardData {
+  balance: Balance | null;
+  openLoops: { count: number; scope: "all" | "mine" };
+  owner?: {
+    outstandingDuesTotal: number;
+    pendingClientCount: number;
+    duesByClient: Array<{ clientPartyId: string; invoiced: number; paid: number; due: number }>;
+    profitPerWriter: Array<{ writerPartyId: string; jobs: number; revenue: number; writerCost: number; profit: number }>;
+    orgMargin: { revenue: number; writerCost: number; margin: number };
+    openLoopsTotal: number;
+  };
+}
+
 export const can = (perms: string[] | undefined, key: string) => !!perms?.includes(key);

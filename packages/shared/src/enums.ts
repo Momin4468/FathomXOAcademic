@@ -159,6 +159,7 @@ export const MODULES = [
   "checks", // module 10 — AI/plagiarism check service mini-business (§8)
   "referrers", // module 11 — referral income as a claimant leg; referrer sees own slice (§4/§8)
   "custom_fields", // module 12 — admin-defined structured fields on records (§2 #10, §8)
+  "dashboard", // module 13 — role-scoped "my numbers" + owner analytics (§8, §10)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 

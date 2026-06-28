@@ -363,6 +363,13 @@ create table custom_field_def (
 -- Values live in the target's custom_json (work_item/party/project all carry it),
 -- keyed by the def id. Validated against this catalog at the API boundary (0023).
 
+-- Role-scoped dashboards (0024, §8/§10): NO new tables. Two aggregate-only
+-- SECURITY DEFINER read-models — dashboard_writer_pnl() (profit-per-writer =
+-- client-leg − writer-leg by doer; column `net`, derived) and
+-- dashboard_client_dues() (per-client invoiced − paid) — org-scoped, returning
+-- rollups only (never raw legs). Plus the `dashboard` permission module
+-- (view → all roles; approve → owners + both SuperAdmins, the owner-analytics gate).
+
 create table file_object (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references org(id),

@@ -25,6 +25,7 @@ const SCHEMA_MIGRATIONS = [
   "0021_referrers.sql",
   "0022_resit.sql",
   "0023_custom_fields.sql",
+  "0024_dashboards.sql",
 ];
 
 async function main() {
