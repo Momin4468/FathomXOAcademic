@@ -76,11 +76,21 @@ export interface MarginNode {
   margin: number;
 }
 
+export interface JobPnl {
+  revenue: number;
+  writerCost: number;
+  clawback: number;
+  reworkCost: number;
+  net: number;
+  isLoss: boolean;
+}
+
 export interface WorkDetail {
   item: WorkItem;
   lines: WorkLine[];
   legs: Leg[];
   margins: MarginNode[];
+  pnl?: JobPnl | null; // present only when money-visible (work:approve)
 }
 
 export interface RefEntity {

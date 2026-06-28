@@ -121,3 +121,32 @@ export class AppendLegsDto {
   // Pricing as-of date (defaults to the job's created_at). Reused by /propose.
   @IsOptional() @IsDateString() asOf?: string;
 }
+
+// ─── Resit / fail handling (§3/§6/§8) ────────────────────────────────────────
+export class ResitWriterDto {
+  @IsUUID() partyId!: string; // the resit (second) writer
+  @IsUUID() fromPartyId!: string; // the partner paying them
+  @IsNumber() @Min(0.01) amount!: number; // their pay (a new positive leg)
+  @IsOptional() @IsIn(LINE_KINDS) lineKind?: LineKind; // default 'extra'
+  @IsOptional() @IsInt() @Min(0) wordCount?: number;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
+
+export class ClientReversalDto {
+  @IsUUID() fromPartyId!: string; // the client (source party)
+  @IsUUID() toPartyId!: string; // the partner the client paid
+  @IsNumber() @Min(0.01) amount!: number; // the client revenue to reverse (→ 0)
+}
+
+export class ResitDto {
+  @IsUUID() originalWriterPartyId!: string;
+  // Required when originalWriterReduction > 0 and any reversing-leg portion applies.
+  @IsOptional() @IsUUID() originalWriterFromPartyId?: string;
+  @IsNumber() @Min(0) originalWriterReduction!: number; // origPay − newPay; 0 = unchanged
+  @IsOptional() @ValidateNested() @Type(() => ResitWriterDto) resitWriter?: ResitWriterDto;
+  @IsOptional() @IsBoolean() zeroClientBilling?: boolean; // default false
+  @IsOptional() @ValidateNested() @Type(() => ClientReversalDto) clientReversal?: ClientReversalDto;
+  @IsOptional() @IsNumber() @Min(0) reworkCost?: number;
+  @IsOptional() @IsBoolean() reopen?: boolean; // default true
+  @IsOptional() @IsString() @MaxLength(2000) note?: string;
+}

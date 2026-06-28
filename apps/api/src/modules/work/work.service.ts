@@ -4,8 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { schema, type Db } from "@business-os/db";
-import { WORK_STATES, type SessionPrincipal, type WorkState } from "@business-os/shared";
+import { schema, sql, type Db } from "@business-os/db";
+import { deriveJobPnl, WORK_STATES, type SessionPrincipal, type WorkState } from "@business-os/shared";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { LegService } from "./leg.service.js";
@@ -170,11 +170,31 @@ export class WorkService {
     const item = await this.getRaw(tx, id);
     const lineRows = await this.lines.getLines(tx, id);
     const legs = await this.legs.getVisibleLegs(tx, id);
+    // Job-level P&L / loss (derived, never stored) — money-gated so a non-money
+    // caller never sees the figures. Surfaces a fail/resit net loss truthfully.
+    let pnl: ReturnType<typeof deriveJobPnl> | null = null;
+    if (canSeeMoney) {
+      const r = await tx.execute(
+        sql`select revenue, writer_cost as "writerCost", clawback from job_pnl(${id})`,
+      );
+      const row = (r.rows[0] ?? {}) as { revenue?: string; writerCost?: string; clawback?: string };
+      const [oc] = await tx
+        .select({ reworkCost: schema.workOutcome.reworkCost })
+        .from(schema.workOutcome)
+        .where(eq(schema.workOutcome.workItemId, id));
+      pnl = deriveJobPnl({
+        revenue: Number(row.revenue ?? 0),
+        writerCost: Number(row.writerCost ?? 0),
+        clawback: Number(row.clawback ?? 0),
+        reworkCost: Number(oc?.reworkCost ?? 0),
+      });
+    }
     return {
       item,
       lines: lineRows.map((l) => this.lines.mapLine(l, canSeeMoney)),
       legs,
       margins: this.legs.marginsFor(legs),
+      pnl,
     };
   }
 }

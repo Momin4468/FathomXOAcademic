@@ -22,11 +22,13 @@ import {
   CreateWorkItemDto,
   FanOutDto,
   ListWorkQueryDto,
+  ResitDto,
   TransitionDto,
   UpdateWorkItemDto,
 } from "./dto.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
+import { ResitService } from "./resit.service.js";
 import { WorkService } from "./work.service.js";
 
 /** Whether the caller may see money fields on work_line (the redaction gate). */
@@ -41,6 +43,7 @@ export class WorkController {
     private readonly work: WorkService,
     private readonly lines: LineService,
     private readonly legs: LegService,
+    private readonly resits: ResitService,
   ) {}
 
   @Post()
@@ -160,6 +163,23 @@ export class WorkController {
     @Body() dto: AppendLegsDto,
   ) {
     return this.db.withTenant(ctx, (tx) => this.legs.proposeLegs(tx, principal, id, dto));
+  }
+
+  /**
+   * Resit a failed job (§3/§6/§8): reopen (work-state redo) + the resit writer's
+   * line/leg + the original writer's reduction (auto reversing-leg vs clawback
+   * charge) + optional client re-bill to 0. Money-affecting → approve. Returns
+   * the derived job P&L (the truthful net loss). Append-only throughout.
+   */
+  @Post(":id/resit")
+  @RequirePermission("work", "approve")
+  resit(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: ResitDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.resits.resit(tx, principal, id, dto));
   }
 
   /** Visible legs (RLS-filtered to the caller) + derived margins. */

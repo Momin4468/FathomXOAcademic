@@ -327,7 +327,7 @@ create table payment_proof (
 **`custom_field_def`** — admin-defined field: name, type, target entity, scope (global or by type/uni/client), dropdown options. Values stored in target's `custom_json`.
 **`file_object`** — small-file storage metadata (briefs, solutions, proofs): key/url, size, kind. Large files = `is_link=true` with url only. DB stores metadata, not blobs.
 **`audit_log`** — immutable: actor, action, entity, before/after (or hash), timestamp. Append-only; even System SuperAdmin cannot erase.
-**`work_outcome`** — per finished work (§8): on_time, days_late, revision_count, revision_fault, grade, marker_feedback, complaint, fail, ai_score, satisfaction, rework_cost, disputed. Reputation is a **derived read-model** over this — not a stored score.
+**`work_outcome`** — per finished work (§8): on_time, days_late, revision_count, revision_fault, grade, marker_feedback, complaint, fail, ai_score, satisfaction, rework_cost, disputed, resit. Reputation is a **derived read-model** over this — not a stored score.
 
 ```sql
 create table expense (
@@ -387,6 +387,7 @@ create table work_outcome (
   complaint boolean default false, complaint_reason text,
   failed boolean default false, ai_score numeric(5,2),
   satisfaction text, rework_cost numeric(14,2), disputed boolean default false,
+  resit boolean not null default false,  -- a resit (redo) was performed (0022)
   recorded_by uuid, recorded_at timestamptz not null default now()
 );
 ```

@@ -23,6 +23,7 @@ const SCHEMA_MIGRATIONS = [
   "0019_knowledge.sql",
   "0020_check_service.sql",
   "0021_referrers.sql",
+  "0022_resit.sql",
 ];
 
 async function main() {

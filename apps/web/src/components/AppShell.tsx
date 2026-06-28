@@ -63,6 +63,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 My referrals
               </Link>
             )}
+            {can(me?.permissions, "work:approve") && (
+              <Link href="/resit" className="text-gray-600 hover:text-gray-900">
+                Resit
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (

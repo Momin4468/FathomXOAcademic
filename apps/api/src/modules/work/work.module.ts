@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../common/auth/auth.module.js";
+import { ChargeService } from "../billing/charge.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
 import { PricingService } from "./pricing.service.js";
+import { ResitService } from "./resit.service.js";
 import { WorkController } from "./work.controller.js";
 import { WorkService } from "./work.service.js";
 
@@ -15,6 +17,6 @@ import { WorkService } from "./work.service.js";
 @Module({
   imports: [AuthModule],
   controllers: [WorkController],
-  providers: [WorkService, LineService, LegService, PricingService],
+  providers: [WorkService, LineService, LegService, PricingService, ResitService, ChargeService],
 })
 export class WorkModule {}

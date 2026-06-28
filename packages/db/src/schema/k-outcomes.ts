@@ -27,6 +27,7 @@ export const workOutcome = pgTable("work_outcome", {
   satisfaction: text("satisfaction"), // high | neutral | low
   reworkCost: numeric("rework_cost", { precision: 14, scale: 2 }),
   disputed: boolean("disputed").notNull().default(false),
+  resit: boolean("resit").notNull().default(false), // a resit (redo) was performed (0022)
   recordedBy: uuid("recorded_by"),
   recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

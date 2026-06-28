@@ -38,6 +38,33 @@ export interface MarginNode {
  * SuperAdmin gets every node, and the client/writer ends (one-sided) get none.
  * This is the structural-opacity guarantee expressed as arithmetic.
  */
+export interface JobPnlInput {
+  revenue: number; // Σ legs from the client (nets to 0 after a client-reversal)
+  writerCost: number; // Σ legs to writer-typed parties (both writers; net of reversals)
+  clawback: number; // Σ adjustment charges on the job (recovery; reduces the loss)
+  reworkCost: number; // recorded remediation cost
+}
+
+export interface JobPnl extends JobPnlInput {
+  net: number;
+  isLoss: boolean;
+}
+
+/**
+ * Job-level P&L (DESIGN_SPEC §3, §6) — derived, never stored. After a fail/resit
+ * a job can be a NET LOSS (writer cost > client revenue); this surfaces it
+ * truthfully. net = revenue − writerCost + clawback − reworkCost; a negative net
+ * is a loss. Mirrors derivePosition / deriveCheckPnl (pure, unit-testable).
+ */
+export function deriveJobPnl(input: JobPnlInput): JobPnl {
+  const revenue = round2(input.revenue);
+  const writerCost = round2(input.writerCost);
+  const clawback = round2(input.clawback);
+  const reworkCost = round2(input.reworkCost);
+  const net = round2(revenue - writerCost + clawback - reworkCost);
+  return { revenue, writerCost, clawback, reworkCost, net, isLoss: net < 0 };
+}
+
 export function deriveMargins(legs: LegLike[]): MarginNode[] {
   const inbound = new Map<string, number>();
   const outbound = new Map<string, number>();
