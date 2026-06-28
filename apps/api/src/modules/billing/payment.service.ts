@@ -234,4 +234,20 @@ export class PaymentService {
     }
     return tx.select().from(schema.payment).orderBy(schema.payment.paidAt);
   }
+
+  /** A single payment + its allocations + proofs (the detail view; same shape as
+   *  the list row for the payment itself). RLS scopes to the caller's org. */
+  async getById(tx: Db, id: string) {
+    const [payment] = await tx.select().from(schema.payment).where(eq(schema.payment.id, id));
+    if (!payment) throw new NotFoundException("Payment not found");
+    const allocations = await tx
+      .select()
+      .from(schema.paymentAllocation)
+      .where(eq(schema.paymentAllocation.paymentId, id));
+    const proofs = await tx
+      .select()
+      .from(schema.paymentProof)
+      .where(eq(schema.paymentProof.paymentId, id));
+    return { payment, allocations, proofs };
+  }
 }

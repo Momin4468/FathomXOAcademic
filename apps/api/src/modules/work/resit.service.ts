@@ -1,14 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
-import { deriveJobPnl, type JobPnl, type SessionPrincipal } from "@business-os/shared";
+import { deriveJobPnl, round2, type JobPnl, type SessionPrincipal } from "@business-os/shared";
 import { and, eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { ChargeService } from "../billing/charge.service.js";
 import { recomputeMoneyState } from "../billing/money-state.js";
 import type { ResitDto } from "./dto.js";
 
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /** Resit-band leg seqs (a side-band outside the 1..n chain). */
 const SEQ_REVERSE_WRITER = 80;

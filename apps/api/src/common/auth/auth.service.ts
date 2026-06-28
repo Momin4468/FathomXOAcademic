@@ -13,6 +13,7 @@ import {
 import { and, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../audit/audit.service.js";
 import { PermissionService } from "../authz/permission.service.js";
+import { EncryptionService } from "../crypto/encryption.service.js";
 import { DbService } from "../db/db.service.js";
 import { PasswordService } from "./password.service.js";
 import { TokenService } from "./token.service.js";
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly tokens: TokenService,
     private readonly permissions: PermissionService,
     private readonly audit: AuditService,
+    private readonly crypto: EncryptionService,
   ) {}
 
   async login(
@@ -72,7 +74,30 @@ export class AuthService {
     if (row.status !== "active") return fail(`status:${row.status}`);
     if (!(await this.passwords.verify(password, row.password_hash))) return fail("password");
     if (row.twofa_secret) {
-      if (!totp || !this.totp.verify(totp, row.twofa_secret)) return fail("totp");
+      // The stored secret is sealed (enc:) or a legacy plaintext; open before verify.
+      // A corrupt/undecryptable secret (or missing key for a sealed value) fails
+      // closed as an auth failure — never a 500.
+      let plaintext: string;
+      let legacy: boolean;
+      try {
+        ({ plaintext, legacy } = this.crypto.open(row.twofa_secret));
+      } catch {
+        return fail("totp_unreadable");
+      }
+      if (!totp || !this.totp.verify(totp, plaintext)) return fail("totp");
+      // Lazy migration: re-seal a legacy plaintext secret on this success (best-effort).
+      if (legacy) {
+        try {
+          await this.db.withTenant(baseCtx, (tx) =>
+            tx
+              .update(schema.userAccount)
+              .set({ twofaSecret: this.crypto.seal(plaintext) })
+              .where(eq(schema.userAccount.id, row.id)),
+          );
+        } catch {
+          /* non-fatal: a failed re-seal must never block a valid login */
+        }
+      }
     }
 
     // Issue tokens + persist the refresh row + audit, all in one tenant tx.
@@ -258,7 +283,7 @@ export class AuthService {
     await this.db.withTenant(ctx, async (tx) => {
       await tx
         .update(schema.userAccount)
-        .set({ twofaSecret: secret, updatedAt: new Date() })
+        .set({ twofaSecret: this.crypto.seal(secret), updatedAt: new Date() })
         .where(eq(schema.userAccount.id, principal.userId));
       await this.audit.record(tx, principal.orgId, {
         actorUserId: principal.userId,

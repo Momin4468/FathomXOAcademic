@@ -105,6 +105,12 @@ export class BillingController {
     return this.db.withTenant(ctx, (tx) => this.payments.list(tx, q));
   }
 
+  @Get("payments/:id")
+  @RequirePermission("billing", "view")
+  getPayment(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.db.withTenant(ctx, (tx) => this.payments.getById(tx, id));
+  }
+
   // ── charges (party→business) ──
   @Post("charges")
   @RequirePermission("billing", "create")

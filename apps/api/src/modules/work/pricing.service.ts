@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { schema, type Db } from "@business-os/db";
-import { resolveDealTerm, type DealTermLike } from "@business-os/shared";
+import { resolveDealTerm, round2, type DealTermLike } from "@business-os/shared";
 import { and, eq, gt, isNull, lte, or } from "drizzle-orm";
 
 /** A priced leg: the resolved amount + the term it came from. */
@@ -18,9 +18,6 @@ interface PriceLegArgs {
   clientPartyId: string | null;
   jobType?: string | null;
 }
-
-/** Round to 2dp to match leg.amount numeric(14,2). */
-const round2 = (n: number): string => n.toFixed(2);
 
 /**
  * Auto-pricing for the leg chain (DESIGN_SPEC §3). Reuses the SHARED pure
@@ -94,7 +91,7 @@ export class PricingService {
       const pw = await this.resolveTerm(tx, { ...base, termType: "per_word" });
       if (pw) {
         return {
-          amount: round2(Number(pw.value) * args.wordCount),
+          amount: String(round2(Number(pw.value) * args.wordCount)),
           dealTermId: pw.id,
           termType: "per_word",
         };
@@ -103,7 +100,7 @@ export class PricingService {
 
     const fx = await this.resolveTerm(tx, { ...base, termType: "fixed" });
     if (fx) {
-      return { amount: round2(Number(fx.value)), dealTermId: fx.id, termType: "fixed" };
+      return { amount: String(round2(Number(fx.value))), dealTermId: fx.id, termType: "fixed" };
     }
 
     return null;

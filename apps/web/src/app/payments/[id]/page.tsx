@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { clampAmount, remainingToAllocate } from "@/lib/billing";
 import { formatDate, formatMoney } from "@/lib/format";
-import { can, type Balance, type Invoice, type InvoiceDetail, type Payment, type WhoAmI } from "@/lib/types";
+import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Spinner } from "@/components/ui";
@@ -24,11 +24,8 @@ interface Target {
 export default function PaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
-  // No GET /payments/:id endpoint exists yet — fetch the (RLS-scoped) list and
-  // find the one. The list isn't paginated, so this is reliable; a dedicated
-  // by-id endpoint is a tracked backend follow-up.
-  const { data: payments, error, isLoading, mutate } = useApi<Payment[]>("payments");
-  const payment = payments?.find((p) => p.id === id);
+  const { data, error, isLoading, mutate } = useApi<PaymentDetail>(`payments/${id}`);
+  const payment = data?.payment;
 
   const canCreate = can(me?.permissions, "billing:create");
   const canApprove = can(me?.permissions, "billing:approve");
@@ -166,7 +163,7 @@ export default function PaymentDetailPage() {
       </Link>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {!isLoading && payments && !payment && <EmptyState title="Payment not found" />}
+      {!isLoading && !error && !payment && <EmptyState title="Payment not found" />}
       {payment && (
         <div className="space-y-5">
           <header className="space-y-2">

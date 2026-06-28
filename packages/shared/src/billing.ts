@@ -4,8 +4,7 @@
  * money-state logic is unit-testable without a DB.
  */
 import type { MoneyState } from "./enums.js";
-
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 /** Sum a list of amounts (numeric strings or numbers; negatives = reversals). */
 export function sumAmounts(amounts: Array<string | number | null | undefined>): number {

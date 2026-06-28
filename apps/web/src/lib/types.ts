@@ -178,6 +178,30 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface PaymentAllocation {
+  id: string;
+  paymentId: string;
+  invoiceLineId: string | null;
+  writerPartyId: string | null;
+  chargeId: string | null;
+  amount: number | string;
+}
+
+export interface PaymentProof {
+  id: string;
+  paymentId: string;
+  fileObjectId: string;
+  side: string;
+  attachedBy: string;
+  attachedAt: string;
+}
+
+export interface PaymentDetail {
+  payment: Payment;
+  allocations: PaymentAllocation[];
+  proofs: PaymentProof[];
+}
+
 export interface ChargeItem {
   id: string;
   category: string;

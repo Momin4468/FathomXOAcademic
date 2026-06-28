@@ -118,7 +118,16 @@ export class CredentialVaultService {
     if (!user?.twofaSecret) {
       throw new ForbiddenException("Enrol 2FA to access the vault");
     }
-    if (!this.totp.verify(dto.totp, user.twofaSecret)) {
+    // The 2FA secret is sealed at rest (enc:) or a legacy plaintext; open before
+    // verify. A corrupt/undecryptable secret fails closed (denied), never a 500.
+    let totpSecret: string;
+    let legacy: boolean;
+    try {
+      ({ plaintext: totpSecret, legacy } = this.crypto.open(user.twofaSecret));
+    } catch {
+      throw new UnauthorizedException("Invalid 2FA code");
+    }
+    if (!this.totp.verify(dto.totp, totpSecret)) {
       await this.audit.record(tx, principal.orgId, {
         actorUserId: principal.userId,
         action: "vault.reveal_denied",
@@ -127,6 +136,17 @@ export class CredentialVaultService {
         detail: { reason: "bad_totp" },
       });
       throw new UnauthorizedException("Invalid 2FA code");
+    }
+    // Lazy migration: re-seal a legacy plaintext 2FA secret on this success.
+    if (legacy) {
+      try {
+        await tx
+          .update(schema.userAccount)
+          .set({ twofaSecret: this.crypto.seal(totpSecret) })
+          .where(eq(schema.userAccount.id, principal.userId));
+      } catch {
+        /* non-fatal */
+      }
     }
 
     const bundle = JSON.parse(

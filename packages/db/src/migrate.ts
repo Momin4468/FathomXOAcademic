@@ -26,6 +26,7 @@ const SCHEMA_MIGRATIONS = [
   "0022_resit.sql",
   "0023_custom_fields.sql",
   "0024_dashboards.sql",
+  "0025_hardening.sql",
 ];
 
 async function main() {

@@ -6,7 +6,7 @@
  * remaining) and cost (the weighted price of those credits).
  */
 
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 export interface TopupLike {
   credits: number | string;

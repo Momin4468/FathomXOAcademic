@@ -9,6 +9,7 @@ import { schema, sql, type Db } from "@business-os/db";
 import {
   computeReferralSuggestion,
   resolveReferralTerm,
+  round2,
   type DealTermLike,
   type SessionPrincipal,
 } from "@business-os/shared";
@@ -22,8 +23,6 @@ import type {
   SetReferrerTermsDto,
   SuggestReferralDto,
 } from "./dto.js";
-
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /** A referral side-leg sits outside the client→writer chain; a stable sentinel seq. */
 const REFERRAL_LEG_SEQ = 90;

@@ -12,8 +12,7 @@
 
 import { isEffectiveOn, parseAppliesTo, type DealTermLike } from "./rules.js";
 import type { ReferralBasis } from "./enums.js";
-
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 export interface ReferralTermContext {
   referrerId: string;

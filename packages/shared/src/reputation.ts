@@ -5,7 +5,7 @@
  * any single job" (§8). Mirrors deriveMargins / derivePosition / deriveSettlement.
  */
 
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 /** One recorded outcome (the fields reputation reads; others are display-only). */
 export interface OutcomeLike {

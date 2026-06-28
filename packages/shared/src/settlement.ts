@@ -13,8 +13,7 @@
  *   • commission_pct=20 on Emon→Momin → Momin owes Emon 20% of the pool
  */
 import { resolveDealTerm, type DealTermLike } from "./rules.js";
-
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 export interface SettlementPoolRow {
   workItemId: string;

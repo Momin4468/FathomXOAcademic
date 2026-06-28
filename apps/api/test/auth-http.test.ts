@@ -173,13 +173,15 @@ describe("is_superadmin = System SuperAdmin only (spec §4.4)", () => {
   });
 
   it("bizadmin (Business SuperAdmin) does NOT get the leg-bypass GUC", async () => {
-    // bizadmin has 2FA enabled (per the environment note); read its secret to log in.
-    const r = await admin.query("select twofa_secret from user_account where email=$1", [
+    // Set a KNOWN plaintext 2FA secret so the test is deterministic regardless of
+    // the at-rest format — login transparently opens a sealed-or-plaintext secret
+    // (the 2FA secret is encrypted at rest; a stored value may be enc:-sealed).
+    const secret = makeBase32Secret();
+    await admin.query("update user_account set twofa_secret=$1 where email=$2", [
+      secret,
       "bizadmin@fathomxo.local",
     ]);
-    const secret = r.rows[0]?.twofa_secret as string | null;
-    assert.ok(secret, "bizadmin should have a 2FA secret (set by a prior probe)");
-    const res = await login("bizadmin@fathomxo.local", DEV_PASSWORD, totpCode(secret!));
+    const res = await login("bizadmin@fathomxo.local", DEV_PASSWORD, totpCode(secret));
     assert.equal(res.status, 200, "bizadmin login with a valid TOTP should succeed");
     const who = await api(BASE, "/platform/whoami", { token: res.body.accessToken });
     assert.equal(

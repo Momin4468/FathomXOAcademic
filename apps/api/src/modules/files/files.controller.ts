@@ -50,8 +50,12 @@ export class FilesController {
   }
 
   @Get(":id")
-  meta(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
-    return this.db.withTenant(ctx, (tx) => this.files.getMeta(tx, id));
+  meta(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() p: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.files.getMeta(tx, p, id));
   }
 
   /** Stream a STORED file. Link files are opened directly from their metadata
@@ -59,10 +63,11 @@ export class FilesController {
   @Get(":id/download")
   async download(
     @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() p: SessionPrincipal,
     @Param("id", ParseUUIDPipe) id: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const f = await this.db.withTenant(ctx, (tx) => this.files.openForDownload(tx, id));
+    const f = await this.db.withTenant(ctx, (tx) => this.files.openForDownload(tx, p, id));
     if (f.isLink) throw new BadRequestException("This is a link — open its URL directly");
     // Only known-safe image types render inline; everything else is forced to
     // download (an inline text/html or SVG on our origin would be stored-XSS).

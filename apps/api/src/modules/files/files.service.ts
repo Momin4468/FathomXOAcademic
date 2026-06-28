@@ -1,14 +1,31 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { schema, type Db } from "@business-os/db";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { schema, sql, type Db } from "@business-os/db";
 import type { FileKind, SessionPrincipal } from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { PermissionService } from "../../common/authz/permission.service.js";
 import { StorageService } from "../../common/storage/storage.service.js";
 import type { LinkFileDto } from "./dto.js";
 
 export const FILES_MAX_BYTES = Number(process.env.FILES_MAX_BYTES ?? 10 * 1024 * 1024); // 10 MB
 const COMPRESSIBLE = new Set(["image/jpeg", "image/png", "image/webp"]);
+/** Org-public file kinds — readable by any org member (reference data). */
+const PUBLIC_KINDS = new Set(["knowledge", "cover_sheet"]);
+
+interface FileOwnerContext {
+  kind: string;
+  doerParty: string | null;
+  sourceParty: string | null;
+  paymentCounterparty: string | null;
+  expenseCreatedBy: string | null;
+  fileCreatedBy: string | null;
+}
 
 export interface UploadedFile {
   buffer: Buffer;
@@ -28,7 +45,56 @@ export class FilesService {
   constructor(
     private readonly audit: AuditService,
     private readonly storage: StorageService,
+    private readonly permissions: PermissionService,
   ) {}
+
+  /**
+   * Kind-aware per-file ACL (CLAUDE.md §4). org-public kinds (knowledge,
+   * cover_sheet) are readable by any org member; sensitive kinds restrict to the
+   * involved parties + the relevant domain admin + System SuperAdmin — so a
+   * proof/brief/receipt can't be pulled by any org member by id. Ownership is
+   * resolved server-side via the file_owner_context definer (bypasses the owners'
+   * RLS so an entitled admin who isn't a party can still be authorized). 404 if
+   * the file isn't in the caller's org.
+   */
+  private async assertCanRead(tx: Db, principal: SessionPrincipal, fileId: string) {
+    const res = await tx.execute(sql`
+      select kind, doer_party as "doerParty", source_party as "sourceParty",
+             payment_counterparty as "paymentCounterparty",
+             expense_created_by as "expenseCreatedBy", file_created_by as "fileCreatedBy"
+      from file_owner_context(${fileId})
+    `);
+    const ctx = res.rows[0] as FileOwnerContext | undefined;
+    if (!ctx) throw new NotFoundException("File not found");
+    if (PUBLIC_KINDS.has(ctx.kind)) return;
+    if (principal.isSystemSuperadmin) return;
+
+    const party = principal.partyId;
+    const user = principal.userId;
+    const perms = await this.permissions.loadEffective(tx, user);
+    const can = (k: string) => perms.perms.has(k);
+
+    let ok = false;
+    switch (ctx.kind) {
+      case "brief":
+        ok = (!!party && (party === ctx.doerParty || party === ctx.sourceParty)) || can("work:approve");
+        break;
+      case "solution":
+        // No owner link for solutions yet → the uploader or a work admin (never
+        // approve-only, which would lock out the writer who uploaded it).
+        ok = user === ctx.fileCreatedBy || can("work:approve");
+        break;
+      case "proof":
+        ok = (!!party && party === ctx.paymentCounterparty) || can("billing:approve");
+        break;
+      case "receipt":
+        ok = user === ctx.expenseCreatedBy || can("expenses:approve");
+        break;
+      default: // other / unlinked
+        ok = user === ctx.fileCreatedBy;
+    }
+    if (!ok) throw new ForbiddenException("You don't have access to this file");
+  }
 
   /** Upload a small file: enforce the size/type rule, compress images, store, record. */
   async upload(tx: Db, principal: SessionPrincipal, file: UploadedFile, kind: FileKind) {
@@ -110,14 +176,16 @@ export class FilesService {
     return this.meta(row!);
   }
 
-  async getMeta(tx: Db, id: string) {
+  async getMeta(tx: Db, principal: SessionPrincipal, id: string) {
+    await this.assertCanRead(tx, principal, id);
     const [row] = await tx.select().from(schema.fileObject).where(eq(schema.fileObject.id, id));
     if (!row) throw new NotFoundException("File not found");
     return this.meta(row);
   }
 
   /** Resolve a file for download: a link → its url; a stored file → a disk stream. */
-  async openForDownload(tx: Db, id: string) {
+  async openForDownload(tx: Db, principal: SessionPrincipal, id: string) {
+    await this.assertCanRead(tx, principal, id);
     const [row] = await tx.select().from(schema.fileObject).where(eq(schema.fileObject.id, id));
     if (!row) throw new NotFoundException("File not found");
     if (row.isLink) return { isLink: true as const, url: row.url ?? "" };

@@ -39,7 +39,7 @@ create table user_account (
   org_id uuid not null references org(id),
   email citext unique not null,
   password_hash text not null,
-  twofa_secret text,                 -- nullable; required for money/vault roles
+  twofa_secret text,                 -- nullable; required for money/vault roles. ENCRYPTED AT REST (0025): an `enc:` AES-GCM sealed value (legacy plaintext is read + lazily re-sealed). No schema change.
   status text not null default 'active',  -- active | invited | deactivated
   party_id uuid references party(id), -- nullable: link, not merge
   created_at timestamptz not null default now(),
@@ -363,6 +363,7 @@ create table custom_field_def (
 -- Values live in the target's custom_json (work_item/party/project all carry it),
 -- keyed by the def id. Validated against this catalog at the API boundary (0023).
 
+-- Hardening (0025): file_owner_context() resolves a file's owner (brief/proof/receipt) for the kind-aware download ACL; settlement_legs() now nets from=null business costs (referral) out of the pool before the partner split. No table changes.
 -- Role-scoped dashboards (0024, §8/§10): NO new tables. Two aggregate-only
 -- SECURITY DEFINER read-models — dashboard_writer_pnl() (profit-per-writer =
 -- client-leg − writer-leg by doer; column `net`, derived) and

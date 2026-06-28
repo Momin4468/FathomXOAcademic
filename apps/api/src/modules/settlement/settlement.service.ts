@@ -4,6 +4,7 @@ import { schema, sql, type Db } from "@business-os/db";
 import {
   deriveSettlement,
   resolveDealTerm,
+  round2,
   type DealTermLike,
   type SessionPrincipal,
   type SettlementPoolRow,
@@ -12,8 +13,6 @@ import {
 import { and, eq, inArray, or } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import type { ApplyPlatformFeeDto, RecordTransferDto } from "./dto.js";
-
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /**
  * Settlement layer (DESIGN_SPEC §4.4, §3): the SHARED Emon↔Momin picture —

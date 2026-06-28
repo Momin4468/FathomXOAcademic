@@ -4,7 +4,7 @@
  * always DERIVED here at read time, never stored in a column.
  */
 
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+import { round2 } from "./money.js";
 
 /** A line's amount = fixed_amount if set, else rate × count. Never stored. */
 export function computeLineAmount(opts: {

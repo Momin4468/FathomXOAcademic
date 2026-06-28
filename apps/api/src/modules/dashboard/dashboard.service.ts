@@ -1,10 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { sql, type Db } from "@business-os/db";
-import type { SessionPrincipal } from "@business-os/shared";
+import { round2, type SessionPrincipal } from "@business-os/shared";
 import type { EffectivePermissions } from "../../common/authz/permission.service.js";
 import { BalanceService } from "../billing/balance.service.js";
 
-const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /**
  * Role-scoped dashboards (DESIGN_SPEC §8, §10) — composes existing derived
