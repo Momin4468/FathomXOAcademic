@@ -29,3 +29,17 @@ export const REFRESH_TOKEN_TTL_DAYS = 10;
 export interface PfPrincipal {
   pfAccountId: string;
 }
+
+/**
+ * The authenticated identity for the CLIENT portal plane (Module 18). A separate
+ * login (client_account) mapped 1:1 to a client party. Its tokens carry a distinct
+ * `typ` (client_access/client_refresh) so no other plane's token authenticates it.
+ * Unlike PF, the client reads business data, so it carries orgId + partyId and its
+ * DB work runs under the BUSINESS RLS context scoped to that party (every read is
+ * a caller-guarded definer — the chain/margin/writer is never exposed).
+ */
+export interface ClientPrincipal {
+  clientAccountId: string;
+  orgId: string;
+  partyId: string;
+}

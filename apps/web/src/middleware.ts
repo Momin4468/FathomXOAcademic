@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { PF_REFRESH_COOKIE, REFRESH_COOKIE } from "@/lib/config";
+import { CLIENT_REFRESH_COOKIE, PF_REFRESH_COOKIE, REFRESH_COOKIE } from "@/lib/config";
 
 /**
  * Gate: no session cookie → bounce to the right login. UX guard only; the API
@@ -17,6 +17,15 @@ export function middleware(req: NextRequest) {
     if (req.cookies.has(PF_REFRESH_COOKIE)) return NextResponse.next();
     const url = req.nextUrl.clone();
     url.pathname = "/personal-finance/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Client portal plane (Module 18) — its own session + login.
+  if (pathname.startsWith("/portal")) {
+    if (pathname === "/portal/login") return NextResponse.next();
+    if (req.cookies.has(CLIENT_REFRESH_COOKIE)) return NextResponse.next();
+    const url = req.nextUrl.clone();
+    url.pathname = "/portal/login";
     return NextResponse.redirect(url);
   }
 

@@ -23,6 +23,19 @@ export type PartyType = (typeof PARTY_TYPES)[number];
 export const USER_STATUSES = ["active", "invited", "deactivated"] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
+/**
+ * client_account.status (Module 18). A `lead` is a provisional, auto-expiring
+ * self-/quote-intake account (the future public funnel); promoted to `active`
+ * (a real client) when its job is confirmed. `invited` = admin-provisioned,
+ * awaiting first login. The portal message sender uses CLIENT_MESSAGE_SENDERS.
+ */
+export const CLIENT_ACCOUNT_STATUSES = ["invited", "active", "lead", "deactivated"] as const;
+export type ClientAccountStatus = (typeof CLIENT_ACCOUNT_STATUSES)[number];
+
+/** client_message.sender — who wrote a portal message. */
+export const CLIENT_MESSAGE_SENDERS = ["client", "admin"] as const;
+export type ClientMessageSender = (typeof CLIENT_MESSAGE_SENDERS)[number];
+
 /** permission.action — module × action × scope (SCHEMA A, spec §4.3). */
 export const PERMISSION_ACTIONS = ["view", "create", "edit", "approve"] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -187,6 +200,7 @@ export const MODULES = [
   "ai_capture", // module 15 — AI capture assistant: unstructured input → proposed drafts (§10/§2)
   "import_export", // module 16 — bulk import / scoped export / dated file archive
   "channels", // module 17 — admin-creatable sources + source-driven routing + N-way profit-share (§3/§4.4)
+  "client_portal", // module 18 — the client-facing login plane (scoped jobs/AR + draft intake + messages)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 

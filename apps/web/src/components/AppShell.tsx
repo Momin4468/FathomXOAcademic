@@ -98,6 +98,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Channels
               </Link>
             )}
+            {can(me?.permissions, "client_portal:view") && (
+              <Link href="/client-admin" className="text-gray-600 hover:text-gray-900">
+                Client portal
+              </Link>
+            )}
             {can(me?.permissions, "channels:view") && (
               <Link href="/channels/mine" className="text-gray-600 hover:text-gray-900">
                 My share

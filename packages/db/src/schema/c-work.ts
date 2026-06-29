@@ -97,6 +97,7 @@ export const workItem = pgTable("work_item", {
   notes: text("notes"),
   aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
   importBatchId: uuid("import_batch_id"), // "added by import" provenance marker (0031)
+  clientAccountId: uuid("client_account_id"), // "submitted by client portal" provenance marker (0033)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   confirmedBy: uuid("confirmed_by"),

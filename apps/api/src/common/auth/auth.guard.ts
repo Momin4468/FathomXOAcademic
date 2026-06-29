@@ -7,6 +7,7 @@ import {
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import type { SessionPrincipal } from "@business-os/shared";
+import { IS_CLIENT_KEY } from "./client-route.decorator.js";
 import { IS_PF_KEY } from "./pf-route.decorator.js";
 import { IS_PUBLIC_KEY } from "./public.decorator.js";
 import { TokenService } from "./token.service.js";
@@ -38,6 +39,14 @@ export class AuthGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPf) return true;
+
+    // Client-portal routes are authenticated by their own ClientAuthGuard with a
+    // client token — the business guard yields so a business token can't reach them.
+    const isClient = this.reflector.getAllAndOverride<boolean>(IS_CLIENT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isClient) return true;
 
     const req = context
       .switchToHttp()

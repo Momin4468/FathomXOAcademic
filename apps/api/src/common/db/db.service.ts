@@ -22,6 +22,17 @@ export interface PfAuthLookupRow {
   twofa_secret: string | null;
 }
 
+/** Auth columns returned by the client_auth_lookup() SECURITY DEFINER fn (Module 18). */
+export interface ClientAuthLookupRow {
+  id: string;
+  org_id: string;
+  party_id: string;
+  password_hash: string;
+  status: string;
+  twofa_secret: string | null;
+  expires_at: Date | null;
+}
+
 /**
  * The single data access layer (CLAUDE.md §3.1). All tenant work goes through
  * `withTenant`, which opens a transaction, sets the RLS session GUCs from the
@@ -69,6 +80,26 @@ export class DbService implements OnModuleDestroy {
    * until the user is identified. The function (owner-rights) is the single
    * sanctioned RLS bypass and returns only auth columns for the one email.
    */
+  /**
+   * Client-portal credential lookup for login (Module 18). Runs the
+   * client_auth_lookup() SECURITY DEFINER with NO context (the org/party aren't
+   * known until the login_id is matched). Returns auth columns + the org/party so
+   * the token can carry them. The client plane then uses withTenant scoped to that
+   * party — no new GUC (the data is business data).
+   */
+  async clientAuthLookup(loginId: string): Promise<ClientAuthLookupRow | null> {
+    const client = await this.pool.connect();
+    try {
+      const res = await client.query<ClientAuthLookupRow>(
+        "select id, org_id, party_id, password_hash, status, twofa_secret, expires_at from client_auth_lookup($1)",
+        [loginId],
+      );
+      return res.rows[0] ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
   async authLookup(email: string): Promise<AuthLookupRow | null> {
     const client = await this.pool.connect();
     try {

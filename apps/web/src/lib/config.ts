@@ -8,3 +8,8 @@ export const REFRESH_COOKIE = "bos_refresh";
 // independent of the business session (a different login, different tokens).
 export const PF_ACCESS_COOKIE = "pf_access";
 export const PF_REFRESH_COOKIE = "pf_refresh";
+
+// Client portal plane (Module 18) — SEPARATE cookies so a client session is fully
+// independent of the business + PF sessions (a different login, different tokens).
+export const CLIENT_ACCESS_COOKIE = "client_access";
+export const CLIENT_REFRESH_COOKIE = "client_refresh";

@@ -34,6 +34,7 @@ const SCHEMA_MIGRATIONS = [
   "0030_ai_capture.sql",
   "0031_import_export.sql",
   "0032_channels_profit_share.sql",
+  "0033_client_portal.sql",
 ];
 
 async function main() {
