@@ -95,6 +95,7 @@ export const workItem = pgTable("work_item", {
   customJson: jsonb("custom_json").default({}),
   briefFileId: uuid("brief_file_id").references(() => fileObject.id),
   notes: text("notes"),
+  aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   confirmedBy: uuid("confirmed_by"),

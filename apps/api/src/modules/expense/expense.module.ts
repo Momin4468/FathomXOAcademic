@@ -10,5 +10,6 @@ import { ReminderService } from "./reminder.service.js";
   imports: [AuthModule],
   controllers: [ExpenseController],
   providers: [ExpenseService, ReminderService],
+  exports: [ExpenseService],
 })
 export class ExpenseModule {}

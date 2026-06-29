@@ -14,6 +14,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/" className="font-semibold tracking-tight">
               Business OS
             </Link>
+            {can(me?.permissions, "ai_capture:create") && (
+              <Link href="/capture" className="text-gray-600 hover:text-gray-900">
+                AI capture
+              </Link>
+            )}
             {can(me?.permissions, "capture:view") && (
               <Link href="/tasks" className="text-gray-600 hover:text-gray-900">
                 Tasks

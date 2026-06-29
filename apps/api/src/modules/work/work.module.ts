@@ -19,5 +19,6 @@ import { WorkService } from "./work.service.js";
   imports: [AuthModule],
   controllers: [WorkController],
   providers: [WorkService, LineService, LegService, PricingService, ResitService, ChargeService, CustomFieldService],
+  exports: [WorkService],
 })
 export class WorkModule {}

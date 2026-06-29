@@ -443,6 +443,17 @@ a deny-by-default role — never base tables — so opacity (§4.4/§4.5) holds 
 - **Money is org-level only** (per-party money would leak a partner's private price under RLS-bypass). Views: `org_net` (org revenue/writer_cost/net), `org_receivables` (org invoiced/paid/due), `writer_cost` (per-writer jobs + pay, NO revenue/net), `settlement_position` (per partner-pair **shared** pool + transfers — never a private split/client leg), `work_volume` (per-party job counts), `writer_reputation` (per-writer quality aggregates), `expense_totals` (per month/category/bearer), `party_balance` (a party's own earnings/dues/net — member dashboard, locked to `party_id`). No raw-leg / per-client-price / margin-by-source-partner / `pf_*` view exists. Derived money columns are `net` (never `profit`/`margin`).
 - **Embed:** `GET /analytics/embed` (module `dashboard`, gated `dashboard:view`) mints a Metabase signed-embed JWT (`METABASE_EMBED_SECRET`, distinct from `JWT_SECRET`) locking `org_id` (owner) or `org_id`+`party_id` (member) from the signed principal. See docs/METABASE_SETUP.md.
 
+## AICAP. AI capture assistant (BUILT · migration 0030, §10/§2)
+
+Unstructured input → PROPOSED drafts. The AI proposes; a human Accept is the
+governance confirm. Extraction writes ONLY proposals; a domain record is created
+only on human Accept, through the existing create service, stamped "added by AI".
+
+- **`ai_capture`** — one submission (kind text|whatsapp|image|voice; input_text or file_object_id; provider/model/status/usage_tokens). **`ai_proposal`** — each candidate (target_type client|job|payment|expense; proposed_json; confidence; status pending|accepted|rejected; created_entity_type/id on accept). **`ai_usage`** — append-only per-user cap ledger. All tenant-RLS (org_id = app_current_org()); ai_capture/ai_proposal select/insert/update, ai_usage select/insert.
+- **Provenance marker:** nullable `ai_capture_id` on `party`, `work_item`, `payment`, `expense` (null = manual, set = added by AI). Set only via the create services' optional `opts.aiCaptureId` (not on any DTO → unforgeable on the manual path).
+- **Accept** validates proposed_json against the real create DTO + requires the TARGET's create permission (no escalation); money (payment/expense) is created only here, on human Accept. Lifecycle pending→accepted|rejected (no re-accept).
+- **Provider** is swappable behind `AI_CAPTURE_PROVIDER` (dev free default | gemini | claude; fetch, no SDK; fail-closed). Per-(user,org,day) cap `AI_CAPTURE_DAILY_CAP`. New enums `AI_CAPTURE_KINDS`/`AI_PROPOSAL_TARGETS`/`AI_PROPOSAL_STATUSES`; module `ai_capture` (15).
+
 ---
 
 ## I. What the agent must NOT do

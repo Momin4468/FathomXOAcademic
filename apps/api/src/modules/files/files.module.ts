@@ -13,5 +13,6 @@ import { FilesService } from "./files.service.js";
   imports: [AuthModule],
   controllers: [FilesController],
   providers: [FilesService, StorageService],
+  exports: [FilesService, StorageService],
 })
 export class FilesModule {}

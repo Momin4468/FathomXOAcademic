@@ -43,6 +43,7 @@ export const expense = pgTable("expense", {
   nextDueDate: date("next_due_date"),
   currency: text("currency"), // BDT (default) | USD | GBP | EUR | AUD
   lastRemindedDue: date("last_reminded_due"),
+  aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

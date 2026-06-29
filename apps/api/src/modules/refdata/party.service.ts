@@ -79,7 +79,7 @@ export class PartyService {
     return { ...row, customFields };
   }
 
-  async create(tx: Db, principal: SessionPrincipal, dto: CreatePartyDto) {
+  async create(tx: Db, principal: SessionPrincipal, dto: CreatePartyDto, opts?: { aiCaptureId?: string }) {
     // Capture-first: a typed university name auto-resolves (or creates provisional).
     let universityId = dto.universityId ?? null;
     if (!universityId && dto.universityRaw?.trim()) {
@@ -108,6 +108,7 @@ export class PartyService {
         contactJson: dto.contact ?? {},
         referredByPartyId: dto.referredByPartyId ?? null,
         customJson,
+        aiCaptureId: opts?.aiCaptureId ?? null,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })

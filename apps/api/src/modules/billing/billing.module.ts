@@ -26,5 +26,6 @@ import { INCOME_BRIDGE } from "./income-bridge/income-bridge.port.js";
     BalanceService,
     { provide: INCOME_BRIDGE, useClass: DbIncomeBridge },
   ],
+  exports: [PaymentService],
 })
 export class BillingModule {}

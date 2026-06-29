@@ -165,6 +165,7 @@ export const MODULES = [
   "custom_fields", // module 12 — admin-defined structured fields on records (§2 #10, §8)
   "dashboard", // module 13 — role-scoped "my numbers" + owner analytics (§8, §10)
   "personal_finance", // module 14 — the SEPARATE, sellable personal-finance plane (§11)
+  "ai_capture", // module 15 — AI capture assistant: unstructured input → proposed drafts (§10/§2)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
@@ -238,3 +239,20 @@ export const PF_DEFAULT_EXPENSE_CATEGORIES = ["Food", "Rent", "Transport", "Bill
 /** pf_note.color — a small fixed palette for visual organisation of notes (§11 personal plane). */
 export const NOTE_COLORS = ["default", "yellow", "green", "blue", "pink", "gray"] as const;
 export type NoteColor = (typeof NOTE_COLORS)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
+// AI capture assistant (§10/§2) — unstructured input → PROPOSED drafts. The AI
+// only proposes; a human accepts (the governance "confirm"). Nothing auto-commits.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** ai_capture.kind — how the input arrived. */
+export const AI_CAPTURE_KINDS = ["text", "whatsapp", "image", "voice"] as const;
+export type AiCaptureKind = (typeof AI_CAPTURE_KINDS)[number];
+
+/** ai_proposal.target_type — the kind of draft record a proposal would create. */
+export const AI_PROPOSAL_TARGETS = ["client", "job", "payment", "expense"] as const;
+export type AiProposalTarget = (typeof AI_PROPOSAL_TARGETS)[number];
+
+/** ai_proposal.status — pending review → accepted (created) | rejected. */
+export const AI_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
+export type AiProposalStatus = (typeof AI_PROPOSAL_STATUSES)[number];

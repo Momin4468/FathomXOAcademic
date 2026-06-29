@@ -15,5 +15,6 @@ import { ReferenceService } from "./reference.service.js";
   imports: [AuthModule],
   controllers: [ReferenceController, PartyController],
   providers: [ReferenceService, PartyService, CustomFieldService],
+  exports: [PartyService, ReferenceService],
 })
 export class ReferenceModule {}

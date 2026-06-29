@@ -18,6 +18,7 @@ import { ReferrersModule } from "./modules/referrers/referrers.module.js";
 import { CustomFieldsModule } from "./modules/custom-fields/custom-fields.module.js";
 import { DashboardModule } from "./modules/dashboard/dashboard.module.js";
 import { PersonalFinanceModule } from "./modules/personal-finance/personal-finance.module.js";
+import { AiCaptureModule } from "./modules/ai-capture/ai-capture.module.js";
 import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { SettlementModule } from "./modules/settlement/settlement.module.js";
 import { ReferenceModule } from "./modules/refdata/reference.module.js";
@@ -55,6 +56,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("custom_fields") ? [CustomFieldsModule] : []),
     ...(isModuleEnabled("dashboard") ? [DashboardModule] : []),
     ...(isModuleEnabled("personal_finance") ? [PersonalFinanceModule] : []),
+    ...(isModuleEnabled("ai_capture") ? [AiCaptureModule] : []),
   ],
 })
 export class AppModule {}
