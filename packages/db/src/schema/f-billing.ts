@@ -105,7 +105,7 @@ export const charge = pgTable("charge", {
     .references(() => party.id),
   workItemId: uuid("work_item_id").references(() => workItem.id),
   dealTermId: uuid("deal_term_id").references(() => dealTerm.id),
-  category: text("category").notNull(), // platform_fee | ai_check | adjustment | other
+  category: text("category").notNull(), // platform_fee | writer_commission | ai_check | adjustment | other
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   reason: text("reason"),
   reversesChargeId: uuid("reverses_charge_id"),

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
 import type { PartyType, RecordScope, SessionPrincipal } from "@business-os/shared";
 import { and, eq, ilike, isNull, or } from "drizzle-orm";
@@ -146,7 +146,28 @@ export class PartyService {
   async update(tx: Db, principal: SessionPrincipal, id: string, dto: UpdatePartyDto) {
     const patch: Record<string, unknown> = { updatedBy: principal.userId, updatedAt: new Date() };
     if (dto.displayName !== undefined) patch.displayName = dto.displayName.trim();
-    if (dto.partyType !== undefined) patch.partyType = dto.partyType;
+    if (dto.partyType !== undefined) {
+      // §4.4 OPACITY: tagging a party 'partner' must not retroactively turn a
+      // standing net-profit dividend (allowed only for a non-partner silent
+      // investor) into a partner's whole-business-margin window. Refuse the tag
+      // while such a term is live (close it or scope it to a channel first).
+      if (dto.partyType.includes("partner")) {
+        const live = await tx.execute(sql`
+          select 1 from deal_term
+          where org_id = ${principal.orgId} and to_party_id = ${id}
+            and term_type = 'profit_share' and applies_to = 'default'
+            and basis in ('pct_of_net', 'pct_after_writer')
+            and (effective_to is null or effective_to > current_date)
+          limit 1
+        `);
+        if (live.rows.length > 0) {
+          throw new BadRequestException(
+            "This party holds a standing net-profit dividend, which is allowed only for a non-partner investor. End or channel-scope that profit share before tagging them a partner (§4.4).",
+          );
+        }
+      }
+      patch.partyType = dto.partyType;
+    }
     if (dto.externalRef !== undefined) patch.externalRef = dto.externalRef;
     if (dto.universityId !== undefined) patch.universityId = dto.universityId;
     if (dto.programme !== undefined) patch.programme = dto.programme;

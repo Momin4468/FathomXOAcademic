@@ -23,7 +23,8 @@ export class ListTransfersQueryDto {
   @IsOptional() @IsUUID() partyId?: string;
 }
 
-export class ApplyPlatformFeeDto {
+/** A party→business charge on a job (platform fee or writer commission). */
+export class ApplyChargeDto {
   @IsUUID() partyId!: string;
   @IsUUID() workItemId!: string;
 }

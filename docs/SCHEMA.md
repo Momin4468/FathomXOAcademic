@@ -464,6 +464,16 @@ only on human Accept, through the existing create service, stamped "added by AI"
 
 ---
 
+## CHAN. Channels + source routing + N-way profit-share (BUILT · migration 0032, module 17)
+
+- **channel** — a thin config row over a party tagged `channel` (`party_type += channel`): `party_id` (the channel-as-party, used as `work_item.source_party_id`), `controller_party_id` (null = the business), `medium` (free text — no enum, no code change to add a channel), `is_active`, `archived_at`, provenance. Tenant-isolation RLS; config (UPDATE granted, not an append-only ledger). The whole source/leg/deal-term engine treats a channel like any source.
+- **Source routing:** a new `applies_to` kind **`source:<partyId>`** (+ `sourcePartyId` ctx) in the shared `resolveDealTerm`; specificity client 4 > source 3 > jobtype 2 > default 1. One concept covers channel/partner/vendor sources. The doer-conditional channel scheme falls out of the leg chain (no doer dimension on `deal_term`).
+- **N-way profit-share:** `deal_term.term_type += profit_share` (reuses `basis`; `PROFIT_SHARE_BASES = pct_of_net | pct_after_writer | pct_of_channel | fixed`), `to_party_id = beneficiary`, `from_party_id = NULL` (business pays), `applies_to` default (owner dividend) | `source:<channel>`. Pool (= revenue − writer cost) is divided N-way by the pure `deriveProfitShares`; residual → business. **Derived at read time, never stored**; effective-dated (a past job keeps its era's term).
+- **Opacity (§4.4):** definers `profit_share_pool(work_item)` (money bases, via the `channels:approve` pool endpoint only) and `my_profit_share(p_party)` (caller-guarded; returns own per-job amount + `scope`, never the pool/other cuts). Server guards: a percentage share to an active partner is rejected when its base would reveal another partner's margin (default net always; source-scoped only when the source is owned by a *different* partner; `pct_of_channel` requires a source; fixed always safe), and `PartyService.update` refuses to tag `partner` onto a party holding a live default net dividend. The self-view exposes default net dividends aggregate-only.
+- **Writer commission:** `deal_term.term_type += writer_commission` (`WRITER_COMMISSION_BASES = pct | fixed`) → a party→business `charge` (`charge.category += writer_commission`) via the generalised `applyCharge`; idempotent via `charge_exists(party,job,category)` + the `charge_writer_commission_once` partial unique index. `MODULES += channels` (17); `PARTY_TYPES += channel`.
+
+---
+
 ## I. What the agent must NOT do
 
 - Do not add a `profit`/`margin`/`split_amount` column anywhere — always derive from `leg` (§3, §11).

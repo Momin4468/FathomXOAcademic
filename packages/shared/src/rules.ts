@@ -24,12 +24,14 @@ export function isEffectiveOn(rule: EffectiveDated, asOf: string): boolean {
 export type AppliesTo =
   | { kind: "default" }
   | { kind: "client"; id: string }
-  | { kind: "jobtype"; value: string };
+  | { kind: "jobtype"; value: string }
+  | { kind: "source"; id: string }; // a job's source party (a channel, partner, or vendor) — module 17
 
-/** Parse the SCHEMA text convention: 'default' | 'client:<uuid>' | 'jobtype:<x>'. */
+/** Parse the SCHEMA text convention: 'default' | 'client:<uuid>' | 'jobtype:<x>' | 'source:<uuid>'. */
 export function parseAppliesTo(appliesTo: string): AppliesTo {
   if (appliesTo.startsWith("client:")) return { kind: "client", id: appliesTo.slice(7) };
   if (appliesTo.startsWith("jobtype:")) return { kind: "jobtype", value: appliesTo.slice(8) };
+  if (appliesTo.startsWith("source:")) return { kind: "source", id: appliesTo.slice(7) };
   return { kind: "default" };
 }
 
@@ -50,6 +52,7 @@ export interface DealTermContext {
   termType: string;
   clientPartyId?: string | null;
   jobType?: string | null;
+  sourcePartyId?: string | null; // the work_item.source_party_id (a channel/partner/vendor) — module 17
   asOf: string;
 }
 
@@ -58,7 +61,7 @@ const createdAtMs = (v: string | Date | null | undefined): number =>
 
 /**
  * Resolve the winning deal term by precedence: specific party-pair beats global,
- * and applies_to client > jobtype > default. Ties break to the latest
+ * and applies_to client > source > jobtype > default. Ties break to the latest
  * effective_from, then latest created_at. Returns null when nothing applies.
  */
 export function resolveDealTerm(
@@ -82,6 +85,9 @@ export function resolveDealTerm(
     let appliesScore: number;
     if (at.kind === "client") {
       if (!ctx.clientPartyId || at.id !== ctx.clientPartyId) continue;
+      appliesScore = 4;
+    } else if (at.kind === "source") {
+      if (!ctx.sourcePartyId || at.id !== ctx.sourcePartyId) continue;
       appliesScore = 3;
     } else if (at.kind === "jobtype") {
       if (!ctx.jobType || at.value !== ctx.jobType) continue;

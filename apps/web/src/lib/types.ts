@@ -364,6 +364,55 @@ export interface MyReferrals {
   balance: Balance;
 }
 
+// ─── Channels + N-way profit-share (Module 17) ────────────────────────────────
+export interface Channel {
+  id: string;
+  partyId: string;
+  name: string;
+  medium: string;
+  controllerPartyId: string | null; // null = business
+  controllerName: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ProfitShareTerm {
+  id: string;
+  toPartyId: string | null;
+  toPartyName: string | null;
+  basis: string | null; // pct_of_net | pct_after_writer | pct_of_channel | fixed
+  value: string;
+  appliesTo: string; // default | source:<id> | client:<id> | jobtype:<x>
+  effectiveFrom: string;
+  effectiveTo: string | null;
+}
+
+export interface ProfitShareCut {
+  toPartyId: string;
+  toPartyName: string | null;
+  basis: string;
+  rate: number;
+  base: number;
+  amount: number;
+}
+
+export interface JobProfitShares {
+  workItemId: string;
+  jobDate: string;
+  pool: number;
+  cuts: ProfitShareCut[];
+  residual: number;
+  overAllocated: boolean;
+  residualOwner: { partyId: string; name: string | null } | null; // null = business
+}
+
+export interface MyProfitShare {
+  total: number;
+  dividendTotal: number; // aggregate-only net dividends (never itemised, §4.4)
+  channelShares: { workItemId: string; jobDate: string; amount: number }[];
+  jobCount: number;
+}
+
 // ─── Custom fields (Module 12) ────────────────────────────────────────────────
 export interface CustomFieldDef {
   id: string;

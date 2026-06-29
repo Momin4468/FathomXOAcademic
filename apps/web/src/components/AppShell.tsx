@@ -93,6 +93,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Referrers
               </Link>
             )}
+            {can(me?.permissions, "channels:approve") && (
+              <Link href="/channels" className="text-gray-600 hover:text-gray-900">
+                Channels
+              </Link>
+            )}
+            {can(me?.permissions, "channels:view") && (
+              <Link href="/channels/mine" className="text-gray-600 hover:text-gray-900">
+                My share
+              </Link>
+            )}
             {can(me?.permissions, "referrers:view") && (
               <Link href="/referrers/me" className="text-gray-600 hover:text-gray-900">
                 My referrals

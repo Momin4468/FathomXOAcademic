@@ -19,3 +19,4 @@ export * from "./o-custom-fields.js";
 export * from "./p-personal.js";
 export * from "./q-ai-capture.js";
 export * from "./r-import.js";
+export * from "./s-channels.js";

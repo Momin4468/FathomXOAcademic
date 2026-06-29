@@ -82,8 +82,43 @@ describe("parseAppliesTo — SCHEMA text convention", () => {
   it("'jobtype:<x>' → {jobtype,value}", () => {
     assert.deepEqual(parseAppliesTo("jobtype:essay"), { kind: "jobtype", value: "essay" });
   });
+  it("'source:<uuid>' → {source,id} (module 17 source routing)", () => {
+    assert.deepEqual(parseAppliesTo(`source:${CLIENT_X}`), { kind: "source", id: CLIENT_X });
+  });
   it("an unknown prefix falls back to default (fail-safe to least-specific)", () => {
     assert.deepEqual(parseAppliesTo("garbage"), { kind: "default" });
+  });
+});
+
+// ─── SOURCE ROUTING (module 17) — client > source > jobtype > default ──────────
+
+describe("resolveDealTerm — source-scoped precedence (client 4 > source 3 > jobtype 2 > default 1)", () => {
+  const asOf = "2026-03-15";
+  const SOURCE = "88888888-8888-4888-8888-888888888888"; // a channel/partner party
+  const def = baseTerm({ id: "def", appliesTo: "default", value: "10" });
+  const jt = baseTerm({ id: "jt", appliesTo: "jobtype:essay", value: "20" });
+  const src = baseTerm({ id: "src", appliesTo: `source:${SOURCE}`, value: "25" });
+  const cli = baseTerm({ id: "cli", appliesTo: `client:${CLIENT_X}`, value: "30" });
+  const ctx = { fromPartyId: FROM, toPartyId: TO, termType: "per_word" as const, asOf };
+
+  it("a matching source beats a jobtype and a default", () => {
+    const r = resolveDealTerm([def, jt, src], { ...ctx, sourcePartyId: SOURCE, jobType: "essay" });
+    assert.equal(r?.id, "src");
+  });
+
+  it("a client rule still beats a matching source (client is most specific)", () => {
+    const r = resolveDealTerm([src, cli], { ...ctx, sourcePartyId: SOURCE, clientPartyId: CLIENT_X });
+    assert.equal(r?.id, "cli");
+  });
+
+  it("a non-matching source never wins; falls through to jobtype/default", () => {
+    const r = resolveDealTerm([def, jt, src], { ...ctx, sourcePartyId: "99999999-9999-4999-8999-999999999999", jobType: "essay" });
+    assert.equal(r?.id, "jt", "a source rule for another source must not leak");
+  });
+
+  it("a source rule is ignored when the ctx has no sourcePartyId", () => {
+    const r = resolveDealTerm([def, src], { ...ctx });
+    assert.equal(r?.id, "def");
   });
 });
 

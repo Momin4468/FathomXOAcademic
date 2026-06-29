@@ -12,7 +12,7 @@ import {
 } from "@business-os/shared";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
-import type { ApplyPlatformFeeDto, RecordTransferDto } from "./dto.js";
+import type { ApplyChargeDto, RecordTransferDto } from "./dto.js";
 
 /**
  * Settlement layer (DESIGN_SPEC §4.4, §3): the SHARED Emon↔Momin picture —
@@ -156,71 +156,123 @@ export class SettlementService {
   }
 
   /**
-   * Apply the platform/system fee: resolve the platform_fee deal-term (a % of
-   * the party's earnings on the job) and insert the party→business charge. The
-   * charge is party-RLS and the admin isn't the party, so use a client-side id +
-   * no RETURNING (the ChargeService pattern). Idempotent: refuses a second live
-   * platform_fee on the same party+job.
+   * Apply the platform/system fee: a % the party owes the business on the job.
+   * Thin wrapper over applyCharge (term_type='platform_fee'; pct of earnings).
    */
-  async applyPlatformFee(tx: Db, principal: SessionPrincipal, dto: ApplyPlatformFeeDto) {
+  applyPlatformFee(tx: Db, principal: SessionPrincipal, dto: ApplyChargeDto) {
+    return this.applyCharge(tx, principal, {
+      ...dto,
+      termType: "platform_fee",
+      category: "platform_fee",
+      label: "Platform fee",
+      auditAction: "settlement.platform_fee_applied",
+    });
+  }
+
+  /**
+   * Apply a writer commission: a % OF the writer's job earnings OR a FIXED amount
+   * the writer owes the business per job (DESIGN_SPEC §3.5 — a party-owes-business
+   * charge / comp rule on the writer). Same mechanism as the platform fee.
+   */
+  applyWriterCommission(tx: Db, principal: SessionPrincipal, dto: ApplyChargeDto) {
+    return this.applyCharge(tx, principal, {
+      ...dto,
+      termType: "writer_commission",
+      category: "writer_commission",
+      label: "Writer commission",
+      auditAction: "settlement.writer_commission_applied",
+    });
+  }
+
+  /**
+   * Generalized party→business charge: resolve the deal-term (effective-dated via
+   * the shared resolver) and insert the charge. basis='fixed' → the value is the
+   * amount (works even with zero leg earnings); otherwise (null/'pct') → a % of
+   * the party's earnings on the job (party_job_earnings definer). The charge is
+   * party-RLS and the admin isn't the party, so use a client-side id + no
+   * RETURNING. Idempotent per (party, job, category) via the charge_exists definer
+   * (backstopped by a partial unique index). Guards on the COMPUTED amount > 0 so
+   * a valid fixed charge is never rejected for want of leg earnings.
+   */
+  private async applyCharge(
+    tx: Db,
+    principal: SessionPrincipal,
+    args: ApplyChargeDto & {
+      termType: "platform_fee" | "writer_commission";
+      category: "platform_fee" | "writer_commission";
+      label: string;
+      auditAction: string;
+    },
+  ) {
     // Job date drives effective-dating (work_item is tenant-readable).
     const [job] = await tx
       .select({ id: schema.workItem.id, createdAt: schema.workItem.createdAt })
       .from(schema.workItem)
-      .where(eq(schema.workItem.id, dto.workItemId));
+      .where(eq(schema.workItem.id, args.workItemId));
     if (!job) throw new NotFoundException("Work item not found");
     const asOf = job.createdAt.toISOString().slice(0, 10);
 
-    // Resolve the platform_fee term as-of the job date via the shared resolver
-    // (precedence + effective-dating, same logic everywhere). A global term
-    // (from/to null) matches regardless of the ctx party ids.
+    // Resolve the term as-of the job date (precedence + effective-dating). A
+    // global term (from/to null) matches regardless of the ctx party ids.
     const candidates = (await tx
       .select()
       .from(schema.dealTerm)
-      .where(eq(schema.dealTerm.termType, "platform_fee"))) as unknown as DealTermLike[];
+      .where(eq(schema.dealTerm.termType, args.termType))) as unknown as DealTermLike[];
     const term = resolveDealTerm(candidates, {
-      fromPartyId: dto.partyId,
-      toPartyId: dto.partyId,
-      termType: "platform_fee",
+      fromPartyId: args.partyId,
+      toPartyId: args.partyId,
+      termType: args.termType,
       asOf,
     });
-    if (!term) throw new BadRequestException("No platform_fee deal term in effect for this job");
+    if (!term) throw new BadRequestException(`No ${args.termType} deal term in effect for this job`);
 
-    // Guard against a double-charge (charge is party-RLS → definer existence check).
+    // Idempotency: refuse a second live charge of this category on the party+job.
     const existsRes = await tx.execute(
-      sql`select platform_fee_exists(${dto.partyId}, ${dto.workItemId}) as "exists"`,
+      sql`select charge_exists(${args.partyId}, ${args.workItemId}, ${args.category}) as "exists"`,
     );
     if ((existsRes.rows[0] as { exists: boolean }).exists) {
-      throw new BadRequestException("Platform fee already applied for this party + job");
+      throw new BadRequestException(`${args.label} already applied for this party + job`);
     }
 
-    // Fee base = the party's earnings on this job (legs to them) via definer.
-    const baseRes = await tx.execute(
-      sql`select party_job_earnings(${dto.partyId}, ${dto.workItemId}) as base`,
-    );
-    const base = Number((baseRes.rows[0] as { base: string }).base);
-    const amount = round2((base * Number(term.value)) / 100);
-    if (amount <= 0) throw new BadRequestException("Computed platform fee is zero (no earnings on this job)");
+    const isFixed = term.basis === "fixed";
+    let base = 0;
+    let amount: number;
+    let reason: string;
+    if (isFixed) {
+      amount = round2(Number(term.value));
+      reason = `${args.label} (fixed) ${amount}`;
+    } else {
+      // base = the party's earnings on this job (legs to them) via definer.
+      const baseRes = await tx.execute(
+        sql`select party_job_earnings(${args.partyId}, ${args.workItemId}) as base`,
+      );
+      base = Number((baseRes.rows[0] as { base: string }).base);
+      amount = round2((base * Number(term.value)) / 100);
+      reason = `${args.label} ${term.value}% of ${base} earnings`;
+    }
+    if (amount <= 0) {
+      throw new BadRequestException(`Computed ${args.label.toLowerCase()} is zero`);
+    }
 
     const id = randomUUID();
     await tx.insert(schema.charge).values({
       id,
       orgId: principal.orgId,
-      partyId: dto.partyId,
-      workItemId: dto.workItemId,
+      partyId: args.partyId,
+      workItemId: args.workItemId,
       dealTermId: term.id,
-      category: "platform_fee",
+      category: args.category,
       amount: String(amount),
-      reason: `Platform fee ${term.value}% of ${base} earnings`,
+      reason,
       createdBy: principal.userId,
     });
     await this.audit.record(tx, principal.orgId, {
       actorUserId: principal.userId,
-      action: "settlement.platform_fee_applied",
+      action: args.auditAction,
       entity: "charge",
       entityId: id,
-      detail: { partyId: dto.partyId, workItemId: dto.workItemId, pct: term.value, base, amount },
+      detail: { partyId: args.partyId, workItemId: args.workItemId, basis: term.basis ?? "pct", base, amount },
     });
-    return { id, amount, base, pct: term.value };
+    return { id, amount, base, pct: isFixed ? null : term.value, basis: term.basis ?? "pct" };
   }
 }

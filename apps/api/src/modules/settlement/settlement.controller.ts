@@ -5,7 +5,7 @@ import { RequirePermission } from "../../common/authz/require-permission.decorat
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
 import {
-  ApplyPlatformFeeDto,
+  ApplyChargeDto,
   ListTransfersQueryDto,
   RecordTransferDto,
   ReverseTransferDto,
@@ -65,8 +65,19 @@ export class SettlementController {
   applyPlatformFee(
     @CurrentRls() ctx: RlsContext,
     @CurrentPrincipal() p: SessionPrincipal,
-    @Body() dto: ApplyPlatformFeeDto,
+    @Body() dto: ApplyChargeDto,
   ) {
     return this.db.withTenant(ctx, (tx) => this.settlement.applyPlatformFee(tx, p, dto));
+  }
+
+  /** Apply a writer commission (% of job earnings OR fixed) → party-owes-business charge. */
+  @Post("writer-commission")
+  @RequirePermission("billing", "create")
+  applyWriterCommission(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() p: SessionPrincipal,
+    @Body() dto: ApplyChargeDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.settlement.applyWriterCommission(tx, p, dto));
   }
 }

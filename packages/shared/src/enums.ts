@@ -15,6 +15,7 @@ export const PARTY_TYPES = [
   "referrer",
   "partner",
   "employee",
+  "channel", // an admin-creatable source (Web/Facebook/…) used as work_item.source_party_id (module 17)
 ] as const;
 export type PartyType = (typeof PARTY_TYPES)[number];
 
@@ -67,8 +68,26 @@ export const TERM_TYPES = [
   "per_word",
   "fixed",
   "platform_fee", // a % the party owes the business → generates a charge (§4.4)
+  "writer_commission", // a % OR fixed amount a writer owes the business per job → a charge (module 17)
+  "profit_share", // N-way profit-share / owner dividend, to_party = beneficiary (module 17)
 ] as const;
 export type TermType = (typeof TERM_TYPES)[number];
+
+/**
+ * deal_term.basis for a profit_share term (module 17). The FORMULA, not just the
+ * rate, is configurable per beneficiary and changeable going forward (history
+ * settles on its own-era terms):
+ *   pct_of_net       = % of the job's net profit (revenue − writer cost − costs)
+ *   pct_after_writer = % of the post-writer margin (revenue − writer cost)
+ *   pct_of_channel   = % of a specific channel's earnings (source-scoped term)
+ *   fixed            = a set amount per job (value is the amount, not a pct)
+ */
+export const PROFIT_SHARE_BASES = ["pct_of_net", "pct_after_writer", "pct_of_channel", "fixed"] as const;
+export type ProfitShareBasis = (typeof PROFIT_SHARE_BASES)[number];
+
+/** deal_term.basis for a writer_commission term: a pct of job earnings, or a fixed amount. */
+export const WRITER_COMMISSION_BASES = ["pct", "fixed"] as const;
+export type WriterCommissionBasis = (typeof WRITER_COMMISSION_BASES)[number];
 
 /** comp_rule.basis — how a unit of work is paid (SCHEMA E, spec §3.5). */
 export const COMP_BASES = [
@@ -114,7 +133,7 @@ export const PROOF_SIDES = ["payer", "payee"] as const;
 export type ProofSide = (typeof PROOF_SIDES)[number];
 
 /** charge.category — a party→business due (Module 5, bidirectional ledger). */
-export const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"] as const;
+export const CHARGE_CATEGORIES = ["platform_fee", "writer_commission", "ai_check", "adjustment", "other"] as const;
 export type ChargeCategory = (typeof CHARGE_CATEGORIES)[number];
 
 /** expense.category — one table, many flavors (Module 6, §3.5/§8). */
@@ -167,6 +186,7 @@ export const MODULES = [
   "personal_finance", // module 14 — the SEPARATE, sellable personal-finance plane (§11)
   "ai_capture", // module 15 — AI capture assistant: unstructured input → proposed drafts (§10/§2)
   "import_export", // module 16 — bulk import / scoped export / dated file archive
+  "channels", // module 17 — admin-creatable sources + source-driven routing + N-way profit-share (§3/§4.4)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
