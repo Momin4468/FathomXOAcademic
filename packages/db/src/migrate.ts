@@ -30,11 +30,14 @@ const SCHEMA_MIGRATIONS = [
   "0026_subscription_reminders.sql",
   "0027_personal_finance.sql",
   "0028_personal_notes.sql",
+  "0029_analytics.sql",
 ];
 
 async function main() {
   // The app role must exist before 0001_rls.sql grants privileges to it.
   await ensureAppRole(env.adminUrl, env.appDbUser, env.appDbPassword);
+  // The read-only BI role must exist before 0029_analytics.sql grants to it.
+  await ensureAppRole(env.adminUrl, env.analyticsRoUser, env.analyticsRoPassword);
   await applyMigrations(env.adminUrl, SCHEMA_MIGRATIONS);
   console.log("Migrations complete.");
 }

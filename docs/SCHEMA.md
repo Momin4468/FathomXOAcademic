@@ -433,6 +433,16 @@ A SEPARATE, independently-sellable service sharing this DB but designed as its o
 - New shared enums: `PF_CATEGORY_KINDS`, `PF_INCOME_SOURCES`, `PF_LOAN_DIRECTIONS`, `PF_LOAN_EVENT_KINDS`, `PF_SAVING_EVENT_KINDS`, `PF_TARGET_KINDS`, `PF_TARGET_PERIODS` (+ `PfPrincipal`/`PfRlsContext` types, `GUC.pfAccountId`).
 - **Personal notes (migration 0028, in this plane):** `pf_note` (`title`, `body`, `items` jsonb checklist `[{text,done}]`, `color`, `pinned`, `remind_on` + `last_reminded_on`, `archived_at`) + `pf_note_attachment` (`is_link`, `url` = storage key or external URL, `filename`/`size_bytes`/`mime`). Same `pf_account_isolation` RLS. **Editable scratch data, not a ledger** → `update` granted, no append-only/reverse. Attachments follow the file rule via the reused `StorageService` (small→stored, large→link, metadata-only); link-only attachments are never relayed. An optional `remind_on` fires an email on the day (daily `@Cron`, reuses EmailService, idempotent via `last_reminded_on`). New enum `NOTE_COLORS`.
 
+## ANALYTICS. BI plane (BUILT · migration 0029, §8)
+
+Embedded Metabase reads ONLY a redacted `analytics` schema of AGGREGATE views via
+a deny-by-default role — never base tables — so opacity (§4.4/§4.5) holds through BI.
+
+- **Role `analytics_ro`** (created by `ensureAppRole`; `login nosuperuser`): granted `usage on schema analytics` + `select on all tables in schema analytics` (+ default privileges) and **nothing else** — no base-table SELECT, no EXECUTE on the GUC-scoped definers (`revoke all on all tables/sequences in schema public`). Metabase connects as this role (dev: same DB; prod: a read replica, same role/schema).
+- **Views are superuser-owned** (migration runs as the admin superuser) so they read across FORCE RLS; the **view SQL + the locked Metabase embed param** are the redaction boundary (the views carry `org_id`/`party_id` columns but no built-in filter — the signed embed locks them).
+- **Money is org-level only** (per-party money would leak a partner's private price under RLS-bypass). Views: `org_net` (org revenue/writer_cost/net), `org_receivables` (org invoiced/paid/due), `writer_cost` (per-writer jobs + pay, NO revenue/net), `settlement_position` (per partner-pair **shared** pool + transfers — never a private split/client leg), `work_volume` (per-party job counts), `writer_reputation` (per-writer quality aggregates), `expense_totals` (per month/category/bearer), `party_balance` (a party's own earnings/dues/net — member dashboard, locked to `party_id`). No raw-leg / per-client-price / margin-by-source-partner / `pf_*` view exists. Derived money columns are `net` (never `profit`/`margin`).
+- **Embed:** `GET /analytics/embed` (module `dashboard`, gated `dashboard:view`) mints a Metabase signed-embed JWT (`METABASE_EMBED_SECRET`, distinct from `JWT_SECRET`) locking `org_id` (owner) or `org_id`+`party_id` (member) from the signed principal. See docs/METABASE_SETUP.md.
+
 ---
 
 ## I. What the agent must NOT do

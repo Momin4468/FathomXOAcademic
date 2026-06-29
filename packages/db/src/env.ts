@@ -22,4 +22,7 @@ export const env = {
   appUrl: required("DATABASE_URL"),
   appDbUser: process.env.APP_DB_USER ?? "app_user",
   appDbPassword: process.env.APP_DB_PASSWORD ?? "app_user_pw",
+  /** Read-only BI role (Metabase connects as this; SELECT on the analytics schema only). */
+  analyticsRoUser: process.env.ANALYTICS_RO_USER ?? "analytics_ro",
+  analyticsRoPassword: process.env.ANALYTICS_RO_PASSWORD ?? "analytics_ro_pw",
 };

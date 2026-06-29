@@ -1,8 +1,10 @@
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../../common/auth/auth.module.js";
 import { BalanceService } from "../billing/balance.service.js";
+import { AnalyticsController } from "./analytics.controller.js";
 import { DashboardController } from "./dashboard.controller.js";
 import { DashboardService } from "./dashboard.service.js";
+import { MetabaseEmbedService } from "./metabase-embed.service.js";
 
 /**
  * Module 13 — role-scoped dashboards (DESIGN_SPEC §8, §10). Composes existing
@@ -12,7 +14,7 @@ import { DashboardService } from "./dashboard.service.js";
  */
 @Module({
   imports: [AuthModule],
-  controllers: [DashboardController],
-  providers: [DashboardService, BalanceService],
+  controllers: [DashboardController, AnalyticsController],
+  providers: [DashboardService, BalanceService, MetabaseEmbedService],
 })
 export class DashboardModule {}
