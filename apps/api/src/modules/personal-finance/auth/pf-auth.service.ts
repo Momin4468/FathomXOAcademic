@@ -90,7 +90,11 @@ export class PfAuthService {
     const claims = this.tokens.verifyRefresh(refreshToken);
     const ctx: PfRlsContext = { pfAccountId: claims.sub };
     const presentedHash = this.tokens.hashToken(refreshToken);
-    return this.db.withPfAccount(ctx, async (tx) => {
+    // CRITICAL: the reuse-detection family-revoke + audit MUST commit even though
+    // the request is rejected — so the callback NEVER throws (withPfAccount rolls
+    // back on throw, which would undo the revocation and leave reuse-detection
+    // inert). It returns an outcome that always commits; the 401 is thrown OUTSIDE.
+    const outcome = await this.db.withPfAccount(ctx, async (tx): Promise<PfTokenPair | null> => {
       const [row] = await tx
         .select()
         .from(schema.pfRefreshToken)
@@ -100,23 +104,23 @@ export class PfAuthService {
             eq(schema.pfRefreshToken.pfAccountId, claims.sub),
           ),
         );
-      if (!row) throw new UnauthorizedException("Invalid or expired refresh token");
-      // Reuse of a revoked token → revoke the whole family + audit.
+      if (!row) return null;
+      // Reuse of a revoked token → revoke the whole family + audit (and COMMIT it).
       if (row.revokedAt) {
         await tx
           .update(schema.pfRefreshToken)
           .set({ revokedAt: new Date() })
           .where(and(eq(schema.pfRefreshToken.pfAccountId, claims.sub), isNull(schema.pfRefreshToken.revokedAt)));
         await this.audit.record(tx, claims.sub, { action: "pf.refresh_reuse_detected", entity: "pf_refresh_token", entityId: row.id });
-        throw new UnauthorizedException("Invalid or expired refresh token");
+        return null;
       }
-      if (row.expiresAt.getTime() <= Date.now()) throw new UnauthorizedException("Invalid or expired refresh token");
+      if (row.expiresAt.getTime() <= Date.now()) return null;
       const revoked = await tx
         .update(schema.pfRefreshToken)
         .set({ revokedAt: new Date() })
         .where(and(eq(schema.pfRefreshToken.id, row.id), isNull(schema.pfRefreshToken.revokedAt)))
         .returning({ id: schema.pfRefreshToken.id });
-      if (revoked.length === 0) throw new UnauthorizedException("Invalid or expired refresh token");
+      if (revoked.length === 0) return null;
 
       const principal: PfPrincipal = { pfAccountId: claims.sub };
       const accessToken = this.tokens.signAccess(principal);
@@ -131,6 +135,8 @@ export class PfAuthService {
       await this.audit.record(tx, claims.sub, { action: "pf.token_refreshed", entity: "pf_refresh_token", entityId: row.id });
       return { accessToken, refreshToken: newRefresh };
     });
+    if (!outcome) throw new UnauthorizedException("Invalid or expired refresh token");
+    return outcome;
   }
 
   async logout(refreshToken: string): Promise<void> {

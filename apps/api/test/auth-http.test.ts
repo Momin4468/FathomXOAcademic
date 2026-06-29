@@ -194,7 +194,7 @@ describe("is_superadmin = System SuperAdmin only (spec §4.4)", () => {
 });
 
 describe("refresh rotation + sliding window + logout revocation", () => {
-  it("a used refresh token is revoked: reuse fails, sliding expiry ~10 days out", async () => {
+  it("a used refresh token is revoked; reuse-detection revokes the whole family; sliding expiry ~10 days", async () => {
     const { body: first } = await login("momin@fathomxo.local", DEV_PASSWORD);
     const oldRefresh = first.refreshToken as string;
 
@@ -202,21 +202,23 @@ describe("refresh rotation + sliding window + logout revocation", () => {
     assert.equal(r1.status, 200, "first refresh should rotate successfully");
     assert.ok(r1.body.refreshToken && r1.body.refreshToken !== oldRefresh, "a NEW refresh token is issued");
 
-    // Reusing the now-rotated token must fail (one-time use).
-    const reuse = await api(BASE, "/auth/refresh", { method: "POST", body: { refreshToken: oldRefresh } });
-    assert.equal(reuse.status, 401, "a rotated refresh token must not work again");
-
-    // The new refresh token still works.
-    const r2 = await api(BASE, "/auth/refresh", { method: "POST", body: { refreshToken: r1.body.refreshToken } });
-    assert.equal(r2.status, 200);
-
-    // Sliding window: the stored expiry should be ~10 days out (allow 9.5–10.5).
+    // Sliding window: the just-issued token's expiry should be ~10 days out (check
+    // BEFORE the reuse below kills the family). Allow 9.5–10.5.
     const exp = await admin.query(
       `select max(expires_at) as e from auth_refresh_token
        where user_id = (select id from user_account where email='momin@fathomxo.local')`,
     );
     const days = (new Date(exp.rows[0].e).getTime() - Date.now()) / 86_400_000;
     assert.ok(days > 9.5 && days < 10.5, `sliding expiry should be ~10 days, got ${days.toFixed(2)}`);
+
+    // Reusing the now-rotated token is a theft signal → 401 AND the revocation of
+    // the whole family must COMMIT (not roll back with the 401).
+    const reuse = await api(BASE, "/auth/refresh", { method: "POST", body: { refreshToken: oldRefresh } });
+    assert.equal(reuse.status, 401, "a rotated refresh token must not work again");
+
+    // Reuse-detection killed the family: even the legitimate rotated token is now dead.
+    const r2 = await api(BASE, "/auth/refresh", { method: "POST", body: { refreshToken: r1.body.refreshToken } });
+    assert.equal(r2.status, 401, "reuse-detection revokes the WHOLE family, including the live token");
   });
 
   it("logout revokes the device's refresh token server-side", async () => {

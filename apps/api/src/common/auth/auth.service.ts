@@ -140,7 +140,11 @@ export class AuthService {
     };
     const presentedHash = this.tokens.hashToken(refreshToken);
 
-    return this.db.withTenant(ctx, async (tx) => {
+    // CRITICAL: the reuse-detection family-revoke + audit MUST commit even though
+    // the request is rejected — so the callback NEVER throws (withTenant rolls back
+    // on throw, which would undo the revocation and leave reuse-detection inert).
+    // It returns an outcome that always commits; the 401 is thrown OUTSIDE the tx.
+    const outcome = await this.db.withTenant(ctx, async (tx): Promise<TokenPair | null> => {
       // Look up by hash regardless of state so we can DETECT reuse of an
       // already-rotated/revoked token (a theft signal).
       const [row] = await tx
@@ -152,9 +156,10 @@ export class AuthService {
             eq(schema.authRefreshToken.userId, claims.sub),
           ),
         );
-      if (!row) throw new UnauthorizedException("Invalid or expired refresh token");
+      if (!row) return null;
 
-      // Reuse of a revoked token → kill the whole family (defensive) and audit.
+      // Reuse of a revoked token → kill the whole family (defensive) and audit
+      // (and COMMIT it — we return null, never throw).
       if (row.revokedAt) {
         await tx
           .update(schema.authRefreshToken)
@@ -171,10 +176,10 @@ export class AuthService {
           entity: "auth_refresh_token",
           entityId: row.id,
         });
-        throw new UnauthorizedException("Invalid or expired refresh token");
+        return null;
       }
       if (row.expiresAt.getTime() <= Date.now()) {
-        throw new UnauthorizedException("Invalid or expired refresh token");
+        return null;
       }
 
       // Atomic conditional revoke — if another concurrent refresh already flipped
@@ -190,7 +195,7 @@ export class AuthService {
         )
         .returning({ id: schema.authRefreshToken.id });
       if (revoked.length === 0) {
-        throw new UnauthorizedException("Invalid or expired refresh token");
+        return null;
       }
 
       // Re-derive roles (they may have changed since the token was minted).
@@ -219,6 +224,8 @@ export class AuthService {
       });
       return { accessToken, refreshToken: newRefresh };
     });
+    if (!outcome) throw new UnauthorizedException("Invalid or expired refresh token");
+    return outcome;
   }
 
   /** Server-side revocation: the device's refresh token can no longer mint tokens. */

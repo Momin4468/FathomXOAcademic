@@ -115,6 +115,48 @@ after(async () => {
   if (server && !server.killed) server.kill();
 });
 
+describe("PF refresh rotation + reuse-detection revokes the WHOLE family", () => {
+  it("reusing a rotated refresh token kills the family, so the live rotated token is also dead", async () => {
+    // Register a fresh PF account and capture its FIRST refresh token (the helper
+    // discards it, so register raw here). Track the id for cleanup.
+    const email = `pf+${randomUUID()}@pf.test`;
+    const reg = await api(BASE, "/pf/auth/register", {
+      method: "POST",
+      body: { email, password: "Password123!", displayName: "PF Revoke Tester", baseCurrency: "BDT" },
+    });
+    assert.equal(reg.status, 201, `register should succeed (got ${reg.status}: ${JSON.stringify(reg.body)})`);
+    const oldRefresh = reg.body.refreshToken as string;
+    assert.ok(oldRefresh, "register returns a refresh token");
+    const me = await api(BASE, "/pf/auth/me", { token: reg.body.accessToken as string });
+    assert.equal(me.status, 200);
+    const accountId = me.body.id as string;
+    createdPfAccountIds.push(accountId);
+
+    // 1) Rotate: the first refresh succeeds and mints a NEW token t1.
+    const r1 = await api(BASE, "/pf/auth/refresh", { method: "POST", body: { refreshToken: oldRefresh } });
+    assert.equal(r1.status, 200, "first PF refresh should rotate successfully");
+    const t1 = r1.body.refreshToken as string;
+    assert.ok(t1 && t1 !== oldRefresh, "a NEW refresh token is issued (rotation)");
+
+    // 2) Reuse the now-revoked old token → 401 (theft signal).
+    const reuse = await api(BASE, "/pf/auth/refresh", { method: "POST", body: { refreshToken: oldRefresh } });
+    assert.equal(reuse.status, 401, "a rotated PF refresh token must not work again");
+
+    // 3) THE crux: reuse-detection must have COMMITTED the family revoke (not rolled
+    //    it back with the 401). So the live rotated token t1 is now ALSO dead.
+    const r2 = await api(BASE, "/pf/auth/refresh", { method: "POST", body: { refreshToken: t1 } });
+    assert.equal(r2.status, 401, "reuse-detection revokes the WHOLE family, including the live token");
+
+    // 4) DB ground truth: every refresh row for this account is revoked.
+    const rows = await admin.query(
+      "select count(*)::int as total, count(*) filter (where revoked_at is null)::int as live from pf_refresh_token where pf_account_id=$1",
+      [accountId],
+    );
+    assert.ok(rows.rows[0].total > 0, "the account has refresh rows");
+    assert.equal(rows.rows[0].live, 0, "no live (un-revoked) refresh tokens remain after reuse-detection");
+  });
+});
+
 describe("PF register seeds the default category catalog", () => {
   it("a new account has 5 income + 7 expense categories", async () => {
     const { token } = await registerPf();

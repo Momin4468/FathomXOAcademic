@@ -425,15 +425,13 @@ describe("🔴 refresh rotation + reuse-detection", () => {
     assert.equal(reuse.status, 401, "a rotated (already-used) refresh token cannot be reused");
   });
 
-  // 🔴 SECURITY FINDING (reported, NOT fixed): when reuse of a revoked token is
-  // detected, the service intends to revoke the WHOLE token family (it issues an
-  // UPDATE … set revoked_at where revoked_at is null + audits refresh_reuse_detected).
-  // But that UPDATE runs inside the same withTenant transaction that then THROWS the
-  // 401, and withRlsTransaction/withTenant rolls the tx back on throw — so the
-  // family-revocation is undone. Result: after a stolen-token reuse is detected, the
-  // legitimate rotated token STILL works. This assertion pins the intended guarantee
-  // and currently FAILS, exposing the bug. Do not weaken it to green.
-  it("🔴 reuse-detection must revoke the WHOLE token family (currently FAILS — see note)", async () => {
+  // 🔴 Reuse-detection revokes the WHOLE token family (a stolen-token signal must
+  // invalidate every live token, not just the replayed one). The family-revoke +
+  // audit run inside the withTenant tx but the callback now RETURNS (commits) and
+  // the 401 is thrown OUTSIDE the tx — so the revoke is no longer rolled back.
+  // (Earlier this rolled back: the revoke ran then the callback threw the 401,
+  // undoing it. Fixed in client-auth.service.ts refresh().) Do not weaken this.
+  it("🔴 reuse-detection revokes the WHOLE token family (the live token dies too)", async () => {
     const li = await clientLogin(clientALogin, CLIENT_PASSWORD);
     const t0 = li.body.refreshToken as string;
     const r1 = await api(BASE, "/client/auth/refresh", { method: "POST", body: { refreshToken: t0 } });
