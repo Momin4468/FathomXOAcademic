@@ -10,6 +10,8 @@ import { ClientAdminController } from "./client-admin.controller.js";
 import { ClientAdminService } from "./client-admin.service.js";
 import { ClientPortalController } from "./client-portal.controller.js";
 import { ClientPortalService } from "./client-portal.service.js";
+import { PublicIntakeController } from "./public-intake.controller.js";
+import { PublicIntakeService } from "./public-intake.service.js";
 
 /**
  * Module 18 — the CLIENT portal: a third scoped login plane (DESIGN_SPEC §4.1).
@@ -38,13 +40,19 @@ import { ClientPortalService } from "./client-portal.service.js";
       },
     }),
   ],
-  controllers: [ClientAuthController, ClientPortalController, ClientAdminController],
+  controllers: [
+    ClientAuthController,
+    ClientPortalController,
+    ClientAdminController,
+    PublicIntakeController,
+  ],
   providers: [
     ClientTokenService,
     ClientAuthGuard,
     ClientAuthService,
     ClientPortalService,
     ClientAdminService,
+    PublicIntakeService,
     StorageService,
   ],
 })

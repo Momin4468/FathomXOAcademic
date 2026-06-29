@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --font-display / --font-sans are provided by next/font (see layout.tsx);
+   the Tailwind fontFamily stack carries literal fallbacks. */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-ink-900 text-slate-200 antialiased;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    @apply text-slate-100;
+  }
+  ::selection {
+    background: rgba(232, 182, 76, 0.3);
+  }
+  /* Gold focus ring for accessibility on the dark base. */
+  :focus-visible {
+    outline: 2px solid #e8b64c;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    background: linear-gradient(100deg, #f6e2b3, #e8b64c 55%, #b6822a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Subtle starfield + radial glow behind the hero. */
+  .bg-starfield {
+    background-image:
+      radial-gradient(1200px 600px at 70% -10%, rgba(232, 182, 76, 0.10), transparent 60%),
+      radial-gradient(900px 500px at 10% 10%, rgba(58, 69, 112, 0.35), transparent 60%);
+  }
+  .hairline {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Respect reduced-motion: stop the globe + ambient animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
