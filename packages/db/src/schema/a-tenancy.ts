@@ -36,6 +36,7 @@ export const party = pgTable("party", {
   referredByPartyId: uuid("referred_by_party_id"), // directory "referred-by" (self-ref)
   customJson: jsonb("custom_json").default({}), // admin-defined custom fields (0023)
   aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
+  importBatchId: uuid("import_batch_id"), // "added by import" provenance marker (0031)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

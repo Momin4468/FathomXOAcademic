@@ -32,6 +32,7 @@ const SCHEMA_MIGRATIONS = [
   "0028_personal_notes.sql",
   "0029_analytics.sql",
   "0030_ai_capture.sql",
+  "0031_import_export.sql",
 ];
 
 async function main() {

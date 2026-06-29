@@ -67,6 +67,24 @@ export class ReferenceService {
   }
 
   /**
+   * Read-only canonical lookup (the import DRY-RUN path): exact normalized-alias
+   * match, NEVER creates. Returns the canonical entity or null. resolveOrCreate
+   * is the write path used at commit.
+   */
+  async lookup(tx: Db, kind: RefKind, raw: string): Promise<RefEntityView | null> {
+    const nq = normalize(raw ?? "");
+    if (!nq) return null;
+    const res = await tx.execute(sql`
+      select e.id, e.kind, e.canonical, e.status, e.parent_id as "parentId"
+      from ref_alias a
+      join ref_entity e on e.id = a.ref_id
+      where a.normalized = ${nq} and e.kind = ${kind} and e.archived_at is null
+      limit 1
+    `);
+    return (res.rows[0] as unknown as RefEntityView) ?? null;
+  }
+
+  /**
    * Resolve a typed value to its canonical entity, or create a PROVISIONAL one.
    * Capture-first: this never blocks (a writer typing a new code just creates a
    * provisional entity for a steward to confirm/merge later).

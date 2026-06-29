@@ -75,7 +75,7 @@ export class SettlementService {
     return { partnerA, partnerB, ...result };
   }
 
-  async recordTransfer(tx: Db, principal: SessionPrincipal, dto: RecordTransferDto) {
+  async recordTransfer(tx: Db, principal: SessionPrincipal, dto: RecordTransferDto, opts?: { importBatchId?: string }) {
     if (dto.fromPartyId === dto.toPartyId) {
       throw new BadRequestException("from and to must differ");
     }
@@ -89,6 +89,7 @@ export class SettlementService {
         transferredAt: dto.transferredAt.slice(0, 10),
         medium: dto.medium ?? null,
         note: dto.note ?? null,
+        importBatchId: opts?.importBatchId ?? null,
         createdBy: principal.userId,
       })
       .returning();

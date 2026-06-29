@@ -20,7 +20,7 @@ function isValidSplit(split: unknown): boolean {
 export class ExpenseService {
   constructor(private readonly audit: AuditService) {}
 
-  async create(tx: Db, principal: SessionPrincipal, dto: CreateExpenseDto, opts?: { aiCaptureId?: string }) {
+  async create(tx: Db, principal: SessionPrincipal, dto: CreateExpenseDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
     if (dto.costBearer === "split" && !isValidSplit(dto.costBearerSplitJson)) {
       throw new BadRequestException("A split expense needs a non-empty numeric cost_bearer_split_json");
     }
@@ -41,6 +41,7 @@ export class ExpenseService {
         nextDueDate: dto.nextDueDate ? day(dto.nextDueDate) : null,
         currency: dto.currency ?? null,
         aiCaptureId: opts?.aiCaptureId ?? null,
+        importBatchId: opts?.importBatchId ?? null,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })

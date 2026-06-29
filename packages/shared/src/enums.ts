@@ -130,7 +130,7 @@ export const TASK_STATES = ["open", "done", "cancelled"] as const;
 export type TaskState = (typeof TASK_STATES)[number];
 
 /** file_object.kind — small evidentiary files; large files are links (SCHEMA G, spec §1). */
-export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "knowledge", "cover_sheet", "other"] as const;
+export const FILE_KINDS = ["brief", "solution", "proof", "receipt", "knowledge", "cover_sheet", "archive", "other"] as const;
 export type FileKind = (typeof FILE_KINDS)[number];
 
 /** work_outcome.revision_fault — whose fault a revision was (§8, SCHEMA G). */
@@ -166,6 +166,7 @@ export const MODULES = [
   "dashboard", // module 13 — role-scoped "my numbers" + owner analytics (§8, §10)
   "personal_finance", // module 14 — the SEPARATE, sellable personal-finance plane (§11)
   "ai_capture", // module 15 — AI capture assistant: unstructured input → proposed drafts (§10/§2)
+  "import_export", // module 16 — bulk import / scoped export / dated file archive
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
@@ -256,3 +257,20 @@ export type AiProposalTarget = (typeof AI_PROPOSAL_TARGETS)[number];
 /** ai_proposal.status — pending review → accepted (created) | rejected. */
 export const AI_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
 export type AiProposalStatus = (typeof AI_PROPOSAL_STATUSES)[number];
+
+// ────────────────────────────────────────────────────────────────────────────
+// Import / Export / Archive (module 16). Import stages rows then commits through
+// the existing create services (canonical reference resolution + provenance).
+// ────────────────────────────────────────────────────────────────────────────
+
+/** import_batch.entity_type — what a CSV/Excel upload creates. */
+export const IMPORT_ENTITIES = ["clients", "jobs", "payments", "settlement_opening"] as const;
+export type ImportEntity = (typeof IMPORT_ENTITIES)[number];
+
+/** import_row.status — staged validity → committed | failed. */
+export const IMPORT_ROW_STATUSES = ["valid", "invalid", "committed", "failed"] as const;
+export type ImportRowStatus = (typeof IMPORT_ROW_STATUSES)[number];
+
+/** Datasets exportable to CSV/Excel (each reuses its RLS-scoped list read-model). */
+export const EXPORT_DATASETS = ["clients", "jobs", "payments", "expenses", "invoices", "settlement"] as const;
+export type ExportDataset = (typeof EXPORT_DATASETS)[number];

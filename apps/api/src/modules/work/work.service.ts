@@ -50,7 +50,7 @@ export class WorkService {
     };
   }
 
-  async create(tx: Db, principal: SessionPrincipal, dto: CreateWorkItemDto, opts?: { aiCaptureId?: string }) {
+  async create(tx: Db, principal: SessionPrincipal, dto: CreateWorkItemDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
     const scope = await this.workScope(tx, dto);
     const customJson = await this.customFields.validateValues(tx, "work_item", scope, dto.customJson);
     const [item] = await tx
@@ -71,6 +71,7 @@ export class WorkService {
         isEstimate: dto.isEstimate ?? false,
         notes: dto.notes ?? null,
         aiCaptureId: opts?.aiCaptureId ?? null,
+        importBatchId: opts?.importBatchId ?? null,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })

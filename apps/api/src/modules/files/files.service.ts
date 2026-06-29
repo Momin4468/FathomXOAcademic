@@ -90,6 +90,11 @@ export class FilesService {
       case "receipt":
         ok = user === ctx.expenseCreatedBy || can("expenses:approve");
         break;
+      case "archive":
+        // Dated business documents (0031): readable by any import_export viewer
+        // (org docs) or the uploader.
+        ok = can("import_export:view") || user === ctx.fileCreatedBy;
+        break;
       default: // other / unlinked
         ok = user === ctx.fileCreatedBy;
     }

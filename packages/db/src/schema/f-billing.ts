@@ -57,6 +57,7 @@ export const payment = pgTable("payment", {
   note: text("note"),
   reversesPaymentId: uuid("reverses_payment_id"), // correction link (no double-reverse)
   aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
+  importBatchId: uuid("import_batch_id"), // "added by import" provenance marker (0031)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

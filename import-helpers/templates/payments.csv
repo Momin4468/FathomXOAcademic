@@ -1,0 +1,2 @@
+direction,counterpartyName,amount,paidAt,medium,trxId,note
+in,John Smith,12000,2026-02-15,bkash,TX123456,ICT701 A3 payment

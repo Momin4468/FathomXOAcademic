@@ -79,7 +79,25 @@ export class PartyService {
     return { ...row, customFields };
   }
 
-  async create(tx: Db, principal: SessionPrincipal, dto: CreatePartyDto, opts?: { aiCaptureId?: string }) {
+  /** Read-only lookup by exact (case-insensitive) display name or external ref —
+   *  the import/AI resolution path, never creates. Returns the first match or null. */
+  async findByName(tx: Db, name: string): Promise<{ id: string; displayName: string } | null> {
+    const n = name.trim();
+    if (!n) return null;
+    const [row] = await tx
+      .select({ id: schema.party.id, displayName: schema.party.displayName })
+      .from(schema.party)
+      .where(
+        and(
+          isNull(schema.party.archivedAt),
+          or(ilike(schema.party.displayName, n), ilike(schema.party.externalRef, n)),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
+  async create(tx: Db, principal: SessionPrincipal, dto: CreatePartyDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
     // Capture-first: a typed university name auto-resolves (or creates provisional).
     let universityId = dto.universityId ?? null;
     if (!universityId && dto.universityRaw?.trim()) {
@@ -109,6 +127,7 @@ export class PartyService {
         referredByPartyId: dto.referredByPartyId ?? null,
         customJson,
         aiCaptureId: opts?.aiCaptureId ?? null,
+        importBatchId: opts?.importBatchId ?? null,
         createdBy: principal.userId,
         updatedBy: principal.userId,
       })

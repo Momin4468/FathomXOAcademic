@@ -16,7 +16,7 @@ export class PaymentService {
   ) {}
 
   /** A payment is an EVENT (append-only). Allocation (the link) comes next. */
-  async recordPayment(tx: Db, principal: SessionPrincipal, dto: RecordPaymentDto, opts?: { aiCaptureId?: string }) {
+  async recordPayment(tx: Db, principal: SessionPrincipal, dto: RecordPaymentDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
     const [p] = await tx
       .insert(schema.payment)
       .values({
@@ -29,6 +29,7 @@ export class PaymentService {
         trxId: dto.trxId ?? null,
         note: dto.note ?? null,
         aiCaptureId: opts?.aiCaptureId ?? null,
+        importBatchId: opts?.importBatchId ?? null,
         createdBy: principal.userId,
       })
       .returning();

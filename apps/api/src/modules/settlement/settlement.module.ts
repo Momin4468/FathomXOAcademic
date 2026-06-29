@@ -12,5 +12,6 @@ import { SettlementService } from "./settlement.service.js";
   imports: [AuthModule],
   controllers: [SettlementController],
   providers: [SettlementService],
+  exports: [SettlementService],
 })
 export class SettlementModule {}

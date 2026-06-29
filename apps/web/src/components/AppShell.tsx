@@ -64,6 +64,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Analytics
               </Link>
             )}
+            {can(me?.permissions, "import_export:view") && (
+              <Link href="/data" className="text-gray-600 hover:text-gray-900">
+                Data
+              </Link>
+            )}
             {/* Balance is universal — any party can see their own two-way position. */}
             <Link href="/balance" className="text-gray-600 hover:text-gray-900">
               Balance

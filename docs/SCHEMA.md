@@ -454,6 +454,14 @@ only on human Accept, through the existing create service, stamped "added by AI"
 - **Accept** validates proposed_json against the real create DTO + requires the TARGET's create permission (no escalation); money (payment/expense) is created only here, on human Accept. Lifecycle pending→accepted|rejected (no re-accept).
 - **Provider** is swappable behind `AI_CAPTURE_PROVIDER` (dev free default | gemini | claude; fetch, no SDK; fail-closed). Per-(user,org,day) cap `AI_CAPTURE_DAILY_CAP`. New enums `AI_CAPTURE_KINDS`/`AI_PROPOSAL_TARGETS`/`AI_PROPOSAL_STATUSES`; module `ai_capture` (15).
 
+## IMEX. Import / Export / Archive (BUILT · migration 0031, module 16)
+
+- **import_batch** / **import_row** — staged upload (entity_type clients|jobs|payments|settlement_opening; status preview|committed; counts) + per-row raw/mapped/status/errors/resolution + created_entity. Preview writes only these (no domain row); commit creates via the existing services. **archive_item** — dated, tagged, searchable business-file store (title/description/doc_date/tags + file_object_id) reusing the file pipeline; read-only content.
+- **Provenance marker:** `import_batch_id` (nullable FK) on `party`, `work_item`, `payment`, `expense`, `settlement_transfer` (set only via the create services' `opts.importBatchId` — unforgeable on the manual path; mirrors `ai_capture_id`).
+- **Import** routes through PartyService/WorkService/PaymentService/SettlementService.recordTransfer (validation, RLS, canonical ReferenceService resolution, audit, provenance); partial commit (per-row `withTenant` tx). Commit requires the entity's own create permission. `settlement_opening` → a dated `settlement_transfer` only (2025 = no fabricated jobs).
+- **Export** reuses the RLS-scoped, permission-gated list read-models + serializes (CSV native, XLSX via exceljs); each dataset requires its own view permission → never reveals a figure the viewer can't see.
+- **Archive** files via FilesService (small stored / large linked, kind `archive`); the file ACL `archive` branch allows read to `import_export:view` holders or the uploader. New enums `IMPORT_ENTITIES`/`IMPORT_ROW_STATUSES`/`EXPORT_DATASETS`; `FILE_KINDS += archive`; module `import_export` (16). Templates + Python preprocessors live in `/import-helpers`.
+
 ---
 
 ## I. What the agent must NOT do

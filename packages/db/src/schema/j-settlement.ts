@@ -22,6 +22,7 @@ export const settlementTransfer = pgTable("settlement_transfer", {
   medium: text("medium"),
   note: text("note"),
   reversesTransferId: uuid("reverses_transfer_id"),
+  importBatchId: uuid("import_batch_id"), // "added by import" provenance marker (0031)
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
