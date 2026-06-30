@@ -1,0 +1,101 @@
+# Render Blueprint — Business OS API (apps/api). NestJS, pnpm + Turborepo monorepo.
+#
+# FREE PLAN NOTE: Render's preDeployCommand (auto-migrate) requires a paid instance.
+# On free, run migrations MANUALLY against Supabase before deploying / after schema
+# changes:
+#     DATABASE_URL_ADMIN=<supabase session-pooler url> pnpm --filter @business-os/db migrate
+# (see the deployment runbook, Stage 1). The API does NOT migrate on boot.
+#
+# Secrets use `sync: false` → set them in the Render dashboard; never commit values.
+# Non-secret config + feature flags carry their production values here.
+services:
+  - type: web
+    name: business-os-api
+    runtime: node
+    plan: free
+    region: singapore # closest Render region to Bangladesh users; match Supabase region
+    rootDir: .
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      # --- non-secret config ---
+      - key: WEB_BASE_URL
+        value: https://app.xfactoras.com
+      - key: PUBLIC_LEAD_ORG_ID
+        value: 00000000-0000-4000-8000-000000000001
+      - key: EMAIL_ADAPTER # requires the Resend adapter (deploy runbook Stage 3)
+        value: resend
+      - key: EMAIL_FROM
+        value: no-reply@xfactoras.com
+      - key: STORAGE_ADAPTER # requires the Supabase storage adapter (Stage 3)
+        value: supabase
+      - key: AI_CAPTURE_PROVIDER
+        value: dev
+      # --- feature flags (platform is always on) ---
+      - key: FEATURE_REFERENCE
+        value: "true"
+      - key: FEATURE_WORK
+        value: "true"
+      - key: FEATURE_RULES
+        value: "true"
+      - key: FEATURE_CAPTURE
+        value: "true"
+      - key: FEATURE_BILLING
+        value: "true"
+      - key: FEATURE_EXPENSES
+        value: "true"
+      - key: FEATURE_OUTCOMES
+        value: "true"
+      - key: FEATURE_CREDENTIAL_VAULT
+        value: "true"
+      - key: FEATURE_KNOWLEDGE
+        value: "true"
+      - key: FEATURE_CHECKS
+        value: "true"
+      - key: FEATURE_REFERRERS
+        value: "true"
+      - key: FEATURE_CUSTOM_FIELDS
+        value: "true"
+      - key: FEATURE_DASHBOARD
+        value: "true"
+      - key: FEATURE_PERSONAL_FINANCE
+        value: "true"
+      - key: FEATURE_AI_CAPTURE
+        value: "true"
+      - key: FEATURE_IMPORT_EXPORT
+        value: "true"
+      - key: FEATURE_CHANNELS
+        value: "true"
+      - key: FEATURE_CLIENT_PORTAL
+        value: "true"
+      # --- secrets (set in the Render dashboard; never committed) ---
+      - key: DATABASE_URL # Supabase transaction pooler (IPv4), app_user creds
+        sync: false
+      - key: DATABASE_URL_ADMIN # Supabase session pooler, postgres creds
+        sync: false
+      - key: APP_DB_USER
+        sync: false
+      - key: APP_DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: VAULT_ENCRYPTION_KEY
+        sync: false
+      - key: PUBLIC_INTAKE_PROXY_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
