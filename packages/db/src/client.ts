@@ -8,9 +8,22 @@ export { schema };
 /** A Drizzle handle bound to our schema (over either a Pool or a pooled client). */
 export type Db = NodePgDatabase<typeof schema>;
 
-/** Create a pg Pool for the given connection string. */
+/**
+ * TLS config for a connection string. Managed Postgres (Supabase) requires SSL;
+ * local docker does not. We enable TLS when the URL asks for it (`sslmode=require`
+ * / `verify-*`) or points at a Supabase host. `rejectUnauthorized: false` matches
+ * `sslmode=require` semantics (encrypt; don't pin the CA) — adequate over the
+ * provider's private network; pin Supabase's CA later for verify-full if desired.
+ */
+export function pgSsl(connectionString: string): { rejectUnauthorized: boolean } | undefined {
+  return /sslmode=(require|verify|prefer)|\.supabase\.|pooler\.supabase\./i.test(connectionString)
+    ? { rejectUnauthorized: false }
+    : undefined;
+}
+
+/** Create a pg Pool for the given connection string (TLS auto-detected). */
 export function createPool(connectionString: string): pg.Pool {
-  return new pg.Pool({ connectionString });
+  return new pg.Pool({ connectionString, ssl: pgSsl(connectionString) });
 }
 
 /** Wrap a Pool as a Drizzle db with our schema. */

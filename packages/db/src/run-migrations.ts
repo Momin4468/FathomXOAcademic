@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { pgSsl } from "./client.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const migrationsDir = resolve(here, "../migrations");
@@ -15,7 +16,7 @@ export async function applyMigrations(
   adminUrl: string,
   files: string[],
 ): Promise<void> {
-  const client = new pg.Client({ connectionString: adminUrl });
+  const client = new pg.Client({ connectionString: adminUrl, ssl: pgSsl(adminUrl) });
   await client.connect();
   try {
     await client.query(`
@@ -64,7 +65,7 @@ export async function ensureAppRole(
   user: string,
   password: string,
 ): Promise<void> {
-  const client = new pg.Client({ connectionString: adminUrl });
+  const client = new pg.Client({ connectionString: adminUrl, ssl: pgSsl(adminUrl) });
   await client.connect();
   try {
     const { rows } = await client.query(
