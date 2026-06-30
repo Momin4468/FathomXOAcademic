@@ -171,3 +171,86 @@ APP_DB_PASSWORD             node -e "console.log(require('crypto').randomBytes(2
 - **TOTP/2FA HTTP test flakiness** → time-window boundary; re-run (not a real failure).
 - **HTTP test suites flaky when run together** → run one file per process (port contention).
 - **Migrations are idempotent** (`schema_migrations` table tracks applied files); safe to re-run.
+
+---
+
+# APPENDIX — Full execution detail (for a Claude-web-guided, terminal-by-hand deploy)
+> This appendix exists because the deploy is being driven via Claude web (which cannot touch this repo). It gives the exact commands, code specs, and SQL so a human can execute every stage by hand. **Still honor the guardrail: no business-logic/visibility changes.** After writing any code, BUILD and run the relevant tests before trusting it. If anything here fights reality, the code is the source of truth — read the cited files.
+
+## A. Exact commands (run from the repo root unless noted; `.env` points at Supabase for Stages 1–2)
+```bash
+pnpm install                                   # once
+pnpm build                                     # builds shared → db → api → web → marketing
+pnpm --filter @business-os/db migrate          # Stage 1: create app_user + apply 0000–0034 (reads DATABASE_URL_ADMIN)
+pnpm --filter @business-os/db seed             # Stage 2: applies 0002_seed + 0005_seed_reference
+# Stage 2 visibility gate — DB suite, then HTTP suites ONE FILE PER PROCESS:
+pnpm --filter @business-os/db test
+cd apps/api && node --import tsx --test test/billing-http.test.ts        # leg opacity
+node --import tsx --test test/referrers-http.test.ts                     # leg opacity (referrer)
+node --import tsx --test test/channels-http.test.ts                      # §4.4 partner-margin guards
+node --import tsx --test test/pf-isolation.test.ts                       # PF plane isolation + cross-token 401
+node --import tsx --test test/client-portal-http.test.ts                 # client scoping
+node --import tsx --test test/auth-http.test.ts                          # regression (2FA test is time-flaky; re-run if it trips)
+node --import tsx --test test/pf-core.test.ts                            # regression
+```
+The HTTP suites spawn `apps/api/dist/main.js`, which loads the repo-root `.env` — so `.env` must hold the full prod-ish config (both DB URLs, `JWT_SECRET`, all `FEATURE_*`, a valid `PUBLIC_LEAD_ORG_ID`, etc.). "All pass" against Supabase = the visibility model holds → proceed. **Any fail → STOP.**
+
+## B. Code-change specs (Stages 3, 5, 8 — not yet written)
+Each is infra/adapter only. Build + test after.
+
+### B1. Supabase Storage adapter (Stage 3)
+- **Today:** `apps/api/src/common/storage/storage.service.ts` is one concrete local-disk class with methods `put(buffer:Buffer)→Promise<string key>`, `readStream(key)→ReadStream`, `size(key)→Promise<number>`, `remove(key)→Promise<void>`; keys are UUIDs (path-traversal guard `^[0-9a-f-]{36}$`).
+- **Change:** introduce a `STORAGE_ADAPTER` env switch (default `local`). Keep the local impl; add a `supabase` impl with the **same four methods**. Wire selection in the module/provider that constructs `StorageService` (or make `StorageService` delegate to an adapter chosen at construction by `process.env.STORAGE_ADAPTER`).
+- **Supabase impl** (dep: `@supabase/supabase-js`): `const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)`.
+  - `put`: `key = randomUUID(); await sb.storage.from(BUCKET).upload(key, buffer, { contentType: 'application/octet-stream' }); return key;`
+  - `readStream`: `const { data } = await sb.storage.from(BUCKET).download(key); return Readable.from(Buffer.from(await data.arrayBuffer()));` — **GOTCHA:** widen the method's return type from node's `ReadStream` to `import('node:stream').Readable` so both adapters satisfy it (callers only `.pipe()`); the local adapter's `createReadStream` is already a `Readable`. Update the type at the call sites (the files controller download).
+  - `size`: the byte size is already persisted on `file_object` at upload, so prefer reading it there; if the interface must answer, use the storage metadata (`.info`/`.list`) — do **not** rely on re-downloading in prod.
+  - `remove`: `await sb.storage.from(BUCKET).remove([key]);`
+- **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-only — never `NEXT_PUBLIC`), `SUPABASE_STORAGE_BUCKET`. Create a **private** bucket in Supabase first.
+- **Verify:** upload a file through the API (a brief on a public quote, or a vault/knowledge file) → object appears in the bucket; download streams back.
+
+### B2. Resend email adapter (Stage 3)
+- **Today:** `apps/api/src/common/email/email.service.ts` switches on `EMAIL_ADAPTER` (only `dev`; throws for unknown). Interface: `send({to,subject,text,html?})`.
+- **Change:** add an `EMAIL_ADAPTER==='resend'` branch (dep: `resend`): `await new Resend(process.env.RESEND_API_KEY).emails.send({ from: EMAIL_FROM, to, subject, text, html })`. Preserve **envelope-only logging** (log to/subject, never the body). Throw a clear error if `RESEND_API_KEY` is missing.
+- **Env:** `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` on the **Resend-verified domain** (e.g. `no-reply@xfactoras.com`).
+- **Verify:** trigger a password-reset for a real address → email arrives.
+
+### B3. Auth-endpoint rate limiting (Stage 5)
+- Reuse `SlidingWindowRateLimiter` (`apps/api/src/common/ratelimit/sliding-window.ts`) + `clientIpOf` (`apps/api/src/common/auth/client-ip.ts`) — **same pattern as `password-reset.service.ts`** (study it).
+- Add limits (per-IP; for the login routes also per-IP+identifier) returning **429** before the handler runs, on: `POST /auth/login`, `/auth/refresh`; `/pf/auth/login`, `/pf/auth/refresh`, `/pf/auth/register`; `/client/auth/login`, `/client/auth/refresh`. Controllers: `apps/api/src/common/auth/auth.controller.ts`, `.../modules/personal-finance/auth/pf-auth.controller.ts`, `.../modules/client-portal/auth/client-auth.controller.ts`. Inject `@Req()` for the IP. Do NOT change the auth logic itself.
+
+### B4. Cloudflare Turnstile on the quote form (Stage 5)
+- **Marketing widget:** render the Turnstile widget on the quote form (`apps/marketing` — the QuoteForm component) using `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; include the resulting `cf-turnstile-response` token in the POST to `/api/quote`.
+- **Marketing BFF** (`apps/marketing/src/app/api/quote/route.ts`): before forwarding, POST the token to `https://challenges.cloudflare.com/turnstile/v0/siteverify` with `{ secret: TURNSTILE_SECRET_KEY, response: token, remoteip }`; on `success:false` return 400 (don't forward). Also ensure the BFF sends the `x-intake-proxy: <PUBLIC_INTAKE_PROXY_SECRET>` header when forwarding.
+- **API hardening** (`apps/api/src/modules/client-portal/public-intake.controller.ts`): when `NODE_ENV==='production'` and `PUBLIC_INTAKE_PROXY_SECRET` is set, **require** a matching `x-intake-proxy` header — reject (403) if absent/mismatched — so the captcha can't be bypassed by calling `/public/quote` directly. (Today it only uses that header to decide XFF trust.)
+
+### B5. Blank-env defensive fix (Stage 5)
+- Add a helper `envOr(name, fallback)` returning `fallback` when the var is missing **or empty/whitespace**, and use it where code reads config with `?? default` — especially `PUBLIC_LEAD_ORG_ID` in `public-intake.service.ts`. Prevents the `invalid uuid ""` class of failure (flag #10).
+
+### B6. pg_dump backup (Stage 8)
+- A scheduled GitHub Actions workflow `.github/workflows/db-backup.yml` (daily cron). Steps: `pg_dump "$SESSION_POOLER_URL" --no-owner --no-privileges | gzip | gpg --symmetric --batch --passphrase "$BACKUP_PASSPHRASE"` → upload as an artifact (or to an external bucket). Store `SESSION_POOLER_URL` + `BACKUP_PASSPHRASE` as GitHub repo secrets. Document the restore (`gpg -d | gunzip | psql`) and the between-runs data-loss window (Supabase free has no PITR).
+
+## C. Seed & admin bootstrap (Stage 2 — exact, and safety-critical)
+**What `pnpm db:seed` inserts (0002 + 0005):** the org `…0001` "FathomXO — Academic"; 9 system roles; representative permissions; **two real-partner parties Momin (`…c1`) + Emon (`…c2`)**; **four user accounts** (`sysadmin@`, `bizadmin@`, `momin@`, `emon@` `…fathomxo.local`) with placeholder hashes (`SEED_PLACEHOLDER_NOT_A_REAL_HASH` → **cannot log in** until a real password is set — fail-closed, safe); their role assignments; the **Data Steward** role; and **demo reference rows** "University of Example" (`…e1`) + "ICT 701" (`…e2`) + aliases.
+
+**For THIS deployment** (the business *is* Momin + Emon), keep the org/roles/permissions, the Momin/Emon parties, the user accounts, and Data Steward. Only the demo reference rows are throwaway.
+
+1. Run `pnpm db:seed`.
+2. **Delete the demo reference data** (admin/owner connection):
+   ```sql
+   delete from ref_alias  where ref_id in ('00000000-0000-4000-8000-0000000000e1','00000000-0000-4000-8000-0000000000e2');
+   delete from ref_entity where id     in ('00000000-0000-4000-8000-0000000000e1','00000000-0000-4000-8000-0000000000e2');
+   ```
+3. **DO NOT run `pnpm --filter @business-os/api seed:auth`** (it sets the well-known dev password `Password123!`).
+4. **Set real admin identities + passwords without ever storing a known password:**
+   - Point the seeded admin accounts at real emails (admin/owner SQL), e.g.:
+     ```sql
+     update user_account set email='YOU@yourdomain.com'     where id='00000000-0000-4000-8000-0000000000d1'; -- System SuperAdmin
+     update user_account set email='partner@yourdomain.com' where id='00000000-0000-4000-8000-0000000000d3'; -- Momin / Admin
+     -- (bizadmin …d2, emon …d4 likewise if used)
+     ```
+   - After Resend is live (Stage 3) and the API is reachable, use the **forgot-password flow** for each real email (`POST /auth/request-reset`) → click the emailed link → set the password. `status` defaults to `active`, so login is enabled. No human-known password is ever persisted by us.
+   - (Alternative if you must set a password before email works: copy `seed-auth.ts` to a one-off script, swap `DEV_PASSWORD` for a strong generated value and target only your real email — then change it immediately via forgot-password once email works.)
+
+## D. Stage 2 pass criteria (the trust gate)
+Run §A's test block against Supabase on the **empty** DB (before §C seeding, or accept that the tests self-clean their own fixtures). Every suite must report `# fail 0`. The ones that prove visibility — `billing-http`/`referrers-http` (a party can't read a non-owned leg), `channels-http` (a partner can't be granted a margin-revealing share), `pf-isolation` (one PF account can't read another; a business token gets 401 on PF), `client-portal-http` (a client sees only their own status/AR, never writer/margin/chain) — are the gate. If any fails on Supabase, the production DB does **not** reproduce the model — STOP and diagnose (almost always a missing extension, a role/owner mismatch, or an unapplied migration), do not load real data.
