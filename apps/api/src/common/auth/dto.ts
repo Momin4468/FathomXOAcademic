@@ -33,6 +33,25 @@ export class LogoutDto {
   refreshToken!: string;
 }
 
+/** Request a reset link for an email-keyed plane (business, PF). */
+export class RequestResetDto {
+  @IsEmail()
+  email!: string;
+}
+
+/** Set a new password using an emailed reset token (all planes). */
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(512)
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(200)
+  newPassword!: string;
+}
+
 export class Enable2faDto {
   @IsString()
   @MinLength(1)

@@ -33,6 +33,17 @@ export interface ClientAuthLookupRow {
   expires_at: Date | null;
 }
 
+/** The three auth planes a reset token can belong to (matches the DB check). */
+export type ResetPlane = "business" | "pf" | "client";
+
+/** Row returned by client_reset_lookup() — the account + the email to send to. */
+export interface ClientResetLookupRow {
+  id: string;
+  status: string;
+  expires_at: Date | null;
+  email: string | null;
+}
+
 /**
  * The single data access layer (CLAUDE.md §3.1). All tenant work goes through
  * `withTenant`, which opens a transaction, sets the RLS session GUCs from the
@@ -131,6 +142,78 @@ export class DbService implements OnModuleDestroy {
         [email, passwordHash, displayName, baseCurrency],
       );
       return res.rows[0]?.pf_register ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Client reset lookup — resolve a client reset request (by login_id) to the
+   * email we should send the link to. Pre-auth (no context); mirror of
+   * clientAuthLookup. Returns the account + the contact email (login_id fallback).
+   */
+  async clientResetLookup(loginId: string): Promise<ClientResetLookupRow | null> {
+    const client = await this.pool.connect();
+    try {
+      const res = await client.query<ClientResetLookupRow>(
+        "select id, status, expires_at, email from client_reset_lookup($1)",
+        [loginId],
+      );
+      return res.rows[0] ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Store a hashed, expiring password-reset token. Pre-auth (no context); runs the
+   * pwreset_request() SECURITY DEFINER, which first invalidates any prior live token
+   * for the account so only the newest link works. The raw token is never stored.
+   */
+  async pwResetRequest(
+    plane: ResetPlane,
+    accountId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("select pwreset_request($1, $2, $3, $4)", [
+        plane,
+        accountId,
+        tokenHash,
+        expiresAt,
+      ]);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Consume a password-reset token and set the new password atomically (owner
+   * rights — the consume definer also revokes ALL the account's live refresh tokens
+   * and audits). Pre-auth (no context). Returns the account id on success, or null
+   * when there is no live token (invalid/expired/used) — the caller maps null to a
+   * single generic error so the response can't be used to enumerate accounts.
+   */
+  async pwResetConsume(
+    plane: ResetPlane,
+    tokenHash: string,
+    newPasswordHash: string,
+  ): Promise<string | null> {
+    const fn =
+      plane === "business"
+        ? "pwreset_consume_business"
+        : plane === "pf"
+          ? "pwreset_consume_pf"
+          : "pwreset_consume_client";
+    const client = await this.pool.connect();
+    try {
+      const res = await client.query<{ account_id: string | null }>(
+        `select ${fn}($1, $2) as account_id`,
+        [tokenHash, newPasswordHash],
+      );
+      return res.rows[0]?.account_id ?? null;
     } finally {
       client.release();
     }

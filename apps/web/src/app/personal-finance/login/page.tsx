@@ -58,6 +58,11 @@ export default function PfLoginPage() {
           Create an account
         </Link>
       </p>
+      <p className="mt-2 text-center text-sm text-gray-500">
+        <Link href="/personal-finance/forgot-password" className="font-medium text-emerald-700 hover:underline">
+          Forgot password?
+        </Link>
+      </p>
     </main>
   );
 }

@@ -1,11 +1,15 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
 import type { ClientPrincipal } from "@business-os/shared";
+import type { Request } from "express";
+import { clientIpOf } from "../../../common/auth/client-ip.js";
+import { ResetPasswordDto } from "../../../common/auth/dto.js";
+import { PasswordResetService } from "../../../common/auth/password-reset.service.js";
 import { ClientRoute } from "../../../common/auth/client-route.decorator.js";
 import { Public } from "../../../common/auth/public.decorator.js";
 import { ClientAuthService } from "./client-auth.service.js";
 import { ClientAuthGuard } from "./client-auth.guard.js";
 import { CurrentClient } from "./current-client.decorator.js";
-import { ClientEnable2faDto, ClientLoginDto, ClientLogoutDto, ClientRefreshDto } from "./dto.js";
+import { ClientEnable2faDto, ClientLoginDto, ClientLogoutDto, ClientRefreshDto, ClientRequestResetDto } from "./dto.js";
 
 /**
  * Client-portal auth (Module 18). @ClientRoute() makes the global business guard
@@ -17,7 +21,10 @@ import { ClientEnable2faDto, ClientLoginDto, ClientLogoutDto, ClientRefreshDto }
 @UseGuards(ClientAuthGuard)
 @Controller("client/auth")
 export class ClientAuthController {
-  constructor(private readonly auth: ClientAuthService) {}
+  constructor(
+    private readonly auth: ClientAuthService,
+    private readonly passwordReset: PasswordResetService,
+  ) {}
 
   @Public()
   @Post("login")
@@ -38,6 +45,21 @@ export class ClientAuthController {
   async logout(@Body() dto: ClientLogoutDto) {
     await this.auth.logout(dto.refreshToken);
     return { ok: true };
+  }
+
+  /** Forgot password — keyed by login_id; always returns generic {ok}. */
+  @Public()
+  @Post("request-reset")
+  @HttpCode(200)
+  requestReset(@Body() dto: ClientRequestResetDto, @Req() req: Request) {
+    return this.passwordReset.request("client", dto.loginId, clientIpOf(req));
+  }
+
+  @Public()
+  @Post("reset")
+  @HttpCode(200)
+  reset(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    return this.passwordReset.reset("client", dto.token, dto.newPassword, clientIpOf(req));
   }
 
   @Get("me")

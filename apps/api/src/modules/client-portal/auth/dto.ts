@@ -19,3 +19,8 @@ export class ClientEnable2faDto {
   @IsString() @MinLength(1) secret!: string;
   @IsString() @MinLength(1) @MaxLength(12) code!: string;
 }
+
+/** Forgot password — keyed by login_id (email OR client/student id). */
+export class ClientRequestResetDto {
+  @IsString() @MinLength(1) @MaxLength(160) loginId!: string;
+}

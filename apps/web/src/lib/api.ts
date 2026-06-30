@@ -59,3 +59,23 @@ export async function logout() {
   await fetch("/api/auth/logout", { method: "POST" });
   window.location.href = "/login";
 }
+
+/** Request a password-reset link. Always resolves (generic, non-enumerating). */
+export async function requestReset(email: string) {
+  const res = await fetch("/api/auth/request-reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return parse(res);
+}
+
+/** Set a new password using an emailed token. */
+export async function resetPassword(token: string, newPassword: string) {
+  const res = await fetch("/api/auth/reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return parse(res);
+}

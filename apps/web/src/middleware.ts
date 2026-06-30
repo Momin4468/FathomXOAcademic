@@ -11,7 +11,12 @@ export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (pathname.startsWith("/personal-finance")) {
-    if (pathname === "/personal-finance/login" || pathname === "/personal-finance/register") {
+    if (
+      pathname === "/personal-finance/login" ||
+      pathname === "/personal-finance/register" ||
+      pathname === "/personal-finance/forgot-password" ||
+      pathname === "/personal-finance/reset-password"
+    ) {
       return NextResponse.next();
     }
     if (req.cookies.has(PF_REFRESH_COOKIE)) return NextResponse.next();
@@ -22,7 +27,13 @@ export function middleware(req: NextRequest) {
 
   // Client portal plane (Module 18) — its own session + login.
   if (pathname.startsWith("/portal")) {
-    if (pathname === "/portal/login") return NextResponse.next();
+    if (
+      pathname === "/portal/login" ||
+      pathname === "/portal/forgot-password" ||
+      pathname === "/portal/reset-password"
+    ) {
+      return NextResponse.next();
+    }
     if (req.cookies.has(CLIENT_REFRESH_COOKIE)) return NextResponse.next();
     const url = req.nextUrl.clone();
     url.pathname = "/portal/login";
@@ -36,5 +47,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!login|api|_next/static|_next/image|favicon.ico).*)"],
+  // The business reset pages are public (the user is logged out), like /login.
+  matcher: ["/((?!login|forgot-password|reset-password|api|_next/static|_next/image|favicon.ico).*)"],
 };

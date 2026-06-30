@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { login } from "@/lib/api";
@@ -52,6 +53,11 @@ export default function LoginPage() {
           </Button>
         </form>
       </Card>
+      <p className="mt-4 text-center text-sm text-gray-500">
+        <Link href="/forgot-password" className="font-medium text-gray-900 hover:underline">
+          Forgot password?
+        </Link>
+      </p>
     </main>
   );
 }

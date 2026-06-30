@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientLogin } from "@/lib/client-api";
@@ -51,7 +52,12 @@ export default function ClientLoginPage() {
           </Button>
         </form>
       </Card>
-      <p className="mt-4 text-center text-xs text-gray-400">
+      <p className="mt-4 text-center text-sm text-gray-500">
+        <Link href="/portal/forgot-password" className="font-medium text-sky-700 hover:underline">
+          Forgot password?
+        </Link>
+      </p>
+      <p className="mt-2 text-center text-xs text-gray-400">
         Need access? Ask us to set up your portal login.
       </p>
     </main>

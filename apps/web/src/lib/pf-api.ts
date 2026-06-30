@@ -63,3 +63,23 @@ export async function pfLogout() {
   await fetch("/api/pf/auth/logout", { method: "POST" });
   window.location.href = "/personal-finance/login";
 }
+
+/** Request a PF password-reset link. Always resolves (generic, non-enumerating). */
+export async function pfRequestReset(email: string) {
+  const res = await fetch("/api/pf/auth/request-reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return parse(res);
+}
+
+/** Set a new PF password using an emailed token. */
+export async function pfResetPassword(token: string, newPassword: string) {
+  const res = await fetch("/api/pf/auth/reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return parse(res);
+}

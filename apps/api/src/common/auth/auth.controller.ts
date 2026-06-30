@@ -1,13 +1,19 @@
-import { Body, Controller, Get, HttpCode, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Req } from "@nestjs/common";
 import type { SessionPrincipal } from "@business-os/shared";
+import type { Request } from "express";
 import { AuthService } from "./auth.service.js";
 import { CurrentPrincipal } from "./current-principal.decorator.js";
-import { Enable2faDto, LoginDto, LogoutDto, RefreshDto } from "./dto.js";
+import { Enable2faDto, LoginDto, LogoutDto, RefreshDto, RequestResetDto, ResetPasswordDto } from "./dto.js";
+import { clientIpOf } from "./client-ip.js";
+import { PasswordResetService } from "./password-reset.service.js";
 import { Public } from "./public.decorator.js";
 
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly passwordReset: PasswordResetService,
+  ) {}
 
   @Public()
   @Post("login")
@@ -28,6 +34,22 @@ export class AuthController {
   async logout(@Body() dto: LogoutDto) {
     await this.auth.logout(dto.refreshToken);
     return { ok: true };
+  }
+
+  /** Forgot password — always returns generic {ok} (no account enumeration). */
+  @Public()
+  @Post("request-reset")
+  @HttpCode(200)
+  requestReset(@Body() dto: RequestResetDto, @Req() req: Request) {
+    return this.passwordReset.request("business", dto.email, clientIpOf(req));
+  }
+
+  /** Set a new password using an emailed token. */
+  @Public()
+  @Post("reset")
+  @HttpCode(200)
+  reset(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    return this.passwordReset.reset("business", dto.token, dto.newPassword, clientIpOf(req));
   }
 
   /** The authenticated identity (from the signed token). */

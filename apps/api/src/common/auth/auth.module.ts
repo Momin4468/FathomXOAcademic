@@ -6,6 +6,7 @@ import { PermissionGuard } from "../authz/permission.guard.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthGuard } from "./auth.guard.js";
 import { AuthService } from "./auth.service.js";
+import { PasswordResetService } from "./password-reset.service.js";
 import { PasswordService } from "./password.service.js";
 import { TokenService } from "./token.service.js";
 import { TotpService } from "./totp.service.js";
@@ -41,10 +42,11 @@ import { TotpService } from "./totp.service.js";
     TokenService,
     PermissionService,
     AuthService,
+    PasswordResetService,
     // Global guards — order matters (auth before authz).
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
   ],
-  exports: [AuthService, TokenService, PermissionService, PasswordService, TotpService],
+  exports: [AuthService, TokenService, PermissionService, PasswordService, TotpService, PasswordResetService],
 })
 export class AuthModule {}

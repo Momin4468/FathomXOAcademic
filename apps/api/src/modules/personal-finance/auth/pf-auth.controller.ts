@@ -1,5 +1,9 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
 import type { PfPrincipal } from "@business-os/shared";
+import type { Request } from "express";
+import { clientIpOf } from "../../../common/auth/client-ip.js";
+import { RequestResetDto, ResetPasswordDto } from "../../../common/auth/dto.js";
+import { PasswordResetService } from "../../../common/auth/password-reset.service.js";
 import { PfRoute } from "../../../common/auth/pf-route.decorator.js";
 import { Public } from "../../../common/auth/public.decorator.js";
 import { CurrentPfAccount } from "./current-pf-account.decorator.js";
@@ -15,7 +19,10 @@ import { PfEnable2faDto, PfLoginDto, PfLogoutDto, PfRefreshDto, PfRegisterDto } 
 @UseGuards(PfAuthGuard)
 @Controller("pf/auth")
 export class PfAuthController {
-  constructor(private readonly auth: PfAuthService) {}
+  constructor(
+    private readonly auth: PfAuthService,
+    private readonly passwordReset: PasswordResetService,
+  ) {}
 
   @Public()
   @Post("register")
@@ -43,6 +50,21 @@ export class PfAuthController {
   async logout(@Body() dto: PfLogoutDto) {
     await this.auth.logout(dto.refreshToken);
     return { ok: true };
+  }
+
+  /** Forgot password — always returns generic {ok} (no account enumeration). */
+  @Public()
+  @Post("request-reset")
+  @HttpCode(200)
+  requestReset(@Body() dto: RequestResetDto, @Req() req: Request) {
+    return this.passwordReset.request("pf", dto.email, clientIpOf(req));
+  }
+
+  @Public()
+  @Post("reset")
+  @HttpCode(200)
+  reset(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    return this.passwordReset.reset("pf", dto.token, dto.newPassword, clientIpOf(req));
   }
 
   @Get("me")

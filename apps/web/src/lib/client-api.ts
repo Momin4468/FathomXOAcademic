@@ -53,3 +53,23 @@ export async function clientLogout() {
   await fetch("/api/client/auth/logout", { method: "POST" });
   window.location.href = "/portal/login";
 }
+
+/** Request a client password-reset link by login id. Generic (non-enumerating). */
+export async function clientRequestReset(loginId: string) {
+  const res = await fetch("/api/client/auth/request-reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ loginId }),
+  });
+  return parse(res);
+}
+
+/** Set a new client password using an emailed token. */
+export async function clientResetPassword(token: string, newPassword: string) {
+  const res = await fetch("/api/client/auth/reset", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token, newPassword }),
+  });
+  return parse(res);
+}
