@@ -6,6 +6,7 @@ import {
   bigint,
   boolean,
   date,
+  integer,
   jsonb,
   numeric,
   pgTable,
@@ -204,4 +205,44 @@ export const pfNoteAttachment = pgTable("pf_note_attachment", {
   sizeBytes: bigint("size_bytes", { mode: "number" }),
   mime: text("mime"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Per-account PF settings (0035). One row/account; "sensible defaults, few settings". */
+export const pfPreferences = pgTable("pf_preferences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  rollupPeriod: text("rollup_period").notNull().default("month"), // week | month | custom
+  rollupCustomDays: integer("rollup_custom_days").notNull().default(30),
+  subscriptionLeadDays: integer("subscription_lead_days").notNull().default(3),
+  reminderSubscriptions: boolean("reminder_subscriptions").notNull().default(true),
+  reminderNotes: boolean("reminder_notes").notNull().default(true),
+  anomalyEnabled: boolean("anomaly_enabled").notNull().default(true),
+  anomalyThresholdPct: integer("anomaly_threshold_pct").notNull().default(150),
+  activeCurrencies: text("active_currencies").array().notNull().default(["BDT", "USD", "GBP", "EUR", "AUD"]),
+  defaultBudgetPeriod: text("default_budget_period").notNull().default("month"), // month | year
+  aiQuickaddEnabled: boolean("ai_quickadd_enabled").notNull().default(true),
+  prefsJson: jsonb("prefs_json"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Anomaly notices (0035) — dedup + dismissible alert log; NOT a stored balance. */
+export const pfAnomalyNotice = pgTable("pf_anomaly_notice", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  kind: text("kind").notNull(), // period_total | category
+  periodKey: text("period_key").notNull(),
+  categoryId: uuid("category_id"),
+  observed: numeric("observed", { precision: 16, scale: 2 }).notNull(),
+  baseline: numeric("baseline", { precision: 16, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("BDT"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
+});
+
+/** PF-scoped AI quick-add daily cap (0035) — never the business ai_usage table. */
+export const pfAiUsage = pgTable("pf_ai_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  day: date("day").notNull(),
+  count: integer("count").notNull().default(0),
 });

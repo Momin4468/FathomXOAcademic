@@ -5,9 +5,7 @@ import { Cron } from "@nestjs/schedule";
 import { DbService } from "../../../common/db/db.service.js";
 import { EmailService } from "../../../common/email/email.service.js";
 import { PfAuditService } from "../pf-audit.service.js";
-
-/** Remind this many days before a subscription's next payment. */
-const LEAD_DAYS = 3;
+import { PfPreferencesService } from "../preferences/pf-preferences.service.js";
 
 interface PfDueRow {
   id: string;
@@ -31,6 +29,7 @@ export class PfReminderService {
     private readonly db: DbService,
     private readonly email: EmailService,
     private readonly audit: PfAuditService,
+    private readonly prefs: PfPreferencesService,
   ) {}
 
   /** Daily at 09:15 server time — sweep every active PF account. */
@@ -56,8 +55,12 @@ export class PfReminderService {
     return total;
   }
 
-  /** Send reminders for subscriptions due in LEAD_DAYS for ONE account. */
+  /** Send reminders for subscriptions due in the account's lead window. */
   async runForAccount(tx: Db, pfAccountId: string): Promise<number> {
+    const prefs = await this.prefs.ensure(tx, pfAccountId);
+    if (!prefs.reminderSubscriptions) return 0;
+    const leadDays = prefs.subscriptionLeadDays;
+
     const acct = await tx.execute(sql`select email from pf_account where id = ${pfAccountId}`);
     const recipient = (acct.rows[0] as { email: string } | undefined)?.email;
     if (!recipient) return 0;
@@ -67,7 +70,7 @@ export class PfReminderService {
       from pf_subscription
       where archived_at is null
         and next_due_date is not null
-        and next_due_date = (current_date + (${LEAD_DAYS})::int)
+        and next_due_date = (current_date + (${leadDays})::int)
         and last_reminded_due is distinct from next_due_date
     `);
     const rows = res.rows as unknown as PfDueRow[];
@@ -81,7 +84,7 @@ export class PfReminderService {
         text:
           `Your subscription "${row.name}" is due on ${due}.\n` +
           `Amount: ${currency} ${row.amount}\n` +
-          `\n(Reminder sent ${LEAD_DAYS} days before the due date.)`,
+          `\n(Reminder sent ${leadDays} days before the due date.)`,
       });
       await tx.execute(sql`update pf_subscription set last_reminded_due = next_due_date where id = ${row.id}`);
       await this.audit.record(tx, pfAccountId, {

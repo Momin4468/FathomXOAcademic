@@ -4,6 +4,7 @@ import { Cron } from "@nestjs/schedule";
 import { DbService } from "../../../common/db/db.service.js";
 import { EmailService } from "../../../common/email/email.service.js";
 import { PfAuditService } from "../pf-audit.service.js";
+import { PfPreferencesService } from "../preferences/pf-preferences.service.js";
 
 interface DueNote {
   id: string;
@@ -26,6 +27,7 @@ export class PfNoteReminderService {
     private readonly db: DbService,
     private readonly email: EmailService,
     private readonly audit: PfAuditService,
+    private readonly prefs: PfPreferencesService,
   ) {}
 
   /** Daily at 09:30 server time — sweep every active PF account. */
@@ -52,6 +54,9 @@ export class PfNoteReminderService {
 
   /** Email notes due TODAY for ONE account; stamp last_reminded_on (idempotent). */
   async runForAccount(tx: Db, pfAccountId: string): Promise<number> {
+    const prefs = await this.prefs.ensure(tx, pfAccountId);
+    if (!prefs.reminderNotes) return 0;
+
     const acct = await tx.execute(sql`select email from pf_account where id = ${pfAccountId}`);
     const recipient = (acct.rows[0] as { email: string } | undefined)?.email;
     if (!recipient) return 0;

@@ -26,6 +26,12 @@ export class PfCategoryController {
     return this.db.withPfAccount({ pfAccountId: p.pfAccountId }, (tx) => this.categories.list(tx, p.pfAccountId, q));
   }
 
+  /** Most-used categories (recent) — surfaced as quick-add chips. Defaults to expense. */
+  @Get("frequent")
+  frequent(@CurrentPfAccount() p: PfPrincipal, @Query() q: ListPfCategoryQueryDto) {
+    return this.db.withPfAccount({ pfAccountId: p.pfAccountId }, (tx) => this.categories.frequent(tx, q.kind ?? "expense"));
+  }
+
   @Patch(":id")
   rename(@CurrentPfAccount() p: PfPrincipal, @Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdatePfCategoryDto) {
     return this.db.withPfAccount({ pfAccountId: p.pfAccountId }, (tx) => this.categories.rename(tx, p.pfAccountId, id, dto));

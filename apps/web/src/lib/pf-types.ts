@@ -149,6 +149,65 @@ export const NOTE_COLOR_BG: Record<string, string> = {
   gray: "bg-gray-400",
 };
 
+/** Per-account PF settings (0035). */
+export interface PfPreferences {
+  rollupPeriod: "week" | "month" | "custom";
+  rollupCustomDays: number;
+  subscriptionLeadDays: number;
+  reminderSubscriptions: boolean;
+  reminderNotes: boolean;
+  anomalyEnabled: boolean;
+  anomalyThresholdPct: number;
+  activeCurrencies: string[];
+  defaultBudgetPeriod: "month" | "year";
+  aiQuickaddEnabled: boolean;
+  baseCurrency: string;
+  aiAvailable: boolean;
+}
+
+export interface PfInsights {
+  displayName: string | null;
+  baseCurrency: string;
+  linked: boolean;
+  period: { kind: "week" | "month" | "custom"; key: string; start: string; end: string; label: string };
+  totals: {
+    income: string;
+    expense: string;
+    net: string;
+    savingsTotal: string;
+    loansGivenOutstanding: string;
+    loansTakenOutstanding: string;
+  };
+  spendingByCategory: Array<{ categoryId: string | null; name: string; amount: string }>;
+  series: Array<{ key: string; label: string; income: number; expense: number; net: number }>;
+  targets: PfTarget[];
+  upcomingSubscriptions: Array<{ id: string; name: string; amount: string; currency: string; nextDueDate: string }>;
+  anomalies: Array<{
+    id: string;
+    kind: "period_total" | "category";
+    periodKey: string;
+    categoryId: string | null;
+    categoryName: string;
+    observed: string;
+    baseline: string;
+    currency: string;
+    createdAt: string;
+  }>;
+}
+
+export interface PfFrequentCategory {
+  id: string;
+  name: string;
+  uses: number;
+}
+
+export interface PfExpenseDraft {
+  amount: number;
+  categoryName: string | null;
+  note: string | null;
+  currency: string | null;
+}
+
 /** Currency suggestions (recorded as entered; any value allowed). */
 export const PF_CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"];
 

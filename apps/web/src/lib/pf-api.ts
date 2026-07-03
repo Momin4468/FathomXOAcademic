@@ -1,6 +1,7 @@
 "use client";
-import useSWR, { type SWRConfiguration } from "swr";
+import useSWR, { mutate, type SWRConfiguration } from "swr";
 import { ApiError } from "./api";
+import type { PfExpenseDraft } from "./pf-types";
 
 /** All PF browser calls go through the SEPARATE PF BFF proxy; tokens stay server-side. */
 const base = (path: string) => `/api/pf/proxy/${path.replace(/^\//, "")}`;
@@ -82,4 +83,34 @@ export async function pfResetPassword(token: string, newPassword: string) {
     body: JSON.stringify({ token, newPassword }),
   });
   return parse(res);
+}
+
+/** Revalidate every PF SWR key (after a mutation like quick-add). */
+export function pfRevalidate() {
+  return mutate((key) => typeof key === "string" && key.startsWith("pf:"));
+}
+
+/** Record an expense (used by quick-add). Reuses POST /pf/expense. */
+export async function pfAddExpense(body: {
+  amount: number;
+  categoryId?: string | null;
+  currency?: string;
+  occurredOn: string;
+  note?: string | null;
+}) {
+  const row = await pfApiSend("expense", "POST", body);
+  await pfRevalidate();
+  return row;
+}
+
+/** Turn a typed line into a DRAFT expense (proposals only; user confirms). */
+export function pfAiQuickAdd(text: string): Promise<{ draft: PfExpenseDraft | null; note?: string }> {
+  return pfApiSend("ai/quick-add", "POST", { text });
+}
+
+/** Dismiss an in-app anomaly notice. */
+export async function pfDismissAnomaly(id: string) {
+  const r = await pfApiSend(`anomaly-notices/${id}/dismiss`, "POST");
+  await pfRevalidate();
+  return r;
 }

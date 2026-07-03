@@ -27,6 +27,19 @@ import { PfTargetService } from "./targets/pf-target.service.js";
 import { PfAttachmentController, PfNoteController } from "./notes/pf-note.controller.js";
 import { PfNoteService } from "./notes/pf-note.service.js";
 import { PfNoteReminderService } from "./notes/pf-note-reminder.service.js";
+import { PfPreferencesController } from "./preferences/pf-preferences.controller.js";
+import { PfPreferencesService } from "./preferences/pf-preferences.service.js";
+import { PfInsightsController } from "./insights/pf-insights.controller.js";
+import { PfInsightsService } from "./insights/pf-insights.service.js";
+import { PfAnomalyController } from "./anomaly/pf-anomaly.controller.js";
+import { PfAnomalyService } from "./anomaly/pf-anomaly.service.js";
+import { PfAnomalyReminderService } from "./anomaly/pf-anomaly-reminder.service.js";
+import { PfAiQuickAddController } from "./ai/pf-ai-quickadd.controller.js";
+import { PfAiQuickAddService } from "./ai/pf-ai-quickadd.service.js";
+import { AI_CAPTURE_PROVIDER } from "../ai-capture/provider/ai-capture.port.js";
+import { DevCaptureProvider } from "../ai-capture/provider/dev.provider.js";
+import { GeminiCaptureProvider } from "../ai-capture/provider/gemini.provider.js";
+import { ClaudeCaptureProvider } from "../ai-capture/provider/claude.provider.js";
 
 /**
  * Module 14 — the PERSONAL FINANCE plane (§11). A SEPARATE, sellable service: its
@@ -66,6 +79,10 @@ import { PfNoteReminderService } from "./notes/pf-note-reminder.service.js";
     PfDashboardController,
     PfNoteController,
     PfAttachmentController,
+    PfPreferencesController,
+    PfInsightsController,
+    PfAnomalyController,
+    PfAiQuickAddController,
   ],
   providers: [
     StorageService,
@@ -84,6 +101,23 @@ import { PfNoteReminderService } from "./notes/pf-note-reminder.service.js";
     PfDashboardService,
     PfNoteService,
     PfNoteReminderService,
+    PfPreferencesService,
+    PfInsightsService,
+    PfAnomalyService,
+    PfAnomalyReminderService,
+    PfAiQuickAddService,
+    // Reuse the SAME swappable extraction provider as the business AI capture
+    // (dev|gemini|claude) — no second pipeline. PF quick-add keeps all persistence
+    // + the daily cap in the PF plane (pf_ai_usage), never the business tables.
+    {
+      provide: AI_CAPTURE_PROVIDER,
+      useFactory: () => {
+        const which = (process.env.AI_CAPTURE_PROVIDER ?? "dev").toLowerCase();
+        if (which === "gemini") return new GeminiCaptureProvider();
+        if (which === "claude") return new ClaudeCaptureProvider();
+        return new DevCaptureProvider();
+      },
+    },
   ],
 })
 export class PersonalFinanceModule {}

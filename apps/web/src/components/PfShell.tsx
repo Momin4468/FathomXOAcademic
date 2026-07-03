@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { usePfApi, pfLogout } from "@/lib/pf-api";
 import type { PfProfile } from "@/lib/pf-types";
 import { Button, cx } from "./ui";
+import { PfQuickAdd } from "./PfQuickAdd";
 
 const LINKS = [
   { href: "/personal-finance", label: "Overview" },
@@ -16,6 +17,7 @@ const LINKS = [
   { href: "/personal-finance/notes", label: "Notes" },
   { href: "/personal-finance/categories", label: "Categories" },
   { href: "/personal-finance/connect", label: "Connect income" },
+  { href: "/personal-finance/settings", label: "Settings" },
 ];
 
 /**
@@ -55,7 +57,8 @@ export function PfShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-5">{children}</main>
+      <main className="mx-auto max-w-3xl px-4 py-5 pb-24">{children}</main>
+      <PfQuickAdd />
     </div>
   );
 }
