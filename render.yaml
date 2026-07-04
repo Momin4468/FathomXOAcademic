@@ -23,7 +23,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       # --- non-secret config ---
       - key: WEB_BASE_URL
         value: https://app.xfactoras.com
