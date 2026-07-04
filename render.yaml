@@ -15,7 +15,7 @@ services:
     plan: free
     region: singapore # closest Render region to Bangladesh users; match Supabase region
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm build
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     autoDeploy: false
