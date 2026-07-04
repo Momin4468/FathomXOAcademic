@@ -24,5 +24,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# uploaded file blobs (metadata is in DB)
-storage/
+# uploaded file blobs (metadata is in DB). Anchored so it does NOT match the
+# source dir apps/api/src/common/storage/. Covers both local run locations: repo
+# root (`node apps/api/dist/main.js` from root) and apps/api/ (dev runs from there).
+/storage/
+/apps/api/storage/

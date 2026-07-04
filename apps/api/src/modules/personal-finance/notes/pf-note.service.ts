@@ -179,7 +179,7 @@ export class PfNoteService {
     if (att.isLink) return { isLink: true as const, url: att.url };
     return {
       isLink: false as const,
-      stream: this.storage.readStream(att.url),
+      stream: await this.storage.readStream(att.url),
       mime: att.mime ?? "application/octet-stream",
       filename: att.filename ?? "download",
     };

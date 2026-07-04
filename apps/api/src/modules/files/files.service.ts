@@ -197,7 +197,7 @@ export class FilesService {
     if (!row.url) throw new NotFoundException("File has no stored content");
     return {
       isLink: false as const,
-      stream: this.storage.readStream(row.url),
+      stream: await this.storage.readStream(row.url),
       mime: row.mime ?? "application/octet-stream",
       filename: row.filename ?? "download",
     };
