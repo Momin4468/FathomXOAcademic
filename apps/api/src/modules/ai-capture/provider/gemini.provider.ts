@@ -14,7 +14,10 @@ export class GeminiCaptureProvider implements AiCaptureProvider {
   async extract(input: CaptureInput): Promise<ExtractResult> {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error("AI_CAPTURE_PROVIDER=gemini but GEMINI_API_KEY is not set");
-    const model = process.env.GEMINI_MODEL ?? "gemini-1.5-flash";
+    // Default to the current stable GA flash model (text+image+audio input). The old
+    // gemini-1.5-* line is fully shut down (404 on every request); 2.x flash is on its
+    // way out too. Still fully overridable via GEMINI_MODEL.
+    const model = process.env.GEMINI_MODEL ?? "gemini-3.5-flash";
 
     const parts: Array<Record<string, unknown>> = [{ text: EXTRACTION_SYSTEM_PROMPT }];
     if (input.text) parts.push({ text: `\n\nINPUT:\n${input.text}` });
