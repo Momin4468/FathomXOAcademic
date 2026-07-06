@@ -1,0 +1,152 @@
+name: Database Backup
+
+# Free, version-controlled alternative to a Render Cron Job. Dumps the production
+# Postgres (Supabase) daily and stores a custom-format dump in the Supabase
+# `backups` bucket, pruning anything older than 14 days so free-tier storage
+# stays bounded. Nothing here touches application code, RLS, or migrations.
+#
+# Production Postgres is 17.x (verified via `SELECT version()` = 17.6), so we pin
+# postgresql-client-17 (pg_dump's major must be >= the server's). ubuntu-latest
+# ships only client-16, hence the official PGDG apt repo below.
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions):
+#   DATABASE_URL_ADMIN        Supabase session-pooler URL, postgres creds
+#   SUPABASE_URL              https://<project-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY service-role key (bypasses RLS; storage admin)
+
+on:
+  schedule:
+    # 20:00 UTC daily = ~02:00 Asia/Dhaka (UTC+6), a low-traffic window.
+    - cron: "0 20 * * *"
+  workflow_dispatch: {} # allow manual/on-demand runs for testing
+
+# Never let two backup runs overlap (a manual run during the scheduled one, etc.).
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL_ADMIN: ${{ secrets.DATABASE_URL_ADMIN }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      BUCKET: backups
+      RETENTION_DAYS: "14"
+      # Supabase requires TLS; force it without needing sslmode in the URL.
+      PGSSLMODE: require
+    steps:
+      - name: Check required secrets are present
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${DATABASE_URL_ADMIN}" ] || missing="$missing DATABASE_URL_ADMIN"
+          [ -n "${SUPABASE_URL}" ] || missing="$missing SUPABASE_URL"
+          [ -n "${SUPABASE_SERVICE_ROLE_KEY}" ] || missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required repo secret(s):$missing"
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+      - name: Install PostgreSQL 17 client (official PGDG apt repo)
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl ca-certificates gnupg lsb-release
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Create custom-format dump
+        run: |
+          set -euo pipefail
+          FILENAME="$(date -u +'backup-%Y-%m-%dT%H%M.dump')"
+          echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
+          echo "Dumping production database -> $FILENAME"
+          pg_dump --format=custom --no-owner --no-privileges \
+            --dbname="$DATABASE_URL_ADMIN" --file="$FILENAME"
+          # Fail loudly if the dump is missing or suspiciously tiny (a custom-format
+          # header alone is ~100 bytes; a real dump of this schema is far larger).
+          if [ ! -s "$FILENAME" ]; then
+            echo "::error::Dump file is missing or empty"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$FILENAME")
+          echo "Dump size: $SIZE bytes"
+          if [ "$SIZE" -lt 1000 ]; then
+            echo "::error::Dump is implausibly small ($SIZE bytes) — aborting before upload"
+            exit 1
+          fi
+
+      - name: Upload dump to Supabase Storage
+        run: |
+          set -euo pipefail
+          echo "Uploading $FILENAME to bucket '$BUCKET'"
+          HTTP=$(curl -sS -o upload_resp.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/storage/v1/object/$BUCKET/$FILENAME" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-upsert: false" \
+            --data-binary @"$FILENAME")
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::Upload failed (HTTP $HTTP)"
+            cat upload_resp.json || true
+            exit 1
+          fi
+          echo "Upload OK: $(cat upload_resp.json)"
+
+      - name: Verify the dump is listable in the bucket
+        run: |
+          set -euo pipefail
+          RESP=$(curl -sS -X POST \
+            "$SUPABASE_URL/storage/v1/object/list/$BUCKET" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":1000,"sortBy":{"column":"name","order":"desc"}}')
+          FOUND=$(echo "$RESP" | jq -r --arg n "$FILENAME" '[.[] | select(.name==$n)] | length')
+          SIZE=$(echo "$RESP" | jq -r --arg n "$FILENAME" '.[] | select(.name==$n) | .metadata.size // "unknown"')
+          if [ "$FOUND" != "1" ]; then
+            echo "::error::Just-uploaded $FILENAME was not found when listing the bucket"
+            echo "$RESP" | jq -r '.[].name' || true
+            exit 1
+          fi
+          echo "Confirmed in bucket: $FILENAME (size: $SIZE bytes)"
+
+      - name: Prune backups older than 14 days
+        run: |
+          set -euo pipefail
+          CUTOFF=$(date -u -d "$RETENTION_DAYS days ago" +%s)
+          echo "Pruning dumps dated before $(date -u -d "@$CUTOFF" +%Y-%m-%d)"
+          RESP=$(curl -sS -X POST \
+            "$SUPABASE_URL/storage/v1/object/list/$BUCKET" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"prefix":"","limit":1000,"sortBy":{"column":"name","order":"asc"}}')
+          echo "$RESP" | jq -r '.[].name' | while read -r name; do
+            [ -n "$name" ] || continue
+            # Parse the date embedded in the filename: backup-YYYY-MM-DDTHHMM.dump
+            d=$(printf '%s' "$name" | sed -n 's/^backup-\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)T.*\.dump$/\1/p')
+            if [ -z "$d" ]; then
+              echo "Skipping unrecognized object: $name"
+              continue
+            fi
+            ts=$(date -u -d "$d" +%s)
+            if [ "$ts" -lt "$CUTOFF" ]; then
+              echo "Deleting old backup: $name"
+              DH=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+                "$SUPABASE_URL/storage/v1/object/$BUCKET/$name" \
+                -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+              if [ "$DH" != "200" ]; then
+                echo "::warning::Failed to delete $name (HTTP $DH)"
+              fi
+            fi
+          done
+          echo "Prune complete."

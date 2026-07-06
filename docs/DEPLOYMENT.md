@@ -227,8 +227,8 @@ Each is infra/adapter only. Build + test after.
 ### B5. Blank-env defensive fix (Stage 5)
 - Add a helper `envOr(name, fallback)` returning `fallback` when the var is missing **or empty/whitespace**, and use it where code reads config with `?? default` — especially `PUBLIC_LEAD_ORG_ID` in `public-intake.service.ts`. Prevents the `invalid uuid ""` class of failure (flag #10).
 
-### B6. pg_dump backup (Stage 8)
-- A scheduled GitHub Actions workflow `.github/workflows/db-backup.yml` (daily cron). Steps: `pg_dump "$SESSION_POOLER_URL" --no-owner --no-privileges | gzip | gpg --symmetric --batch --passphrase "$BACKUP_PASSPHRASE"` → upload as an artifact (or to an external bucket). Store `SESSION_POOLER_URL` + `BACKUP_PASSPHRASE` as GitHub repo secrets. Document the restore (`gpg -d | gunzip | psql`) and the between-runs data-loss window (Supabase free has no PITR).
+### B6. pg_dump backup (Stage 8) — **IMPLEMENTED**
+- Built as `.github/workflows/db-backup.yml`: a daily (`0 20 * * *`) + on-demand (`workflow_dispatch`) GitHub Actions cron that runs `pg_dump --format=custom` against `DATABASE_URL_ADMIN`, uploads the timestamped dump to the Supabase `backups` bucket via the storage API (service-role key), and prunes dumps older than 14 days. Pins `postgresql-client-17` (prod is Postgres 17.6). Secrets: `DATABASE_URL_ADMIN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. **Full setup + secrets + the restore procedure are in the "Automated database backups" appendix at the end of this doc.**
 
 ## C. Seed & admin bootstrap (Stage 2 — exact, and safety-critical)
 **What `pnpm db:seed` inserts (0002 + 0005):** the org `…0001` "FathomXO — Academic"; 9 system roles; representative permissions; **two real-partner parties Momin (`…c1`) + Emon (`…c2`)**; **four user accounts** (`sysadmin@`, `bizadmin@`, `momin@`, `emon@` `…fathomxo.local`) with placeholder hashes (`SEED_PLACEHOLDER_NOT_A_REAL_HASH` → **cannot log in** until a real password is set — fail-closed, safe); their role assignments; the **Data Steward** role; and **demo reference rows** "University of Example" (`…e1`) + "ICT 701" (`…e2`) + aliases.
@@ -254,3 +254,57 @@ Each is infra/adapter only. Build + test after.
 
 ## D. Stage 2 pass criteria (the trust gate)
 Run §A's test block against Supabase on the **empty** DB (before §C seeding, or accept that the tests self-clean their own fixtures). Every suite must report `# fail 0`. The ones that prove visibility — `billing-http`/`referrers-http` (a party can't read a non-owned leg), `channels-http` (a partner can't be granted a margin-revealing share), `pf-isolation` (one PF account can't read another; a business token gets 401 on PF), `client-portal-http` (a client sees only their own status/AR, never writer/margin/chain) — are the gate. If any fails on Supabase, the production DB does **not** reproduce the model — STOP and diagnose (almost always a missing extension, a role/owner mismatch, or an unapplied migration), do not load real data.
+
+---
+
+# APPENDIX — Automated database backups (implemented)
+
+**What runs:** [`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml) — a scheduled GitHub Actions workflow (free; no Render Cron Job). Every day at **`0 20 * * *` (20:00 UTC ≈ 02:00 Asia/Dhaka, low traffic)** it takes a custom-format `pg_dump` of the production database and stores it in the Supabase **`backups`** storage bucket as `backup-YYYY-MM-DDTHHMM.dump`. A retention step then deletes any dump older than **14 days**. It also has a **`workflow_dispatch`** trigger for manual/on-demand runs.
+
+**Postgres version pin:** production is **Postgres 17.6** (verified with `SELECT version()`), so the workflow installs **`postgresql-client-17`** from the official PGDG apt repo (pg_dump's major version must be ≥ the server's; `ubuntu-latest` ships only client-16). If the server is ever upgraded to 18+, bump the pinned client major in the workflow to match.
+
+**Data-loss window:** backups are daily, so up to **~24h** of changes can be lost in a restore. Supabase free has **no PITR** — this cron is the whole safety net.
+
+### Secrets to add (one-time)
+GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**. Add all three (values are the same ones already in the Render dashboard):
+
+| Secret | Value |
+|---|---|
+| `DATABASE_URL_ADMIN` | Supabase **session-pooler** URL with the `postgres` role (the same value used for migrations). |
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service-role** key (bypasses RLS; used here only for storage upload/list/delete). |
+
+You must also create the **`backups`** bucket once (Supabase dashboard → Storage → New bucket → name `backups`, keep it **Private**). The workflow fails fast with a clear `::error::` if any secret is missing.
+
+### Running it manually (also how the first smoke test is done)
+GitHub → **Actions** tab → **Database Backup** → **Run workflow** → branch `main` → **Run**. Watch the run: the *Create dump* step logs the dump size, *Upload* posts it, and *Verify* lists it back out of the bucket. A green run means a real dump landed.
+
+### ⚠️ RESTORE — deliberate, rare, high-stakes disaster recovery ONLY
+> **This is not a routine command.** A restore overwrites live data. Run it only during a genuine data-loss incident, with a clear head, after you have decided the current DB state is worth replacing. When in doubt, restore into a **fresh** database/project and compare first — never `--clean` a live DB casually. Take a fresh `pg_dump` of the current (damaged) state *before* restoring, if the instance is still reachable, so the restore itself is reversible.
+
+**1. Download the chosen dump** from the `backups` bucket (list them in the Supabase dashboard, or via the same storage API the workflow uses):
+```bash
+# List available backups
+curl -sS -X POST "$SUPABASE_URL/storage/v1/object/list/backups" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prefix":"","limit":1000,"sortBy":{"column":"name","order":"desc"}}' | jq -r '.[].name'
+
+# Download a specific one
+curl -sS -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  "$SUPABASE_URL/storage/v1/object/backups/backup-2026-07-04T2000.dump" -o restore.dump
+```
+
+**2a. SAFE restore (recommended)** — into a brand-new, empty database (a new Supabase project or a local one), then verify before any cutover:
+```bash
+PGSSLMODE=require pg_restore --no-owner --no-privileges \
+  --dbname="$TARGET_EMPTY_DATABASE_URL" restore.dump
+```
+
+**2b. DESTRUCTIVE in-place restore (last resort)** — overwrites the current production objects. Only after a conscious decision:
+```bash
+# THIS DROPS AND RECREATES OBJECTS IN THE TARGET DB. Point-of-no-return.
+PGSSLMODE=require pg_restore --no-owner --no-privileges --clean --if-exists \
+  --dbname="$DATABASE_URL_ADMIN" restore.dump
+```
+Notes: the dumps use `--no-owner --no-privileges`, so `pg_restore` re-creates objects owned by the connecting role — after an in-place restore, re-confirm RLS/grants behave (run §A's visibility suites against the restored DB). `pg_restore` version should be ≥ the dump's Postgres major (17). Expect benign errors about pre-existing Supabase-managed roles/extensions; the app schema (`public`) is what matters.
