@@ -13,6 +13,8 @@ import { FILES_MAX_BYTES, type UploadedFile } from "../files/files.service.js";
 import type { PublicQuoteDto } from "./public-intake.dto.js";
 
 const SEED_ORG = "00000000-0000-4000-8000-000000000001";
+/** Cloudflare Turnstile server-side verification endpoint. */
+const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 /** Brief allowlist (the file rule): Word / PDF / TXT / images ONLY. */
 const ALLOWED_EXT = new Set([".pdf", ".txt", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 const ALLOWED_MIME = new Set([
@@ -35,6 +37,9 @@ const ALLOWED_MIME = new Set([
 export class PublicIntakeService {
   private readonly logger = new Logger(PublicIntakeService.name);
   private readonly orgId = process.env.PUBLIC_LEAD_ORG_ID ?? SEED_ORG;
+  // Cloudflare Turnstile secret. Unset (dev/test) → verification is skipped entirely,
+  // mirroring how AI_CAPTURE_PROVIDER=dev degrades gracefully rather than failing closed.
+  private readonly turnstileSecret = process.env.TURNSTILE_SECRET_KEY?.trim() || null;
   private readonly leadTtlDays = Number(process.env.CLIENT_LEAD_TTL_DAYS ?? 30);
   private readonly opsInbox = process.env.PUBLIC_QUOTE_NOTIFY_EMAIL ?? null;
   private readonly ipLimiter = new SlidingWindowRateLimiter(
@@ -58,7 +63,11 @@ export class PublicIntakeService {
   ) {}
 
   async submitQuote(dto: PublicQuoteDto, file: UploadedFile | undefined, clientIp: string): Promise<{ ok: true }> {
-    // Rate-limit FIRST (before the honeypot short-circuit) so a bot that fills
+    // Bot gate FIRST — before rate-limiting or any write. The API is authoritative
+    // for public-intake checks (the marketing BFF only does best-effort/UX work).
+    await this.verifyTurnstile(dto.turnstileToken, clientIp);
+
+    // Rate-limit (before the honeypot short-circuit) so a bot that fills
     // the honeypot is still bounded and can't hammer the endpoint for free.
     if (!this.globalLimiter.allow("global") || !this.ipLimiter.allow(clientIp || "unknown")) {
       throw new HttpException("Too many requests — please try again in a little while.", HttpStatus.TOO_MANY_REQUESTS);
@@ -193,6 +202,42 @@ export class PublicIntakeService {
     // Best-effort notifications (dev adapter logs envelope only). Never block.
     void this.notify(dto).catch((e) => this.logger.warn(`quote notify failed: ${(e as Error).message}`));
     return { ok: true };
+  }
+
+  /**
+   * Verify a Cloudflare Turnstile token server-side. No secret configured → skip
+   * (dev parity). Otherwise a missing token is rejected without a network call, and
+   * a present token is checked against Cloudflare's siteverify. Any non-success (bad
+   * token, transport error, timeout) fails CLOSED with a GENERIC 400 — Cloudflare's
+   * internal error codes are logged for ops but NEVER leaked to the client.
+   */
+  private async verifyTurnstile(token: string | undefined, clientIp: string): Promise<void> {
+    if (!this.turnstileSecret) return; // optional-in-dev: unconfigured → no gate
+    const generic = "Verification failed — please complete the challenge and try again.";
+    const tok = token?.trim();
+    if (!tok) throw new BadRequestException(generic);
+
+    let ok = false;
+    try {
+      const body = new URLSearchParams({ secret: this.turnstileSecret, response: tok });
+      if (clientIp && clientIp !== "unknown") body.set("remoteip", clientIp);
+      const resp = await fetch(TURNSTILE_VERIFY_URL, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body,
+      });
+      const data = (await resp.json()) as { success?: boolean; "error-codes"?: string[] };
+      ok = data?.success === true;
+      if (!ok) {
+        // Log Cloudflare's codes for ops visibility; the client gets only the generic message.
+        this.logger.warn(`Turnstile verification rejected: ${JSON.stringify(data?.["error-codes"] ?? [])}`);
+      }
+    } catch (e) {
+      // Fail closed on any transport/parse error when a secret IS configured.
+      this.logger.warn(`Turnstile verification error: ${(e as Error).message}`);
+      ok = false;
+    }
+    if (!ok) throw new BadRequestException(generic);
   }
 
   /** Strict brief allowlist — Word / PDF / TXT / image only; reject all else. */

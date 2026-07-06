@@ -18,4 +18,11 @@ export class PublicQuoteDto {
   @IsString() @MinLength(1) @MaxLength(5000) details!: string;
   /** Honeypot — must stay empty. */
   @IsOptional() @IsString() @MaxLength(200) website?: string;
+  /**
+   * Cloudflare Turnstile token (the widget's `cf-turnstile-response`, copied into
+   * this cleanly-named field by the frontend). Optional at the boundary because
+   * verification is skipped when no secret is configured (dev); when a secret IS
+   * set the service requires and verifies it. Tokens are ~short but cap generously.
+   */
+  @IsOptional() @IsString() @MaxLength(2048) turnstileToken?: string;
 }

@@ -68,6 +68,10 @@ async function startServer(): Promise<void> {
       FEATURE_CLIENT_PORTAL: "true",
       FEATURE_WORK: "true",
       FEATURE_BILLING: "true",
+      // This suite exercises the NON-Turnstile flow (it sends no token). Pin the
+      // secret OFF so it stays deterministic regardless of what `.env` provides;
+      // the Turnstile gate itself is covered by public-turnstile-http.test.ts.
+      TURNSTILE_SECRET_KEY: "",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

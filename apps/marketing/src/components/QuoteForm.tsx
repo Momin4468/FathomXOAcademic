@@ -1,7 +1,12 @@
 "use client";
 import { useState } from "react";
+import Script from "next/script";
 import { services } from "@/content/site";
 import { whatsappLink } from "@/lib/config";
+
+// Cloudflare Turnstile site key. When unset (local dev) the widget is not rendered
+// and the API skips verification — the form still works end-to-end.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 const ACCEPT = ".pdf,.txt,.doc,.docx,image/*";
 const ALLOWED_EXT = [".pdf", ".txt", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -46,6 +51,12 @@ export function QuoteForm() {
     setError("");
     try {
       const form = new FormData(e.currentTarget);
+      // Turnstile auto-injects a hidden `cf-turnstile-response` input once solved.
+      // Copy it into the API's cleanly-named field and drop the raw one (the API's
+      // strict whitelist rejects unknown fields).
+      const cfToken = form.get("cf-turnstile-response");
+      form.delete("cf-turnstile-response");
+      if (typeof cfToken === "string" && cfToken) form.set("turnstileToken", cfToken);
       const res = await fetch("/api/quote", { method: "POST", body: form });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ message: "Something went wrong." }));
@@ -161,6 +172,14 @@ export function QuoteForm() {
         <p role="alert" className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-sm text-red-300">
           {error}
         </p>
+      )}
+
+      {TURNSTILE_SITE_KEY && (
+        <div className="mt-4">
+          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+          {/* Turnstile renders here and injects a hidden `cf-turnstile-response` field on solve. */}
+          <div className="cf-turnstile" data-sitekey={TURNSTILE_SITE_KEY} data-theme="dark" />
+        </div>
       )}
 
       <p className="mt-4 text-xs text-slate-500">
