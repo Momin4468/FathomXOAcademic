@@ -37,6 +37,13 @@ services:
         value: supabase
       - key: AI_CAPTURE_PROVIDER
         value: dev
+      # login brute-force limits (in-process, best-effort)
+      - key: AUTH_LOGIN_RATE_MAX # per (IP + email), per window
+        value: "10"
+      - key: AUTH_LOGIN_IP_RATE_MAX # broader per-IP (credential stuffing), per window
+        value: "50"
+      - key: AUTH_LOGIN_RATE_WINDOW_MS # window for both login limiters (15 min)
+        value: "900000"
       # --- feature flags (platform is always on) ---
       - key: FEATURE_REFERENCE
         value: "true"

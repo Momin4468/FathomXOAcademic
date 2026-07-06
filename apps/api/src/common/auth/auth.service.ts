@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -15,6 +17,7 @@ import { AuditService } from "../audit/audit.service.js";
 import { PermissionService } from "../authz/permission.service.js";
 import { EncryptionService } from "../crypto/encryption.service.js";
 import { DbService } from "../db/db.service.js";
+import { SlidingWindowRateLimiter } from "../ratelimit/sliding-window.js";
 import { PasswordService } from "./password.service.js";
 import { TokenService } from "./token.service.js";
 import { TotpService } from "./totp.service.js";
@@ -36,6 +39,21 @@ function slidingExpiry(): Date {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  // Brute-force protection on login (CLAUDE.md §4 "rate-limit auth"). Best-effort,
+  // in-process — same SlidingWindowRateLimiter used by password-reset / public intake.
+  // Primary: per (IP + email) — throttles targeted guessing on one account without
+  // blocking a shared office IP from logging into different accounts. Secondary: per
+  // IP — catches credential stuffing across many emails from one source. Checked
+  // BEFORE any lookup/verify, and the 429 is generic (no account enumeration).
+  private readonly loginIpEmailLimiter = new SlidingWindowRateLimiter(
+    Number(process.env.AUTH_LOGIN_RATE_MAX ?? 10),
+    Number(process.env.AUTH_LOGIN_RATE_WINDOW_MS ?? 15 * 60 * 1000),
+  );
+  private readonly loginIpLimiter = new SlidingWindowRateLimiter(
+    Number(process.env.AUTH_LOGIN_IP_RATE_MAX ?? 50),
+    Number(process.env.AUTH_LOGIN_RATE_WINDOW_MS ?? 15 * 60 * 1000),
+  );
+
   constructor(
     private readonly db: DbService,
     private readonly passwords: PasswordService,
@@ -51,7 +69,17 @@ export class AuthService {
     password: string,
     totp?: string,
     deviceLabel?: string,
+    ip: string = "unknown",
   ): Promise<TokenPair> {
+    // Rate-limit BEFORE any lookup/verify. Consume the per-(IP+email) slot first,
+    // then the broader per-IP slot (|| short-circuits, mirroring password-reset).
+    if (
+      !this.loginIpEmailLimiter.allow(`${ip}:${email.trim().toLowerCase()}`) ||
+      !this.loginIpLimiter.allow(ip)
+    ) {
+      throw new HttpException("Too many login attempts — please try again later.", HttpStatus.TOO_MANY_REQUESTS);
+    }
+
     const row = await this.db.authLookup(email);
     // Unknown email: no org to scope an audit row → app-log only, generic 401.
     if (!row) {

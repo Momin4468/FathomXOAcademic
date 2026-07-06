@@ -18,8 +18,8 @@ export class AuthController {
   @Public()
   @Post("login")
   @HttpCode(200)
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.email, dto.password, dto.totp, dto.deviceLabel);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.auth.login(dto.email, dto.password, dto.totp, dto.deviceLabel, clientIpOf(req));
   }
 
   @Public()
