@@ -63,7 +63,21 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
-          pg_dump --version
+          # Assert the v17 binary is present and actually reports 17. `ubuntu-latest`
+          # ships client 16, and Debian's pg_wrapper makes bare `pg_dump` resolve to
+          # the older client — so we pin the explicit path everywhere and fail LOUDLY
+          # here at install time if 17 is somehow missing (rather than silently deep in
+          # the dump step with a "server version mismatch").
+          PG17=/usr/lib/postgresql/17/bin/pg_dump
+          if [ ! -x "$PG17" ]; then
+            echo "::error::$PG17 not found — postgresql-client-17 did not install as expected"
+            exit 1
+          fi
+          if ! "$PG17" --version | grep -q ' 17'; then
+            echo "::error::$PG17 did not report version 17: $("$PG17" --version)"
+            exit 1
+          fi
+          "$PG17" --version
 
       - name: Create custom-format dump
         run: |
@@ -71,7 +85,9 @@ jobs:
           FILENAME="$(date -u +'backup-%Y-%m-%dT%H%M.dump')"
           echo "FILENAME=$FILENAME" >> "$GITHUB_ENV"
           echo "Dumping production database -> $FILENAME"
-          pg_dump --format=custom --no-owner --no-privileges \
+          # Explicit v17 path — never rely on bare `pg_dump` (pg_wrapper may resolve
+          # it to the runner's pre-installed client 16, which aborts on a v17 server).
+          /usr/lib/postgresql/17/bin/pg_dump --format=custom --no-owner --no-privileges \
             --dbname="$DATABASE_URL_ADMIN" --file="$FILENAME"
           # Fail loudly if the dump is missing or suspiciously tiny (a custom-format
           # header alone is ~100 bytes; a real dump of this schema is far larger).
