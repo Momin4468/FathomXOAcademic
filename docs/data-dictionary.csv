@@ -1,0 +1,751 @@
+table_name,column_name,data_type,is_nullable,default_value,is_primary_key,is_foreign_key
+ai_capture,id,uuid,NO,gen_random_uuid(),YES,NO
+ai_capture,org_id,uuid,NO,,NO,YES
+ai_capture,kind,text,NO,,NO,NO
+ai_capture,input_text,text,YES,,NO,NO
+ai_capture,file_object_id,uuid,YES,,NO,YES
+ai_capture,provider,text,NO,,NO,NO
+ai_capture,model,text,YES,,NO,NO
+ai_capture,status,text,NO,'processing'::text,NO,NO
+ai_capture,usage_tokens,integer,NO,0,NO,NO
+ai_capture,created_by,uuid,YES,,NO,NO
+ai_capture,created_at,timestamp with time zone,NO,now(),NO,NO
+ai_capture,updated_at,timestamp with time zone,NO,now(),NO,NO
+ai_proposal,id,uuid,NO,gen_random_uuid(),YES,NO
+ai_proposal,org_id,uuid,NO,,NO,YES
+ai_proposal,capture_id,uuid,NO,,NO,YES
+ai_proposal,target_type,text,NO,,NO,NO
+ai_proposal,proposed_json,jsonb,NO,'{}'::jsonb,NO,NO
+ai_proposal,confidence,numeric,YES,,NO,NO
+ai_proposal,label,text,YES,,NO,NO
+ai_proposal,status,text,NO,'pending'::text,NO,NO
+ai_proposal,created_entity_type,text,YES,,NO,NO
+ai_proposal,created_entity_id,uuid,YES,,NO,NO
+ai_proposal,reviewed_by,uuid,YES,,NO,NO
+ai_proposal,reviewed_at,timestamp with time zone,YES,,NO,NO
+ai_proposal,created_at,timestamp with time zone,NO,now(),NO,NO
+ai_usage,id,bigint,NO,,YES,NO
+ai_usage,org_id,uuid,NO,,NO,YES
+ai_usage,user_id,uuid,YES,,NO,NO
+ai_usage,used_on,date,NO,CURRENT_DATE,NO,NO
+ai_usage,provider,text,NO,,NO,NO
+ai_usage,tokens,integer,NO,0,NO,NO
+ai_usage,capture_id,uuid,YES,,NO,NO
+ai_usage,at,timestamp with time zone,NO,now(),NO,NO
+archive_item,id,uuid,NO,gen_random_uuid(),YES,NO
+archive_item,org_id,uuid,NO,,NO,YES
+archive_item,title,text,NO,,NO,NO
+archive_item,description,text,YES,,NO,NO
+archive_item,doc_date,date,YES,,NO,NO
+archive_item,tags,text[],NO,'{}'::text[],NO,NO
+archive_item,file_object_id,uuid,YES,,NO,YES
+archive_item,created_by,uuid,YES,,NO,NO
+archive_item,created_at,timestamp with time zone,NO,now(),NO,NO
+archive_item,archived_at,timestamp with time zone,YES,,NO,NO
+audit_log,id,bigint,NO,,YES,NO
+audit_log,org_id,uuid,NO,,NO,NO
+audit_log,actor_user_id,uuid,YES,,NO,NO
+audit_log,action,text,NO,,NO,NO
+audit_log,entity,text,NO,,NO,NO
+audit_log,entity_id,uuid,YES,,NO,NO
+audit_log,detail_json,jsonb,YES,,NO,NO
+audit_log,at,timestamp with time zone,NO,now(),NO,NO
+auth_refresh_token,id,uuid,NO,gen_random_uuid(),YES,NO
+auth_refresh_token,org_id,uuid,NO,,NO,YES
+auth_refresh_token,user_id,uuid,NO,,NO,YES
+auth_refresh_token,token_hash,text,NO,,NO,NO
+auth_refresh_token,device_label,text,YES,,NO,NO
+auth_refresh_token,expires_at,timestamp with time zone,NO,,NO,NO
+auth_refresh_token,revoked_at,timestamp with time zone,YES,,NO,NO
+auth_refresh_token,last_used_at,timestamp with time zone,YES,,NO,NO
+auth_refresh_token,created_at,timestamp with time zone,NO,now(),NO,NO
+channel,id,uuid,NO,gen_random_uuid(),YES,NO
+channel,org_id,uuid,NO,,NO,NO
+channel,party_id,uuid,NO,,NO,YES
+channel,controller_party_id,uuid,YES,,NO,YES
+channel,medium,text,NO,,NO,NO
+channel,is_active,boolean,NO,true,NO,NO
+channel,archived_at,timestamp with time zone,YES,,NO,NO
+channel,created_by,uuid,YES,,NO,NO
+channel,created_at,timestamp with time zone,NO,now(),NO,NO
+channel,updated_by,uuid,YES,,NO,NO
+channel,updated_at,timestamp with time zone,NO,now(),NO,NO
+charge,id,uuid,NO,gen_random_uuid(),YES,NO
+charge,org_id,uuid,NO,,NO,YES
+charge,party_id,uuid,NO,,NO,YES
+charge,work_item_id,uuid,YES,,NO,YES
+charge,deal_term_id,uuid,YES,,NO,YES
+charge,category,text,NO,,NO,NO
+charge,amount,numeric,NO,,NO,NO
+charge,reason,text,YES,,NO,NO
+charge,reverses_charge_id,uuid,YES,,NO,YES
+charge,created_by,uuid,YES,,NO,NO
+charge,created_at,timestamp with time zone,NO,now(),NO,NO
+check_batch,id,uuid,NO,gen_random_uuid(),YES,NO
+check_batch,org_id,uuid,NO,,NO,YES
+check_batch,channel_id,uuid,NO,,NO,YES
+check_batch,tool_account_id,uuid,YES,,NO,YES
+check_batch,period_date,date,NO,,NO,NO
+check_batch,files_checked,integer,NO,0,NO,NO
+check_batch,files_paid,integer,NO,0,NO,NO
+check_batch,amount_collected,numeric,NO,0,NO,NO
+check_batch,customer_party_id,uuid,YES,,NO,YES
+check_batch,work_item_id,uuid,YES,,NO,YES
+check_batch,status,text,NO,'proposed'::text,NO,NO
+check_batch,note,text,YES,,NO,NO
+check_batch,recorded_by,uuid,YES,,NO,NO
+check_batch,recorded_at,timestamp with time zone,NO,now(),NO,NO
+check_batch,confirmed_by,uuid,YES,,NO,NO
+check_batch,confirmed_at,timestamp with time zone,YES,,NO,NO
+check_batch,updated_by,uuid,YES,,NO,NO
+check_batch,updated_at,timestamp with time zone,NO,now(),NO,NO
+check_batch,archived_at,timestamp with time zone,YES,,NO,NO
+check_channel,id,uuid,NO,gen_random_uuid(),YES,NO
+check_channel,org_id,uuid,NO,,NO,YES
+check_channel,label,text,NO,,NO,NO
+check_channel,employee_party_id,uuid,NO,,NO,YES
+check_channel,active,boolean,NO,true,NO,NO
+check_channel,created_by,uuid,YES,,NO,NO
+check_channel,created_at,timestamp with time zone,NO,now(),NO,NO
+check_channel,updated_by,uuid,YES,,NO,NO
+check_channel,updated_at,timestamp with time zone,NO,now(),NO,NO
+check_channel,archived_at,timestamp with time zone,YES,,NO,NO
+check_credit_topup,id,uuid,NO,gen_random_uuid(),YES,NO
+check_credit_topup,org_id,uuid,NO,,NO,YES
+check_credit_topup,tool_account_id,uuid,NO,,NO,YES
+check_credit_topup,credits,numeric,NO,,NO,NO
+check_credit_topup,cost,numeric,NO,,NO,NO
+check_credit_topup,purchased_at,date,NO,,NO,NO
+check_credit_topup,note,text,YES,,NO,NO
+check_credit_topup,created_by,uuid,YES,,NO,NO
+check_credit_topup,created_at,timestamp with time zone,NO,now(),NO,NO
+check_file,id,uuid,NO,gen_random_uuid(),YES,NO
+check_file,org_id,uuid,NO,,NO,YES
+check_file,batch_id,uuid,NO,,NO,YES
+check_file,file_object_id,uuid,YES,,NO,YES
+check_file,customer_ref,text,YES,,NO,NO
+check_file,ai_score,numeric,YES,,NO,NO
+check_file,plagiarism_score,numeric,YES,,NO,NO
+check_file,note,text,YES,,NO,NO
+check_file,created_by,uuid,YES,,NO,NO
+check_file,created_at,timestamp with time zone,NO,now(),NO,NO
+check_tool_account,id,uuid,NO,gen_random_uuid(),YES,NO
+check_tool_account,org_id,uuid,NO,,NO,YES
+check_tool_account,label,text,NO,,NO,NO
+check_tool_account,vault_item_id,uuid,YES,,NO,YES
+check_tool_account,active,boolean,NO,true,NO,NO
+check_tool_account,created_by,uuid,YES,,NO,NO
+check_tool_account,created_at,timestamp with time zone,NO,now(),NO,NO
+check_tool_account,updated_by,uuid,YES,,NO,NO
+check_tool_account,updated_at,timestamp with time zone,NO,now(),NO,NO
+check_tool_account,archived_at,timestamp with time zone,YES,,NO,NO
+client_account,id,uuid,NO,gen_random_uuid(),YES,NO
+client_account,org_id,uuid,NO,,NO,YES
+client_account,party_id,uuid,NO,,NO,YES
+client_account,login_id,USER-DEFINED,NO,,NO,NO
+client_account,password_hash,text,NO,,NO,NO
+client_account,twofa_secret,text,YES,,NO,NO
+client_account,status,text,NO,'invited'::text,NO,NO
+client_account,expires_at,timestamp with time zone,YES,,NO,NO
+client_account,created_by,uuid,YES,,NO,NO
+client_account,created_at,timestamp with time zone,NO,now(),NO,NO
+client_account,updated_by,uuid,YES,,NO,NO
+client_account,updated_at,timestamp with time zone,NO,now(),NO,NO
+client_message,id,uuid,NO,gen_random_uuid(),YES,NO
+client_message,org_id,uuid,NO,,NO,YES
+client_message,party_id,uuid,NO,,NO,YES
+client_message,body,text,NO,,NO,NO
+client_message,sender,text,NO,,NO,NO
+client_message,created_by_client_account_id,uuid,YES,,NO,YES
+client_message,created_by_user_id,uuid,YES,,NO,NO
+client_message,read_at,timestamp with time zone,YES,,NO,NO
+client_message,created_at,timestamp with time zone,NO,now(),NO,NO
+client_refresh_token,id,uuid,NO,gen_random_uuid(),YES,NO
+client_refresh_token,client_account_id,uuid,NO,,NO,YES
+client_refresh_token,token_hash,text,NO,,NO,NO
+client_refresh_token,device_label,text,YES,,NO,NO
+client_refresh_token,expires_at,timestamp with time zone,NO,,NO,NO
+client_refresh_token,revoked_at,timestamp with time zone,YES,,NO,NO
+client_refresh_token,last_used_at,timestamp with time zone,YES,,NO,NO
+client_refresh_token,created_at,timestamp with time zone,NO,now(),NO,NO
+comp_rule,id,uuid,NO,gen_random_uuid(),YES,NO
+comp_rule,org_id,uuid,NO,,NO,YES
+comp_rule,party_id,uuid,YES,,NO,YES
+comp_rule,role_id,uuid,YES,,NO,YES
+comp_rule,basis,text,NO,,NO,NO
+comp_rule,rate,numeric,YES,,NO,NO
+comp_rule,cost_bearer,text,NO,,NO,NO
+comp_rule,cost_bearer_split_json,jsonb,YES,,NO,NO
+comp_rule,cadence,text,YES,,NO,NO
+comp_rule,effective_from,date,NO,,NO,NO
+comp_rule,effective_to,date,YES,,NO,NO
+comp_rule,created_by,uuid,YES,,NO,NO
+comp_rule,created_at,timestamp with time zone,NO,now(),NO,NO
+cover_sheet_template,id,uuid,NO,gen_random_uuid(),YES,NO
+cover_sheet_template,org_id,uuid,NO,,NO,YES
+cover_sheet_template,name,text,NO,,NO,NO
+cover_sheet_template,university_ref_id,uuid,YES,,NO,YES
+cover_sheet_template,programme_ref_id,uuid,YES,,NO,YES
+cover_sheet_template,file_object_id,uuid,YES,,NO,YES
+cover_sheet_template,notes,text,YES,,NO,NO
+cover_sheet_template,created_by,uuid,YES,,NO,NO
+cover_sheet_template,created_at,timestamp with time zone,NO,now(),NO,NO
+cover_sheet_template,updated_by,uuid,YES,,NO,NO
+cover_sheet_template,updated_at,timestamp with time zone,NO,now(),NO,NO
+cover_sheet_template,archived_at,timestamp with time zone,YES,,NO,NO
+credential_share,id,uuid,NO,gen_random_uuid(),YES,NO
+credential_share,org_id,uuid,NO,,NO,YES
+credential_share,credential_id,uuid,NO,,NO,YES
+credential_share,party_id,uuid,NO,,NO,YES
+credential_share,granted_by,uuid,YES,,NO,NO
+credential_share,granted_at,timestamp with time zone,NO,now(),NO,NO
+credential_share,revoked_by,uuid,YES,,NO,NO
+credential_share,revoked_at,timestamp with time zone,YES,,NO,NO
+credential_vault_item,id,uuid,NO,gen_random_uuid(),YES,NO
+credential_vault_item,org_id,uuid,NO,,NO,YES
+credential_vault_item,name,text,NO,,NO,NO
+credential_vault_item,type,text,NO,,NO,NO
+credential_vault_item,url,text,YES,,NO,NO
+credential_vault_item,client_party_id,uuid,YES,,NO,YES
+credential_vault_item,secret_iv,text,NO,,NO,NO
+credential_vault_item,secret_tag,text,NO,,NO,NO
+credential_vault_item,secret_ciphertext,text,NO,,NO,NO
+credential_vault_item,created_by,uuid,YES,,NO,NO
+credential_vault_item,created_at,timestamp with time zone,NO,now(),NO,NO
+credential_vault_item,updated_by,uuid,YES,,NO,NO
+credential_vault_item,updated_at,timestamp with time zone,NO,now(),NO,NO
+credential_vault_item,archived_at,timestamp with time zone,YES,,NO,NO
+custom_field_def,id,uuid,NO,gen_random_uuid(),YES,NO
+custom_field_def,org_id,uuid,NO,,NO,YES
+custom_field_def,target_entity,text,NO,,NO,NO
+custom_field_def,field_name,text,NO,,NO,NO
+custom_field_def,field_type,text,NO,,NO,NO
+custom_field_def,options_json,jsonb,YES,,NO,NO
+custom_field_def,scope_json,jsonb,NO,'{}'::jsonb,NO,NO
+custom_field_def,required,boolean,NO,false,NO,NO
+custom_field_def,sort,integer,NO,0,NO,NO
+custom_field_def,created_by,uuid,YES,,NO,NO
+custom_field_def,created_at,timestamp with time zone,NO,now(),NO,NO
+custom_field_def,updated_by,uuid,YES,,NO,NO
+custom_field_def,updated_at,timestamp with time zone,NO,now(),NO,NO
+custom_field_def,archived_at,timestamp with time zone,YES,,NO,NO
+deal_term,id,uuid,NO,gen_random_uuid(),YES,NO
+deal_term,org_id,uuid,NO,,NO,YES
+deal_term,from_party_id,uuid,YES,,NO,YES
+deal_term,to_party_id,uuid,YES,,NO,YES
+deal_term,applies_to,text,NO,'default'::text,NO,NO
+deal_term,term_type,text,NO,,NO,NO
+deal_term,value,numeric,NO,,NO,NO
+deal_term,effective_from,date,NO,,NO,NO
+deal_term,effective_to,date,YES,,NO,NO
+deal_term,created_by,uuid,YES,,NO,NO
+deal_term,created_at,timestamp with time zone,NO,now(),NO,NO
+deal_term,basis,text,YES,,NO,NO
+expense,id,uuid,NO,gen_random_uuid(),YES,NO
+expense,org_id,uuid,NO,,NO,YES
+expense,category,text,NO,,NO,NO
+expense,amount,numeric,NO,,NO,NO
+expense,incurred_at,date,NO,,NO,NO
+expense,cost_bearer,text,NO,,NO,NO
+expense,cost_bearer_split_json,jsonb,YES,,NO,NO
+expense,payee_party_id,uuid,YES,,NO,YES
+expense,campaign_tag,text,YES,,NO,NO
+expense,revenue_link_id,uuid,YES,,NO,NO
+expense,receipt_file_id,uuid,YES,,NO,YES
+expense,note,text,YES,,NO,NO
+expense,created_by,uuid,YES,,NO,NO
+expense,created_at,timestamp with time zone,NO,now(),NO,NO
+expense,updated_by,uuid,YES,,NO,NO
+expense,updated_at,timestamp with time zone,NO,now(),NO,NO
+expense,archived_at,timestamp with time zone,YES,,NO,NO
+expense,next_due_date,date,YES,,NO,NO
+expense,currency,text,YES,,NO,NO
+expense,last_reminded_due,date,YES,,NO,NO
+expense,ai_capture_id,uuid,YES,,NO,YES
+expense,import_batch_id,uuid,YES,,NO,YES
+file_object,id,uuid,NO,gen_random_uuid(),YES,NO
+file_object,org_id,uuid,NO,,NO,YES
+file_object,kind,text,NO,,NO,NO
+file_object,is_link,boolean,NO,false,NO,NO
+file_object,url,text,YES,,NO,NO
+file_object,filename,text,YES,,NO,NO
+file_object,size_bytes,bigint,YES,,NO,NO
+file_object,mime,text,YES,,NO,NO
+file_object,created_by,uuid,YES,,NO,NO
+file_object,created_at,timestamp with time zone,NO,now(),NO,NO
+import_batch,id,uuid,NO,gen_random_uuid(),YES,NO
+import_batch,org_id,uuid,NO,,NO,YES
+import_batch,entity_type,text,NO,,NO,NO
+import_batch,filename,text,YES,,NO,NO
+import_batch,status,text,NO,'preview'::text,NO,NO
+import_batch,row_total,integer,NO,0,NO,NO
+import_batch,valid_count,integer,NO,0,NO,NO
+import_batch,invalid_count,integer,NO,0,NO,NO
+import_batch,committed_count,integer,NO,0,NO,NO
+import_batch,failed_count,integer,NO,0,NO,NO
+import_batch,created_by,uuid,YES,,NO,NO
+import_batch,created_at,timestamp with time zone,NO,now(),NO,NO
+import_batch,updated_at,timestamp with time zone,NO,now(),NO,NO
+import_row,id,uuid,NO,gen_random_uuid(),YES,NO
+import_row,org_id,uuid,NO,,NO,YES
+import_row,batch_id,uuid,NO,,NO,YES
+import_row,row_number,integer,NO,,NO,NO
+import_row,raw_json,jsonb,NO,'{}'::jsonb,NO,NO
+import_row,mapped_json,jsonb,NO,'{}'::jsonb,NO,NO
+import_row,status,text,NO,'valid'::text,NO,NO
+import_row,errors_json,jsonb,YES,,NO,NO
+import_row,resolution_json,jsonb,YES,,NO,NO
+import_row,created_entity_type,text,YES,,NO,NO
+import_row,created_entity_id,uuid,YES,,NO,NO
+import_row,created_at,timestamp with time zone,NO,now(),NO,NO
+invoice,id,uuid,NO,gen_random_uuid(),YES,NO
+invoice,org_id,uuid,NO,,NO,YES
+invoice,client_party_id,uuid,NO,,NO,YES
+invoice,status,text,NO,'open'::text,NO,NO
+invoice,is_estimate,boolean,NO,false,NO,NO
+invoice,supersedes_invoice_id,uuid,YES,,NO,YES
+invoice,issued_at,date,YES,,NO,NO
+invoice,created_by,uuid,YES,,NO,NO
+invoice,created_at,timestamp with time zone,NO,now(),NO,NO
+invoice_line,id,uuid,NO,gen_random_uuid(),YES,NO
+invoice_line,org_id,uuid,NO,,NO,YES
+invoice_line,invoice_id,uuid,NO,,NO,YES
+invoice_line,work_line_id,uuid,NO,,NO,YES
+invoice_line,amount,numeric,NO,,NO,NO
+invoice_line,paid_amount,numeric,NO,0,NO,NO
+invoice_line,note,text,YES,,NO,NO
+knowledge_article,id,uuid,NO,gen_random_uuid(),YES,NO
+knowledge_article,org_id,uuid,NO,,NO,YES
+knowledge_article,type,text,NO,,NO,NO
+knowledge_article,title,text,NO,,NO,NO
+knowledge_article,body,text,YES,,NO,NO
+knowledge_article,university_ref_id,uuid,YES,,NO,YES
+knowledge_article,programme_ref_id,uuid,YES,,NO,YES
+knowledge_article,status,text,NO,'published'::text,NO,NO
+knowledge_article,created_by,uuid,YES,,NO,NO
+knowledge_article,created_at,timestamp with time zone,NO,now(),NO,NO
+knowledge_article,updated_by,uuid,YES,,NO,NO
+knowledge_article,updated_at,timestamp with time zone,NO,now(),NO,NO
+knowledge_article,archived_at,timestamp with time zone,YES,,NO,NO
+knowledge_attachment,id,uuid,NO,gen_random_uuid(),YES,NO
+knowledge_attachment,org_id,uuid,NO,,NO,YES
+knowledge_attachment,article_id,uuid,NO,,NO,YES
+knowledge_attachment,file_object_id,uuid,NO,,NO,YES
+knowledge_attachment,created_by,uuid,YES,,NO,NO
+knowledge_attachment,created_at,timestamp with time zone,NO,now(),NO,NO
+leg,id,uuid,NO,gen_random_uuid(),YES,NO
+leg,org_id,uuid,NO,,NO,YES
+leg,work_item_id,uuid,NO,,NO,YES
+leg,work_line_id,uuid,YES,,NO,YES
+leg,seq,integer,NO,,NO,NO
+leg,from_party_id,uuid,YES,,NO,YES
+leg,to_party_id,uuid,YES,,NO,YES
+leg,amount,numeric,NO,,NO,NO
+leg,deal_term_id,uuid,YES,,NO,YES
+leg,note,text,YES,,NO,NO
+leg,created_by,uuid,YES,,NO,NO
+leg,created_at,timestamp with time zone,NO,now(),NO,NO
+milestone,id,uuid,NO,gen_random_uuid(),YES,NO
+milestone,org_id,uuid,NO,,NO,YES
+milestone,project_id,uuid,NO,,NO,YES
+milestone,title,text,NO,,NO,NO
+milestone,trackable,boolean,NO,true,NO,NO
+milestone,billable,boolean,NO,false,NO,NO
+milestone,due_at,timestamp with time zone,YES,,NO,NO
+milestone,due_tz,text,YES,,NO,NO
+milestone,state,text,NO,'pending'::text,NO,NO
+milestone,sort,integer,YES,0,NO,NO
+milestone,created_by,uuid,YES,,NO,NO
+milestone,created_at,timestamp with time zone,NO,now(),NO,NO
+milestone,updated_by,uuid,YES,,NO,NO
+milestone,updated_at,timestamp with time zone,NO,now(),NO,NO
+milestone_template,id,uuid,NO,gen_random_uuid(),YES,NO
+milestone_template,org_id,uuid,NO,,NO,YES
+milestone_template,name,text,NO,,NO,NO
+milestone_template,scope_ref_id,uuid,YES,,NO,YES
+milestone_template,created_by,uuid,YES,,NO,NO
+milestone_template,created_at,timestamp with time zone,NO,now(),NO,NO
+milestone_template_item,id,uuid,NO,gen_random_uuid(),YES,NO
+milestone_template_item,org_id,uuid,NO,,NO,YES
+milestone_template_item,template_id,uuid,NO,,NO,YES
+milestone_template_item,title,text,NO,,NO,NO
+milestone_template_item,trackable,boolean,NO,true,NO,NO
+milestone_template_item,billable,boolean,NO,false,NO,NO
+milestone_template_item,sort,integer,YES,0,NO,NO
+org,id,uuid,NO,gen_random_uuid(),YES,NO
+org,name,text,NO,,NO,NO
+org,created_at,timestamp with time zone,NO,now(),NO,NO
+party,id,uuid,NO,gen_random_uuid(),YES,NO
+party,org_id,uuid,NO,,NO,YES
+party,display_name,text,NO,,NO,NO
+party,party_type,text[],NO,'{}'::text[],NO,NO
+party,external_ref,text,YES,,NO,NO
+party,university_id,uuid,YES,,NO,YES
+party,programme,text,YES,,NO,NO
+party,contact_json,jsonb,YES,'{}'::jsonb,NO,NO
+party,expertise_tags,text[],YES,'{}'::text[],NO,NO
+party,notes,text,YES,,NO,NO
+party,created_by,uuid,YES,,NO,NO
+party,created_at,timestamp with time zone,NO,now(),NO,NO
+party,updated_by,uuid,YES,,NO,NO
+party,updated_at,timestamp with time zone,NO,now(),NO,NO
+party,archived_at,timestamp with time zone,YES,,NO,NO
+party,referred_by_party_id,uuid,YES,,NO,YES
+party,availability,text,NO,'available'::text,NO,NO
+party,max_concurrent,integer,YES,,NO,NO
+party,custom_json,jsonb,YES,'{}'::jsonb,NO,NO
+party,ai_capture_id,uuid,YES,,NO,YES
+party,import_batch_id,uuid,YES,,NO,YES
+password_reset_token,id,uuid,NO,gen_random_uuid(),YES,NO
+password_reset_token,plane,text,NO,,NO,NO
+password_reset_token,account_id,uuid,NO,,NO,NO
+password_reset_token,token_hash,text,NO,,NO,NO
+password_reset_token,expires_at,timestamp with time zone,NO,,NO,NO
+password_reset_token,used_at,timestamp with time zone,YES,,NO,NO
+password_reset_token,created_at,timestamp with time zone,NO,now(),NO,NO
+payment,id,uuid,NO,gen_random_uuid(),YES,NO
+payment,org_id,uuid,NO,,NO,YES
+payment,direction,text,NO,,NO,NO
+payment,counterparty_party_id,uuid,YES,,NO,YES
+payment,amount,numeric,NO,,NO,NO
+payment,paid_at,date,NO,,NO,NO
+payment,medium,text,YES,,NO,NO
+payment,trx_id,text,YES,,NO,NO
+payment,note,text,YES,,NO,NO
+payment,created_by,uuid,YES,,NO,NO
+payment,created_at,timestamp with time zone,NO,now(),NO,NO
+payment,reverses_payment_id,uuid,YES,,NO,YES
+payment,ai_capture_id,uuid,YES,,NO,YES
+payment,import_batch_id,uuid,YES,,NO,YES
+payment_allocation,id,uuid,NO,gen_random_uuid(),YES,NO
+payment_allocation,org_id,uuid,NO,,NO,YES
+payment_allocation,payment_id,uuid,NO,,NO,YES
+payment_allocation,invoice_line_id,uuid,YES,,NO,YES
+payment_allocation,writer_party_id,uuid,YES,,NO,YES
+payment_allocation,amount,numeric,NO,,NO,NO
+payment_allocation,charge_id,uuid,YES,,NO,YES
+payment_proof,id,uuid,NO,gen_random_uuid(),YES,NO
+payment_proof,org_id,uuid,NO,,NO,YES
+payment_proof,payment_id,uuid,NO,,NO,YES
+payment_proof,file_object_id,uuid,NO,,NO,YES
+payment_proof,side,text,NO,,NO,NO
+payment_proof,attached_by,uuid,NO,,NO,NO
+payment_proof,attached_at,timestamp with time zone,NO,now(),NO,NO
+permission,id,uuid,NO,gen_random_uuid(),YES,NO
+permission,org_id,uuid,NO,,NO,YES
+permission,role_id,uuid,NO,,NO,YES
+permission,module,text,NO,,NO,NO
+permission,action,text,NO,,NO,NO
+permission,scope_json,jsonb,NO,'{}'::jsonb,NO,NO
+pf_account,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_account,email,USER-DEFINED,NO,,NO,NO
+pf_account,password_hash,text,NO,,NO,NO
+pf_account,twofa_secret,text,YES,,NO,NO
+pf_account,status,text,NO,'active'::text,NO,NO
+pf_account,display_name,text,YES,,NO,NO
+pf_account,base_currency,text,NO,'BDT'::text,NO,NO
+pf_account,linked_party_id,uuid,YES,,NO,NO
+pf_account,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_account,updated_at,timestamp with time zone,NO,now(),NO,NO
+pf_ai_usage,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_ai_usage,pf_account_id,uuid,NO,,NO,YES
+pf_ai_usage,day,date,NO,,NO,NO
+pf_ai_usage,count,integer,NO,0,NO,NO
+pf_anomaly_notice,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_anomaly_notice,pf_account_id,uuid,NO,,NO,YES
+pf_anomaly_notice,kind,text,NO,,NO,NO
+pf_anomaly_notice,period_key,text,NO,,NO,NO
+pf_anomaly_notice,category_id,uuid,YES,,NO,NO
+pf_anomaly_notice,observed,numeric,NO,,NO,NO
+pf_anomaly_notice,baseline,numeric,NO,,NO,NO
+pf_anomaly_notice,currency,text,NO,'BDT'::text,NO,NO
+pf_anomaly_notice,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_anomaly_notice,dismissed_at,timestamp with time zone,YES,,NO,NO
+pf_audit_log,id,bigint,NO,,YES,NO
+pf_audit_log,pf_account_id,uuid,NO,,NO,YES
+pf_audit_log,action,text,NO,,NO,NO
+pf_audit_log,entity,text,NO,,NO,NO
+pf_audit_log,entity_id,uuid,YES,,NO,NO
+pf_audit_log,detail_json,jsonb,YES,,NO,NO
+pf_audit_log,at,timestamp with time zone,NO,now(),NO,NO
+pf_category,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_category,pf_account_id,uuid,NO,,NO,YES
+pf_category,kind,text,NO,,NO,NO
+pf_category,name,text,NO,,NO,NO
+pf_category,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_category,archived_at,timestamp with time zone,YES,,NO,NO
+pf_expense,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_expense,pf_account_id,uuid,NO,,NO,YES
+pf_expense,category_id,uuid,YES,,NO,YES
+pf_expense,amount,numeric,NO,,NO,NO
+pf_expense,currency,text,NO,'BDT'::text,NO,NO
+pf_expense,converted_amount,numeric,YES,,NO,NO
+pf_expense,converted_currency,text,YES,,NO,NO
+pf_expense,occurred_on,date,NO,,NO,NO
+pf_expense,note,text,YES,,NO,NO
+pf_expense,reverses_id,uuid,YES,,NO,YES
+pf_expense,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_income,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_income,pf_account_id,uuid,NO,,NO,YES
+pf_income,category_id,uuid,YES,,NO,YES
+pf_income,amount,numeric,NO,,NO,NO
+pf_income,currency,text,NO,'BDT'::text,NO,NO
+pf_income,converted_amount,numeric,YES,,NO,NO
+pf_income,converted_currency,text,YES,,NO,NO
+pf_income,occurred_on,date,NO,,NO,NO
+pf_income,note,text,YES,,NO,NO
+pf_income,source,text,NO,'manual'::text,NO,NO
+pf_income,source_ref,text,YES,,NO,NO
+pf_income,source_party_id,uuid,YES,,NO,NO
+pf_income,reverses_id,uuid,YES,,NO,YES
+pf_income,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_link_token,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_link_token,party_id,uuid,NO,,NO,NO
+pf_link_token,token_hash,text,NO,,NO,NO
+pf_link_token,expires_at,timestamp with time zone,NO,,NO,NO
+pf_link_token,consumed_at,timestamp with time zone,YES,,NO,NO
+pf_link_token,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_loan,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_loan,pf_account_id,uuid,NO,,NO,YES
+pf_loan,direction,text,NO,,NO,NO
+pf_loan,counterparty_name,text,NO,,NO,NO
+pf_loan,principal,numeric,NO,,NO,NO
+pf_loan,currency,text,NO,'BDT'::text,NO,NO
+pf_loan,started_on,date,NO,,NO,NO
+pf_loan,due_on,date,YES,,NO,NO
+pf_loan,note,text,YES,,NO,NO
+pf_loan,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_loan,archived_at,timestamp with time zone,YES,,NO,NO
+pf_loan_event,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_loan_event,pf_account_id,uuid,NO,,NO,YES
+pf_loan_event,loan_id,uuid,NO,,NO,YES
+pf_loan_event,kind,text,NO,,NO,NO
+pf_loan_event,amount,numeric,NO,,NO,NO
+pf_loan_event,occurred_on,date,NO,,NO,NO
+pf_loan_event,note,text,YES,,NO,NO
+pf_loan_event,reverses_id,uuid,YES,,NO,YES
+pf_loan_event,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_note,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_note,pf_account_id,uuid,NO,,NO,YES
+pf_note,title,text,YES,,NO,NO
+pf_note,body,text,YES,,NO,NO
+pf_note,items,jsonb,NO,'[]'::jsonb,NO,NO
+pf_note,color,text,YES,,NO,NO
+pf_note,pinned,boolean,NO,false,NO,NO
+pf_note,remind_on,date,YES,,NO,NO
+pf_note,last_reminded_on,date,YES,,NO,NO
+pf_note,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_note,updated_at,timestamp with time zone,NO,now(),NO,NO
+pf_note,archived_at,timestamp with time zone,YES,,NO,NO
+pf_note_attachment,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_note_attachment,pf_account_id,uuid,NO,,NO,YES
+pf_note_attachment,note_id,uuid,NO,,NO,YES
+pf_note_attachment,is_link,boolean,NO,,NO,NO
+pf_note_attachment,url,text,NO,,NO,NO
+pf_note_attachment,filename,text,YES,,NO,NO
+pf_note_attachment,size_bytes,bigint,YES,,NO,NO
+pf_note_attachment,mime,text,YES,,NO,NO
+pf_note_attachment,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_preferences,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_preferences,pf_account_id,uuid,NO,,NO,YES
+pf_preferences,rollup_period,text,NO,'month'::text,NO,NO
+pf_preferences,rollup_custom_days,integer,NO,30,NO,NO
+pf_preferences,subscription_lead_days,integer,NO,3,NO,NO
+pf_preferences,reminder_subscriptions,boolean,NO,true,NO,NO
+pf_preferences,reminder_notes,boolean,NO,true,NO,NO
+pf_preferences,anomaly_enabled,boolean,NO,true,NO,NO
+pf_preferences,anomaly_threshold_pct,integer,NO,150,NO,NO
+pf_preferences,active_currencies,text[],NO,"'{BDT,USD,GBP,EUR,AUD}'::text[]",NO,NO
+pf_preferences,default_budget_period,text,NO,'month'::text,NO,NO
+pf_preferences,ai_quickadd_enabled,boolean,NO,true,NO,NO
+pf_preferences,prefs_json,jsonb,YES,,NO,NO
+pf_preferences,updated_at,timestamp with time zone,NO,now(),NO,NO
+pf_refresh_token,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_refresh_token,pf_account_id,uuid,NO,,NO,YES
+pf_refresh_token,token_hash,text,NO,,NO,NO
+pf_refresh_token,device_label,text,YES,,NO,NO
+pf_refresh_token,expires_at,timestamp with time zone,NO,,NO,NO
+pf_refresh_token,revoked_at,timestamp with time zone,YES,,NO,NO
+pf_refresh_token,last_used_at,timestamp with time zone,YES,,NO,NO
+pf_refresh_token,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_saving,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_saving,pf_account_id,uuid,NO,,NO,YES
+pf_saving,name,text,NO,,NO,NO
+pf_saving,currency,text,NO,'BDT'::text,NO,NO
+pf_saving,target_amount,numeric,YES,,NO,NO
+pf_saving,note,text,YES,,NO,NO
+pf_saving,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_saving,archived_at,timestamp with time zone,YES,,NO,NO
+pf_saving_event,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_saving_event,pf_account_id,uuid,NO,,NO,YES
+pf_saving_event,saving_id,uuid,NO,,NO,YES
+pf_saving_event,kind,text,NO,,NO,NO
+pf_saving_event,amount,numeric,NO,,NO,NO
+pf_saving_event,occurred_on,date,NO,,NO,NO
+pf_saving_event,note,text,YES,,NO,NO
+pf_saving_event,reverses_id,uuid,YES,,NO,YES
+pf_saving_event,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_subscription,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_subscription,pf_account_id,uuid,NO,,NO,YES
+pf_subscription,name,text,NO,,NO,NO
+pf_subscription,category_id,uuid,YES,,NO,YES
+pf_subscription,amount,numeric,NO,,NO,NO
+pf_subscription,currency,text,NO,'BDT'::text,NO,NO
+pf_subscription,next_due_date,date,YES,,NO,NO
+pf_subscription,last_reminded_due,date,YES,,NO,NO
+pf_subscription,note,text,YES,,NO,NO
+pf_subscription,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_subscription,updated_at,timestamp with time zone,NO,now(),NO,NO
+pf_subscription,archived_at,timestamp with time zone,YES,,NO,NO
+pf_target,id,uuid,NO,gen_random_uuid(),YES,NO
+pf_target,pf_account_id,uuid,NO,,NO,YES
+pf_target,kind,text,NO,,NO,NO
+pf_target,category_id,uuid,YES,,NO,YES
+pf_target,period,text,NO,,NO,NO
+pf_target,period_start,date,NO,,NO,NO
+pf_target,amount,numeric,NO,,NO,NO
+pf_target,currency,text,NO,'BDT'::text,NO,NO
+pf_target,note,text,YES,,NO,NO
+pf_target,created_at,timestamp with time zone,NO,now(),NO,NO
+pf_target,archived_at,timestamp with time zone,YES,,NO,NO
+project,id,uuid,NO,gen_random_uuid(),YES,NO
+project,org_id,uuid,NO,,NO,YES
+project,title,text,NO,,NO,NO
+project,client_party_id,uuid,YES,,NO,YES
+project,template_id,uuid,YES,,NO,YES
+project,estimate_amount,numeric,YES,,NO,NO
+project,status,text,NO,'active'::text,NO,NO
+project,created_by,uuid,YES,,NO,NO
+project,created_at,timestamp with time zone,NO,now(),NO,NO
+project,updated_by,uuid,YES,,NO,NO
+project,updated_at,timestamp with time zone,NO,now(),NO,NO
+project,confirmed_by,uuid,YES,,NO,NO
+project,confirmed_at,timestamp with time zone,YES,,NO,NO
+project,archived_at,timestamp with time zone,YES,,NO,NO
+project,custom_json,jsonb,YES,'{}'::jsonb,NO,NO
+ref_alias,id,uuid,NO,gen_random_uuid(),YES,NO
+ref_alias,org_id,uuid,NO,,NO,YES
+ref_alias,ref_id,uuid,NO,,NO,YES
+ref_alias,alias,text,NO,,NO,NO
+ref_alias,normalized,text,NO,,NO,NO
+ref_entity,id,uuid,NO,gen_random_uuid(),YES,NO
+ref_entity,org_id,uuid,NO,,NO,YES
+ref_entity,kind,text,NO,,NO,NO
+ref_entity,canonical,text,NO,,NO,NO
+ref_entity,parent_id,uuid,YES,,NO,YES
+ref_entity,meta_json,jsonb,YES,'{}'::jsonb,NO,NO
+ref_entity,status,text,NO,'provisional'::text,NO,NO
+ref_entity,confirmed_by,uuid,YES,,NO,NO
+ref_entity,confirmed_at,timestamp with time zone,YES,,NO,NO
+ref_entity,created_by,uuid,YES,,NO,NO
+ref_entity,created_at,timestamp with time zone,NO,now(),NO,NO
+ref_entity,archived_at,timestamp with time zone,YES,,NO,NO
+ref_entity,merged_into_id,uuid,YES,,NO,YES
+role,id,uuid,NO,gen_random_uuid(),YES,NO
+role,org_id,uuid,NO,,NO,YES
+role,name,text,NO,,NO,NO
+role,is_system,boolean,NO,false,NO,NO
+settlement_transfer,id,uuid,NO,gen_random_uuid(),YES,NO
+settlement_transfer,org_id,uuid,NO,,NO,NO
+settlement_transfer,from_party_id,uuid,NO,,NO,YES
+settlement_transfer,to_party_id,uuid,NO,,NO,YES
+settlement_transfer,amount,numeric,NO,,NO,NO
+settlement_transfer,transferred_at,date,NO,,NO,NO
+settlement_transfer,medium,text,YES,,NO,NO
+settlement_transfer,note,text,YES,,NO,NO
+settlement_transfer,reverses_transfer_id,uuid,YES,,NO,YES
+settlement_transfer,created_by,uuid,YES,,NO,NO
+settlement_transfer,created_at,timestamp with time zone,NO,now(),NO,NO
+settlement_transfer,import_batch_id,uuid,YES,,NO,YES
+task,id,uuid,NO,gen_random_uuid(),YES,NO
+task,org_id,uuid,NO,,NO,YES
+task,title,text,NO,,NO,NO
+task,details,text,YES,,NO,NO
+task,state,text,NO,'open'::text,NO,NO
+task,due_at,timestamp with time zone,YES,,NO,NO
+task,due_tz,text,YES,,NO,NO
+task,assignee_party_id,uuid,YES,,NO,YES
+task,assignee_user_id,uuid,YES,,NO,YES
+task,work_item_id,uuid,YES,,NO,YES
+task,created_by,uuid,YES,,NO,NO
+task,created_at,timestamp with time zone,NO,now(),NO,NO
+task,updated_by,uuid,YES,,NO,NO
+task,updated_at,timestamp with time zone,NO,now(),NO,NO
+task,completed_at,timestamp with time zone,YES,,NO,NO
+user_account,id,uuid,NO,gen_random_uuid(),YES,NO
+user_account,org_id,uuid,NO,,NO,YES
+user_account,email,USER-DEFINED,NO,,NO,NO
+user_account,password_hash,text,NO,,NO,NO
+user_account,twofa_secret,text,YES,,NO,NO
+user_account,status,text,NO,'active'::text,NO,NO
+user_account,party_id,uuid,YES,,NO,YES
+user_account,created_at,timestamp with time zone,NO,now(),NO,NO
+user_account,updated_at,timestamp with time zone,NO,now(),NO,NO
+user_role,id,uuid,NO,gen_random_uuid(),YES,NO
+user_role,org_id,uuid,NO,,NO,YES
+user_role,user_id,uuid,NO,,NO,YES
+user_role,role_id,uuid,NO,,NO,YES
+user_role,scope_json,jsonb,YES,'{}'::jsonb,NO,NO
+work_item,id,uuid,NO,gen_random_uuid(),YES,NO
+work_item,org_id,uuid,NO,,NO,YES
+work_item,project_id,uuid,YES,,NO,YES
+work_item,milestone_id,uuid,YES,,NO,YES
+work_item,course_ref_id,uuid,YES,,NO,YES
+work_item,assignment_type_ref_id,uuid,YES,,NO,YES
+work_item,title,text,NO,,NO,NO
+work_item,details,text,YES,,NO,NO
+work_item,source_party_id,uuid,YES,,NO,YES
+work_item,doer_party_id,uuid,YES,,NO,YES
+work_item,assigner_user_id,uuid,YES,,NO,YES
+work_item,work_state,text,NO,'draft'::text,NO,NO
+work_item,money_state,text,NO,'unbilled'::text,NO,NO
+work_item,is_estimate,boolean,NO,false,NO,NO
+work_item,custom_json,jsonb,YES,'{}'::jsonb,NO,NO
+work_item,brief_file_id,uuid,YES,,NO,YES
+work_item,notes,text,YES,,NO,NO
+work_item,created_by,uuid,YES,,NO,NO
+work_item,created_at,timestamp with time zone,NO,now(),NO,NO
+work_item,confirmed_by,uuid,YES,,NO,NO
+work_item,confirmed_at,timestamp with time zone,YES,,NO,NO
+work_item,updated_by,uuid,YES,,NO,NO
+work_item,updated_at,timestamp with time zone,NO,now(),NO,NO
+work_item,archived_at,timestamp with time zone,YES,,NO,NO
+work_item,trackable,boolean,NO,true,NO,NO
+work_item,billable,boolean,NO,false,NO,NO
+work_item,ai_capture_id,uuid,YES,,NO,YES
+work_item,import_batch_id,uuid,YES,,NO,YES
+work_item,client_account_id,uuid,YES,,NO,YES
+work_line,id,uuid,NO,gen_random_uuid(),YES,NO
+work_line,org_id,uuid,NO,,NO,YES
+work_line,work_item_id,uuid,NO,,NO,YES
+work_line,line_kind,text,NO,,NO,NO
+work_line,consumer_party_id,uuid,YES,,NO,YES
+work_line,writer_party_id,uuid,YES,,NO,YES
+work_line,word_count,integer,YES,,NO,NO
+work_line,unit_count,integer,YES,1,NO,NO
+work_line,client_rate,numeric,YES,,NO,NO
+work_line,writer_rate,numeric,YES,,NO,NO
+work_line,fixed_amount,numeric,YES,,NO,NO
+work_line,note,text,YES,,NO,NO
+work_line,source_line_id,uuid,YES,,NO,YES
+work_outcome,id,uuid,NO,gen_random_uuid(),YES,NO
+work_outcome,org_id,uuid,NO,,NO,YES
+work_outcome,work_item_id,uuid,NO,,NO,YES
+work_outcome,on_time,boolean,YES,,NO,NO
+work_outcome,days_late,integer,YES,,NO,NO
+work_outcome,revision_count,integer,NO,0,NO,NO
+work_outcome,revision_fault,text,YES,,NO,NO
+work_outcome,grade,text,YES,,NO,NO
+work_outcome,marker_feedback,text,YES,,NO,NO
+work_outcome,complaint,boolean,NO,false,NO,NO
+work_outcome,complaint_reason,text,YES,,NO,NO
+work_outcome,failed,boolean,NO,false,NO,NO
+work_outcome,ai_score,numeric,YES,,NO,NO
+work_outcome,satisfaction,text,YES,,NO,NO
+work_outcome,rework_cost,numeric,YES,,NO,NO
+work_outcome,disputed,boolean,NO,false,NO,NO
+work_outcome,recorded_by,uuid,YES,,NO,NO
+work_outcome,recorded_at,timestamp with time zone,NO,now(),NO,NO
+work_outcome,updated_by,uuid,YES,,NO,NO
+work_outcome,updated_at,timestamp with time zone,NO,now(),NO,NO
+work_outcome,resit,boolean,NO,false,NO,NO
