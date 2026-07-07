@@ -133,7 +133,8 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 export const PAYMENT_DIRECTIONS = ["in", "out"] as const;
 export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
 
-/** payment.medium (SCHEMA F, spec §6/§9). */
+/** payment.medium (SCHEMA F, spec §6/§9). USDT is a rail here; its currency is
+ *  captured separately via payment.original_currency (0037). */
 export const PAYMENT_MEDIUMS = [
   "DBBL",
   "Bank",
@@ -141,8 +142,14 @@ export const PAYMENT_MEDIUMS = [
   "Nagad",
   "Sonali",
   "cash",
+  "MTB",
+  "USDT",
 ] as const;
 export type PaymentMedium = (typeof PAYMENT_MEDIUMS)[number];
+
+/** other_income.category — business income that is NOT a client leg (0037). */
+export const OTHER_INCOME_CATEGORIES = ["govt_fx_incentive", "other"] as const;
+export type OtherIncomeCategory = (typeof OTHER_INCOME_CATEGORIES)[number];
 
 /** payment_proof.side — proof may come from either party (SCHEMA F, spec §6). */
 export const PROOF_SIDES = ["payer", "payee"] as const;

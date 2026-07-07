@@ -12,15 +12,18 @@ import {
   AttachProofDto,
   CreateChargeDto,
   CreateInvoiceDto,
+  CreateOtherIncomeDto,
   ListChargesQueryDto,
   ListInvoicesQueryDto,
   ListPaymentsQueryDto,
   MoveLineDto,
   RecordPaymentDto,
   ReverseChargeDto,
+  ReverseOtherIncomeDto,
   ReversePaymentDto,
 } from "./dto.js";
 import { InvoiceService } from "./invoice.service.js";
+import { OtherIncomeService } from "./other-income.service.js";
 import { PaymentService } from "./payment.service.js";
 
 @Controller()
@@ -31,6 +34,7 @@ export class BillingController {
     private readonly payments: PaymentService,
     private readonly charges: ChargeService,
     private readonly balances: BalanceService,
+    private readonly otherIncome: OtherIncomeService,
   ) {}
 
   // ── invoices ──
@@ -128,6 +132,25 @@ export class BillingController {
   @RequirePermission("billing", "view")
   listCharges(@CurrentRls() ctx: RlsContext, @Query() q: ListChargesQueryDto) {
     return this.db.withTenant(ctx, (tx) => this.charges.listCharges(tx, q.partyId));
+  }
+
+  // ── other income (business income that is NOT a client leg; 0037) ──
+  @Post("other-income")
+  @RequirePermission("billing", "create")
+  recordOtherIncome(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: CreateOtherIncomeDto) {
+    return this.db.withTenant(ctx, (tx) => this.otherIncome.create(tx, p, dto));
+  }
+
+  @Post("other-income/reverse")
+  @RequirePermission("billing", "approve")
+  reverseOtherIncome(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: ReverseOtherIncomeDto) {
+    return this.db.withTenant(ctx, (tx) => this.otherIncome.reverse(tx, p, dto.originalId, dto.reason));
+  }
+
+  @Get("other-income")
+  @RequirePermission("billing", "view")
+  listOtherIncome(@CurrentRls() ctx: RlsContext) {
+    return this.db.withTenant(ctx, (tx) => this.otherIncome.list(tx));
   }
 
   // ── balance ──

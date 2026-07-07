@@ -12,7 +12,8 @@
 ## 🔨 In progress — P0 backlog (BUSINESS_MODEL_AUDIT items 1–4)
 Implementing the 4 P0 items from `docs/BUSINESS_MODEL_AUDIT.md` per the approved plan. Order: 1 → 2 → 4 → 3.
 - ✅ **Item 1 — cost_bearer → party ref (migration 0036).** `cost_bearer` discriminator is now `{party|split|writer}` + a new `bearer_party_id` party ref on `expense`/`comp_rule`; split-json keyed by party UUID. Unblocks N-partner cost attribution + HRM salary ownership. DATA MODEL ONLY (attribution recorded, not yet deducted in derived P&L). All item-1 suites green (expense-http 24, rules-http 31, reminders 6, checks-http 26, ai-capture 18, expense-task-rls 8, rules-tenant 4, rules-resolution 43); guard clean; build 5/5. See DECISIONS 2026-07-08.
-- ⏳ Next: item 2 (multi-currency on `payment` + `other_income` FX-incentive table), item 4 (previous-due carryforward, computed), item 3 (per-partner settlement balance).
+- ✅ **Item 2 — business multi-currency + FX-incentive income (migration 0037).** `payment.amount` stays BDT; added `original_currency`/`original_amount`/`fx_rate` provenance (non-breaking) + `MTB`/`USDT` mediums. New append-only `other_income` table (govt FX incentive etc.), structurally disjoint from payment_allocation/invoice_line so it can never net a client due (proven). All green (multicurrency-otherincome 8, billing-http 21); guard clean. See DECISIONS 2026-07-08.
+- ⏳ Next: item 4 (previous-due carryforward, computed), item 3 (per-partner settlement balance).
 
 ## ✅ Done — Personal Finance planner polish (migration 0035; module 14)
 - **Additive upgrade of the PF plane into an app-like budget planner** — nothing existing rebuilt; all PF invariants intact (private plane, separate identity, one-way bridge, dd/mm/yyyy, multi-currency, derive-at-read). See DECISIONS 2026-07-01 + SCHEMA §PF-PLANNER.

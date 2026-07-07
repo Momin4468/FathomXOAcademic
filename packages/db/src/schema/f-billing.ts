@@ -50,9 +50,14 @@ export const payment = pgTable("payment", {
   orgId: uuid("org_id").notNull(),
   direction: text("direction").notNull(), // in | out
   counterpartyPartyId: uuid("counterparty_party_id").references(() => party.id),
-  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(), // BDT (the ledger currency)
   paidAt: date("paid_at").notNull(),
-  medium: text("medium"), // DBBL|Bank|bkash|Nagad|Sonali|cash
+  medium: text("medium"), // DBBL|Bank|bkash|Nagad|Sonali|cash|MTB|USDT
+  // Multi-currency provenance (0037): amount stays BDT; these capture the foreign
+  // original + rate. original_currency defaults BDT (a plain BDT payment).
+  originalCurrency: text("original_currency").notNull().default("BDT"),
+  originalAmount: numeric("original_amount", { precision: 16, scale: 2 }),
+  fxRate: numeric("fx_rate", { precision: 18, scale: 6 }),
   trxId: text("trx_id"),
   note: text("note"),
   reversesPaymentId: uuid("reverses_payment_id"), // correction link (no double-reverse)
@@ -109,6 +114,29 @@ export const charge = pgTable("charge", {
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   reason: text("reason"),
   reversesChargeId: uuid("reverses_charge_id"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * SCHEMA (0037) — business "other income" that is NOT a client→writer leg (e.g.
+ * the govt 2.5%/1000-BDT FX incentive). Append-only; STRUCTURALLY DISJOINT from
+ * payment_allocation / invoice_line so it can never net against a client's dues.
+ * `amount` is BDT; original_currency/original_amount/fx_rate capture the foreign
+ * source. Corrections are reversing rows (reverses_income_id).
+ */
+export const otherIncome = pgTable("other_income", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  amount: numeric("amount", { precision: 14, scale: 2 }).notNull(), // BDT
+  originalCurrency: text("original_currency").notNull().default("BDT"),
+  originalAmount: numeric("original_amount", { precision: 16, scale: 2 }),
+  fxRate: numeric("fx_rate", { precision: 18, scale: 6 }),
+  category: text("category").notNull(), // govt_fx_incentive | other
+  occurredOn: date("occurred_on").notNull(),
+  sourcePaymentId: uuid("source_payment_id").references(() => payment.id),
+  note: text("note"),
+  reversesIncomeId: uuid("reverses_income_id"),
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

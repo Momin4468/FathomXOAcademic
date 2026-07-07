@@ -15,10 +15,12 @@ import {
 } from "class-validator";
 import {
   CHARGE_CATEGORIES,
+  OTHER_INCOME_CATEGORIES,
   PAYMENT_DIRECTIONS,
   PAYMENT_MEDIUMS,
   PROOF_SIDES,
   type ChargeCategory,
+  type OtherIncomeCategory,
   type PaymentDirection,
   type PaymentMedium,
   type ProofSide,
@@ -47,9 +49,13 @@ export class ListInvoicesQueryDto {
 export class RecordPaymentDto {
   @IsIn(PAYMENT_DIRECTIONS) direction!: PaymentDirection;
   @IsOptional() @IsUUID() counterpartyPartyId?: string;
-  @IsNumber() @Min(0) amount!: number;
+  @IsNumber() @Min(0) amount!: number; // BDT (the ledger currency)
   @IsDateString() paidAt!: string;
   @IsOptional() @IsIn(PAYMENT_MEDIUMS) medium?: PaymentMedium;
+  // Multi-currency provenance (0037): the foreign original + rate; amount stays BDT.
+  @IsOptional() @IsString() @MaxLength(8) originalCurrency?: string;
+  @IsOptional() @IsNumber() @Min(0) originalAmount?: number;
+  @IsOptional() @IsNumber() @Min(0) fxRate?: number;
   @IsOptional() @IsString() @MaxLength(120) trxId?: string;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
@@ -93,4 +99,20 @@ export class ReverseChargeDto {
 }
 export class ListChargesQueryDto {
   @IsUUID() partyId!: string;
+}
+
+// ─── other income (business income that is NOT a client leg; 0037) ─────────────
+export class CreateOtherIncomeDto {
+  @IsNumber() @Min(0) amount!: number; // BDT
+  @IsIn(OTHER_INCOME_CATEGORIES) category!: OtherIncomeCategory;
+  @IsDateString() occurredOn!: string;
+  @IsOptional() @IsString() @MaxLength(8) originalCurrency?: string;
+  @IsOptional() @IsNumber() @Min(0) originalAmount?: number;
+  @IsOptional() @IsNumber() @Min(0) fxRate?: number;
+  @IsOptional() @IsUUID() sourcePaymentId?: string;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
+export class ReverseOtherIncomeDto {
+  @IsUUID() originalId!: string;
+  @IsOptional() @IsString() @MaxLength(1000) reason?: string;
 }
