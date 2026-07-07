@@ -116,10 +116,13 @@ export const COMP_BASES = [
 export type CompBasis = (typeof COMP_BASES)[number];
 
 /**
- * cost_bearer — drives all profit deductions (SCHEMA E/G, spec §3.5).
- * Seeded values today; modeled as text so it can extend to a party ref later.
+ * cost_bearer — who bears a cost (SCHEMA E/G, spec §3.5). A discriminator:
+ *   party  → the partner named in `bearer_party_id` (any party, N-partner ready)
+ *   split  → `cost_bearer_split_json` keyed by party UUID → share
+ *   writer → the job's writer
+ * The old literal identities (momin/emon) became `party` + a party ref in 0036.
  */
-export const COST_BEARERS = ["momin", "emon", "split", "writer"] as const;
+export const COST_BEARERS = ["party", "split", "writer"] as const;
 export type CostBearer = (typeof COST_BEARERS)[number];
 
 /** invoice.status — live grouping lifecycle (SCHEMA F, spec §6). */

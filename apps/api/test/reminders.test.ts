@@ -109,7 +109,7 @@ async function createSubscription(token: string, opts: { nextDueDate: string; cu
     category: "subscription",
     amount: opts.amount ?? 1200,
     incurredAt: localDatePlus(-30),
-    costBearer: "emon",
+    costBearer: "writer",
     nextDueDate: opts.nextDueDate,
   };
   if (opts.currency) body.currency = opts.currency;

@@ -44,8 +44,8 @@ before(async () => {
   );
   await admin.query(
     `insert into comp_rule (id, org_id, party_id, basis, rate, cost_bearer, effective_from)
-     values ($1,$3,$5,'per_word',0.5,'momin','2026-01-01'),
-            ($2,$4,$6,'per_word',0.8,'emon','2026-01-01')`,
+     values ($1,$3,$5,'per_word',0.5,'writer','2026-01-01'),
+            ($2,$4,$6,'per_word',0.8,'writer','2026-01-01')`,
     [compRuleA, compRuleB, orgA, orgB, toA, toB],
   );
 });

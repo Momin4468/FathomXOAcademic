@@ -27,8 +27,8 @@ before(async () => {
   await admin.query("insert into org (id, name) values ($1,'M6 Org A'),($2,'M6 Org B')", [orgA, orgB]);
   await admin.query(
     `insert into expense (id, org_id, category, amount, incurred_at, cost_bearer) values
-       ($1,$3,'subscription',100,current_date,'momin'),
-       ($2,$4,'subscription',200,current_date,'emon')`,
+       ($1,$3,'subscription',100,current_date,'writer'),
+       ($2,$4,'subscription',200,current_date,'writer')`,
     [expenseA, expenseB, orgA, orgB],
   );
   await admin.query(

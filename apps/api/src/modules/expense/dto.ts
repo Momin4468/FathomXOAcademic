@@ -24,6 +24,8 @@ export class CreateExpenseDto {
   @IsDateString() incurredAt!: string;
   @IsIn(COST_BEARERS) costBearer!: CostBearer;
   @IsOptional() @IsObject() costBearerSplitJson?: Record<string, unknown>;
+  // when costBearer='party': the partner who bears the cost (service enforces).
+  @IsOptional() @IsUUID() bearerPartyId?: string;
   @IsOptional() @IsUUID() payeePartyId?: string;
   @IsOptional() @IsString() @MaxLength(120) campaignTag?: string;
   @IsOptional() @IsUUID() revenueLinkId?: string;
@@ -40,6 +42,7 @@ export class UpdateExpenseDto {
   @IsOptional() @IsDateString() incurredAt?: string;
   @IsOptional() @IsIn(COST_BEARERS) costBearer?: CostBearer;
   @IsOptional() @IsObject() costBearerSplitJson?: Record<string, unknown>;
+  @IsOptional() @IsUUID() bearerPartyId?: string;
   @IsOptional() @IsUUID() payeePartyId?: string;
   @IsOptional() @IsString() @MaxLength(120) campaignTag?: string;
   @IsOptional() @IsUUID() revenueLinkId?: string;

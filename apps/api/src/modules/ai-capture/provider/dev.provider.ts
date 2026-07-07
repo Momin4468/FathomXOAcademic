@@ -73,7 +73,9 @@ export class DevCaptureProvider implements AiCaptureProvider {
             category: isSub ? "subscription" : "other",
             amount,
             incurredAt: today(),
-            costBearer: "momin",
+            // A safe, self-sufficient default (needs no bearer party). Who really
+            // bears the cost (party|split) is a money attribution the human sets at Accept.
+            costBearer: "writer",
             note: line,
           },
           confidence: 0.45,

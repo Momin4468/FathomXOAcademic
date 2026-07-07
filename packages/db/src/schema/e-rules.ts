@@ -33,8 +33,9 @@ export const compRule = pgTable("comp_rule", {
   roleId: uuid("role_id").references(() => role.id),
   basis: text("basis").notNull(), // per_word|per_task|per_file|per_copy|commission|monthly|weekly|contractual
   rate: numeric("rate", { precision: 12, scale: 4 }),
-  costBearer: text("cost_bearer").notNull(), // momin|emon|split|writer
-  costBearerSplitJson: jsonb("cost_bearer_split_json"),
+  costBearer: text("cost_bearer").notNull(), // party|split|writer (0036)
+  costBearerSplitJson: jsonb("cost_bearer_split_json"), // when 'split': {partyUuid: share}
+  bearerPartyId: uuid("bearer_party_id"), // when 'party': the partner who bears it (0036)
   cadence: text("cadence"),
   effectiveFrom: date("effective_from").notNull(),
   effectiveTo: date("effective_to"),

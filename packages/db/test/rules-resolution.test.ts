@@ -311,7 +311,7 @@ const baseComp = (over: Partial<CompRuleLike>): CompRuleLike => ({
   roleId: null,
   basis: "per_word",
   rate: "0.5",
-  costBearer: "momin",
+  costBearer: "writer",
   effectiveFrom: "2026-01-01",
   effectiveTo: null,
   ...over,

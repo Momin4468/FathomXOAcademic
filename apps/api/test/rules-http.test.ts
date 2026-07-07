@@ -269,31 +269,31 @@ describe("comp_rule — party-specific beats role-level; cost_bearer returned", 
   before(async () => {
     partyP = await makeParty("M3 Comp Party", "writer");
     // Role-level rule on the Writer role.
-    const role = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { roleId: WRITER_ROLE, basis: "per_word", rate: 0.4, costBearer: "split", effectiveFrom: "2026-01-01" } });
+    const role = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { roleId: WRITER_ROLE, basis: "per_word", rate: 0.4, costBearer: "writer", effectiveFrom: "2026-01-01" } });
     assert.equal(role.status, 201, `role comp-rule create (got ${role.status}: ${JSON.stringify(role.body)})`);
     createdCompRuleIds.push(role.body.id);
-    // Party-specific rule.
-    const party = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { partyId: partyP, basis: "per_word", rate: 0.6, costBearer: "momin", effectiveFrom: "2026-01-01" } });
+    // Party-specific rule, borne by a named partner (0036 party ref).
+    const party = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { partyId: partyP, basis: "per_word", rate: 0.6, costBearer: "party", bearerPartyId: MOMIN_PARTY, effectiveFrom: "2026-01-01" } });
     assert.equal(party.status, 201, `party comp-rule create (got ${party.status}: ${JSON.stringify(party.body)})`);
     createdCompRuleIds.push(party.body.id);
   });
 
-  it("resolve with both party + role → the party-specific rule (rate 0.6, cost_bearer momin)", async () => {
+  it("resolve with both party + role → the party-specific rule (rate 0.6, cost_bearer party)", async () => {
     const res = await api(BASE, `/comp-rules/resolve?partyId=${partyP}&roleId=${WRITER_ROLE}&asOf=2026-03-15`, { token: mominToken });
     assert.equal(res.status, 200);
     assert.equal(Number(res.body.resolved?.rate), 0.6);
-    assert.equal(res.body.resolved?.costBearer, "momin", "cost_bearer must be returned");
+    assert.equal(res.body.resolved?.costBearer, "party", "cost_bearer must be returned");
   });
 
-  it("resolve with only the role → the role-level rule (rate 0.4, cost_bearer split)", async () => {
+  it("resolve with only the role → the role-level rule (rate 0.4, cost_bearer writer)", async () => {
     const res = await api(BASE, `/comp-rules/resolve?roleId=${WRITER_ROLE}&asOf=2026-03-15`, { token: mominToken });
     assert.equal(res.status, 200);
     assert.equal(Number(res.body.resolved?.rate), 0.4);
-    assert.equal(res.body.resolved?.costBearer, "split");
+    assert.equal(res.body.resolved?.costBearer, "writer");
   });
 
   it("a comp rule needs a party or a role → 400 with neither", async () => {
-    const res = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { basis: "per_word", rate: 1, costBearer: "momin", effectiveFrom: "2026-01-01" } });
+    const res = await api(BASE, "/comp-rules", { method: "POST", token: mominToken, body: { basis: "per_word", rate: 1, costBearer: "writer", effectiveFrom: "2026-01-01" } });
     assert.equal(res.status, 400);
   });
 });
@@ -322,7 +322,7 @@ describe("authz — a Writer (no rules perm) is denied on EVERY rules endpoint",
     denied((await api(BASE, "/deal-terms/supersede", { method: "POST", token: writerToken, body: { priorId: aTermId, value: 9, effectiveFrom: "2026-07-01" } })).status);
   });
   it("POST /comp-rules (create) → 403", async () => {
-    denied((await api(BASE, "/comp-rules", { method: "POST", token: writerToken, body: { partyId: MOMIN_PARTY, basis: "per_word", rate: 1, costBearer: "momin", effectiveFrom: "2026-01-01" } })).status);
+    denied((await api(BASE, "/comp-rules", { method: "POST", token: writerToken, body: { partyId: MOMIN_PARTY, basis: "per_word", rate: 1, costBearer: "writer", effectiveFrom: "2026-01-01" } })).status);
   });
   it("GET /comp-rules (view) → 403", async () => {
     denied((await api(BASE, "/comp-rules", { token: writerToken })).status);

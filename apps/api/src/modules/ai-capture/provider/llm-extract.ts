@@ -17,7 +17,7 @@ Rules:
   - client:  { displayName, partyType:["client"], externalRef?, universityRaw?, programme? }
   - job:     { title, details?, courseCodeRaw? }
   - payment: { direction:"in"|"out", amount(number), paidAt:"YYYY-MM-DD"?, counterpartyName?, note? }
-  - expense: { category:"subscription"|"salary"|"promo"|"loss"|"event"|"other", amount(number), incurredAt:"YYYY-MM-DD"?, costBearer:"momin", note? }
+  - expense: { category:"subscription"|"salary"|"promo"|"loss"|"event"|"other", amount(number), incurredAt:"YYYY-MM-DD"?, costBearer:"writer", note? }  // use "writer"; the human re-attributes (to a party/split) at Accept
 Return {"proposals":[]} if nothing is identifiable.`;
 
 /** Parse + whitelist an LLM JSON reply into safe ProposedRecord[] (never throws). */

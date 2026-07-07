@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { apiSend, useApi } from "@/lib/api";
+import { apiGet, apiSend, useApi } from "@/lib/api";
 import { formatDate, formatMoney } from "@/lib/format";
 import { can, type Expense, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import {
   Badge,
   Button,
@@ -19,8 +20,15 @@ import {
 } from "@/components/ui";
 
 const CATEGORIES = ["subscription", "salary", "promo", "loss", "event", "other"];
-const COST_BEARERS = ["momin", "emon", "split", "writer"];
+const COST_BEARERS = ["party", "split", "writer"];
 const CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"];
+
+type PartyRow = { id: string; displayName: string; externalRef?: string | null };
+// Cost-bearer parties are partners; search the directory (pick-don't-type).
+const searchPartner = async (q: string): Promise<PickItem[]> => {
+  const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}&type=partner`);
+  return rows.map((p) => ({ id: p.id, label: p.displayName, sub: p.externalRef ?? undefined }));
+};
 
 export default function ExpensesPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
@@ -30,14 +38,16 @@ export default function ExpensesPage() {
     category: "subscription",
     amount: "",
     incurredAt: new Date().toISOString().slice(0, 10),
-    costBearer: "momin",
-    splitMomin: "50",
-    splitEmon: "50",
+    costBearer: "party",
     campaignTag: "",
     note: "",
     nextDueDate: "",
     currency: "BDT",
   });
+  // cost_bearer='party' → one bearer; 'split' → a list of {party, share}.
+  const [bearer, setBearer] = useState<PickItem | null>(null);
+  const [splitRows, setSplitRows] = useState<Array<{ id: string; label: string; share: string }>>([]);
+  const [splitKey, setSplitKey] = useState(0); // remount the add-picker after each add
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [reminderMsg, setReminderMsg] = useState("");
@@ -57,6 +67,14 @@ export default function ExpensesPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (form.costBearer === "party" && !bearer) {
+      setFormError("Pick the partner who bears this cost.");
+      return;
+    }
+    if (form.costBearer === "split" && splitRows.some((r) => !(Number(r.share) > 0))) {
+      setFormError("Each split party needs a positive share.");
+      return;
+    }
     setBusy(true);
     setFormError("");
     try {
@@ -65,9 +83,10 @@ export default function ExpensesPage() {
         amount: Number(form.amount),
         incurredAt: form.incurredAt,
         costBearer: form.costBearer,
+        bearerPartyId: form.costBearer === "party" ? bearer?.id : undefined,
         costBearerSplitJson:
           form.costBearer === "split"
-            ? { momin: Number(form.splitMomin), emon: Number(form.splitEmon) }
+            ? Object.fromEntries(splitRows.map((r) => [r.id, Number(r.share)]))
             : undefined,
         campaignTag: form.category === "promo" && form.campaignTag ? form.campaignTag : undefined,
         note: form.note || undefined,
@@ -76,6 +95,8 @@ export default function ExpensesPage() {
       });
       setOpen(false);
       setForm({ ...form, amount: "", campaignTag: "", note: "", nextDueDate: "" });
+      setBearer(null);
+      setSplitRows([]);
       await mutate();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Could not save expense");
@@ -131,15 +152,49 @@ export default function ExpensesPage() {
                 <DateInput value={form.incurredAt} onChange={(v) => setForm({ ...form, incurredAt: v })} />
               </Field>
             </div>
+            {form.costBearer === "party" && (
+              <Field label="Borne by" hint="The partner who bears this cost.">
+                <EntityPicker placeholder="Search partner…" search={searchPartner} onPick={setBearer} />
+              </Field>
+            )}
             {form.costBearer === "split" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Split — Momin %">
-                  <Input type="number" value={form.splitMomin} onChange={(e) => setForm({ ...form, splitMomin: e.target.value })} />
-                </Field>
-                <Field label="Split — Emon %">
-                  <Input type="number" value={form.splitEmon} onChange={(e) => setForm({ ...form, splitEmon: e.target.value })} />
-                </Field>
-              </div>
+              <Field label="Split between" hint="Add each partner and their share.">
+                <div className="space-y-2">
+                  {splitRows.map((r, i) => (
+                    <div key={r.id} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-sm">{r.label}</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-24"
+                        value={r.share}
+                        onChange={(e) =>
+                          setSplitRows(splitRows.map((x, j) => (j === i ? { ...x, share: e.target.value } : x)))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="text-xs text-gray-500 hover:underline"
+                        onClick={() => setSplitRows(splitRows.filter((_, j) => j !== i))}
+                      >
+                        remove
+                      </button>
+                    </div>
+                  ))}
+                  <EntityPicker
+                    key={splitKey}
+                    placeholder="Add a partner…"
+                    search={searchPartner}
+                    onPick={(item) => {
+                      if (item && !splitRows.some((r) => r.id === item.id)) {
+                        setSplitRows([...splitRows, { id: item.id, label: item.label, share: "" }]);
+                      }
+                      setSplitKey((k) => k + 1);
+                    }}
+                  />
+                </div>
+              </Field>
             )}
             {form.category === "promo" && (
               <Field label="Campaign tag">

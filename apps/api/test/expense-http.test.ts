@@ -32,7 +32,10 @@ const BASE = `http://localhost:${PORT}`;
 const DEV_PASSWORD = "Password123!";
 
 const WRITER_ROLE = "00000000-0000-4000-8000-0000000000a6"; // capture/work view+create, NO expenses
+const ORG = "00000000-0000-4000-8000-000000000001";
 const MOMIN_PARTY = "00000000-0000-4000-8000-0000000000c1";
+const EMON_PARTY = "00000000-0000-4000-8000-0000000000c2";
+const ANTU_PARTY = "00000000-0000-4000-8000-00000000ca01"; // a 3rd partner, created for this run
 
 let server: ChildProcess;
 const admin = new pg.Client({ connectionString: process.env.DATABASE_URL_ADMIN });
@@ -86,6 +89,11 @@ async function createExpense(body: Record<string, unknown>, token = mominToken) 
 
 before(async () => {
   await admin.connect();
+  // A third partner (beyond seeded Momin/Emon) to prove N-partner cost attribution.
+  await admin.query(
+    "insert into party (id, org_id, display_name, party_type) values ($1,$2,'Antu QA','{partner}') on conflict (id) do nothing",
+    [ANTU_PARTY, ORG],
+  );
   await startServer();
 
   const s = await login("sysadmin@fathomxo.local", DEV_PASSWORD);
@@ -111,45 +119,55 @@ after(async () => {
     await admin.query("delete from user_role where user_id=$1", [id]);
     await admin.query("delete from user_account where id=$1", [id]);
   }
+  await admin.query("delete from party where id=$1", [ANTU_PARTY]);
   await admin.end();
   if (server && !server.killed) server.kill();
 });
 
 // ─── Cost-bearer flavors ─────────────────────────────────────────────────────────
 
-describe("expense cost-bearer flavors (one table, many flavors — §3.5/§8)", () => {
-  it("salary (cost_bearer=momin) creates", async () => {
+describe("expense cost-bearer flavors — party ref, N-partner (§3.5/§8, 0036)", () => {
+  it("salary borne by a party (Momin) creates + echoes the bearer party", async () => {
     const res = await createExpense({
       category: "salary",
       amount: 30000,
       incurredAt: "2026-06-01",
-      costBearer: "momin",
+      costBearer: "party",
+      bearerPartyId: MOMIN_PARTY,
       payeePartyId: MOMIN_PARTY,
       note: "June salary",
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal(res.body.category, "salary");
-    assert.equal(res.body.costBearer, "momin");
+    assert.equal(res.body.costBearer, "party");
+    assert.equal(res.body.bearerPartyId, MOMIN_PARTY);
   });
 
-  it("subscription (cost_bearer=emon) creates", async () => {
+  it("cost borne by a THIRD partner (Antu) creates — N-partner attribution", async () => {
     const res = await createExpense({
       category: "subscription",
       amount: 1200,
       incurredAt: "2026-06-02",
-      costBearer: "emon",
-      note: "Grammarly",
+      costBearer: "party",
+      bearerPartyId: ANTU_PARTY,
+      note: "Antu's tool",
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.equal(res.body.category, "subscription");
+    assert.equal(res.body.bearerPartyId, ANTU_PARTY);
   });
 
-  it("promo with campaign_tag + revenue_link creates", async () => {
+  it("cost_bearer='party' WITHOUT bearerPartyId → 400", async () => {
+    const res = await createExpense({ category: "other", amount: 100, incurredAt: "2026-06-02", costBearer: "party" });
+    assert.equal(res.status, 400, "party bearer requires a bearerPartyId");
+  });
+
+  it("promo borne by Emon with campaign_tag + revenue_link creates", async () => {
     const res = await createExpense({
       category: "promo",
       amount: 5000,
       incurredAt: "2026-06-03",
-      costBearer: "momin",
+      costBearer: "party",
+      bearerPartyId: EMON_PARTY,
       campaignTag: "spring-fb",
       revenueLinkId: randomUUID(),
     });
@@ -158,23 +176,47 @@ describe("expense cost-bearer flavors (one table, many flavors — §3.5/§8)", 
     assert.ok(res.body.revenueLinkId, "revenue link is retained");
   });
 
-  it("loss creates", async () => {
+  it("a writer-borne loss creates (no bearer party needed)", async () => {
     const res = await createExpense({
       category: "loss",
       amount: 2500,
       incurredAt: "2026-06-04",
-      costBearer: "emon",
+      costBearer: "writer",
       note: "refunded client",
     });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal(res.body.category, "loss");
+    assert.equal(res.body.costBearer, "writer");
+  });
+
+  it("the retired identity values (momin/emon) are rejected → 400", async () => {
+    const res = await createExpense({ category: "other", amount: 1, incurredAt: "2026-06-01", costBearer: "momin" });
+    assert.equal(res.status, 400, "momin is no longer a valid cost_bearer");
   });
 });
 
-// ─── Split validation ────────────────────────────────────────────────────────────
+// ─── Split validation (keyed by party UUID, N-way) ─────────────────────────────────
 
-describe("split cost-bearer validation (§3.5)", () => {
-  it("a split WITH cost_bearer_split_json creates", async () => {
+describe("split cost-bearer validation — party-UUID keys (§3.5, 0036)", () => {
+  it("a 3-way split keyed by party UUIDs creates", async () => {
+    const split = { [MOMIN_PARTY]: 0.5, [EMON_PARTY]: 0.3, [ANTU_PARTY]: 0.2 };
+    const res = await createExpense({
+      category: "subscription",
+      amount: 1000,
+      incurredAt: "2026-06-05",
+      costBearer: "split",
+      costBearerSplitJson: split,
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+    assert.deepEqual(res.body.costBearerSplitJson, split);
+  });
+
+  it("a split WITHOUT cost_bearer_split_json → 400", async () => {
+    const res = await createExpense({ category: "subscription", amount: 1000, incurredAt: "2026-06-05", costBearer: "split" });
+    assert.equal(res.status, 400, "a split must carry its split json");
+  });
+
+  it("a split keyed by non-UUID names (the old momin/emon shape) → 400", async () => {
     const res = await createExpense({
       category: "subscription",
       amount: 1000,
@@ -182,18 +224,18 @@ describe("split cost-bearer validation (§3.5)", () => {
       costBearer: "split",
       costBearerSplitJson: { momin: 0.5, emon: 0.5 },
     });
-    assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.deepEqual(res.body.costBearerSplitJson, { momin: 0.5, emon: 0.5 });
+    assert.equal(res.status, 400, "split keys must be party UUIDs now");
   });
 
-  it("a split WITHOUT cost_bearer_split_json → 400", async () => {
+  it("a split keyed by an unknown/out-of-org party UUID → 400", async () => {
     const res = await createExpense({
       category: "subscription",
       amount: 1000,
       incurredAt: "2026-06-05",
       costBearer: "split",
+      costBearerSplitJson: { [MOMIN_PARTY]: 0.5, [randomUUID()]: 0.5 },
     });
-    assert.equal(res.status, 400, "a split must carry its split json");
+    assert.equal(res.status, 400, "every split party must exist in this org");
   });
 });
 
@@ -217,10 +259,10 @@ describe("list returns rows + a correct total; filters apply", () => {
     for (const r of res.body.expenses) assert.equal(r.category, "loss");
   });
 
-  it("filter by cost_bearer=emon returns only emon rows", async () => {
-    const res = await api(BASE, "/expenses?costBearer=emon", { token: mominToken });
+  it("filter by cost_bearer=party returns only party rows", async () => {
+    const res = await api(BASE, "/expenses?costBearer=party", { token: mominToken });
     assert.equal(res.status, 200);
-    for (const r of res.body.expenses) assert.equal(r.costBearer, "emon");
+    for (const r of res.body.expenses) assert.equal(r.costBearer, "party");
   });
 
   it("filter by date range narrows the set (from..to on incurred_at)", async () => {
@@ -246,7 +288,7 @@ describe("update an expense (operational, mutable — not the money ledger)", ()
       category: "other",
       amount: 100,
       incurredAt: "2026-06-10",
-      costBearer: "momin",
+      costBearer: "writer",
     });
     assert.equal(created.status, 201);
     const res = await api(BASE, `/expenses/${created.body.id}`, {
@@ -264,7 +306,7 @@ describe("update an expense (operational, mutable — not the money ledger)", ()
       category: "other",
       amount: 100,
       incurredAt: "2026-06-10",
-      costBearer: "momin",
+      costBearer: "writer",
     });
     const res = await api(BASE, `/expenses/${created.body.id}`, {
       method: "PATCH",
@@ -282,7 +324,7 @@ describe("server-side authz — a Writer (no expenses perm) is blocked", () => {
     const res = await api(BASE, "/expenses", {
       method: "POST",
       token: writerToken,
-      body: { category: "other", amount: 1, incurredAt: "2026-06-01", costBearer: "momin" },
+      body: { category: "other", amount: 1, incurredAt: "2026-06-01", costBearer: "writer" },
     });
     assert.equal(res.status, 403, "creating an expense requires expenses:create");
   });
@@ -297,12 +339,12 @@ describe("server-side authz — a Writer (no expenses perm) is blocked", () => {
 
 describe("boundary validation (treat client input as hostile)", () => {
   it("out-of-enum category → 400", async () => {
-    const res = await createExpense({ category: "bribe", amount: 1, incurredAt: "2026-06-01", costBearer: "momin" });
+    const res = await createExpense({ category: "bribe", amount: 1, incurredAt: "2026-06-01", costBearer: "writer" });
     assert.equal(res.status, 400);
   });
 
   it("negative amount → 400 (Min(0))", async () => {
-    const res = await createExpense({ category: "other", amount: -5, incurredAt: "2026-06-01", costBearer: "momin" });
+    const res = await createExpense({ category: "other", amount: -5, incurredAt: "2026-06-01", costBearer: "writer" });
     assert.equal(res.status, 400);
   });
 
@@ -325,7 +367,7 @@ describe("each create writes an immutable audit row (CLAUDE.md §4)", () => {
       category: "event",
       amount: 4000,
       incurredAt: "2026-06-20",
-      costBearer: "momin",
+      costBearer: "writer",
     });
     assert.equal(created.status, 201);
     const audit = await admin.query(

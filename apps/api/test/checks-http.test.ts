@@ -120,7 +120,7 @@ async function makeParty(name: string, type: string): Promise<string> {
 async function makeCompRule(partyId: string, basis: string, rate: number, effectiveFrom: string): Promise<string> {
   const id = randomUUID();
   await admin.query(
-    "insert into comp_rule (id, org_id, party_id, basis, rate, cost_bearer, effective_from) values ($1,$2,$3,$4,$5,'momin',$6)",
+    "insert into comp_rule (id, org_id, party_id, basis, rate, cost_bearer, effective_from) values ($1,$2,$3,$4,$5,'writer',$6)",
     [id, ORG, partyId, basis, String(rate), effectiveFrom],
   );
   createdCompRuleIds.push(id);

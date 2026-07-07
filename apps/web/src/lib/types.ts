@@ -115,8 +115,9 @@ export interface Expense {
   category: string;
   amount: string;
   incurredAt: string;
-  costBearer: string;
+  costBearer: string; // party | split | writer (0036)
   costBearerSplitJson: Record<string, unknown> | null;
+  bearerPartyId: string | null; // when 'party' (0036)
   payeePartyId: string | null;
   campaignTag: string | null;
   revenueLinkId: string | null;

@@ -63,6 +63,8 @@ export class CreateCompRuleDto {
   @IsOptional() @IsNumber() @Min(0) rate?: number;
   @IsIn(COST_BEARERS) costBearer!: CostBearer;
   @IsOptional() @IsObject() costBearerSplitJson?: Record<string, unknown>;
+  // when costBearer='party': the partner who bears the comp cost (service enforces).
+  @IsOptional() @IsUUID() bearerPartyId?: string;
   @IsOptional() @IsString() cadence?: string;
   @IsDateString() effectiveFrom!: string;
   @IsOptional() @IsDateString() effectiveTo?: string;
@@ -72,6 +74,8 @@ export class SupersedeCompRuleDto {
   @IsUUID() priorId!: string;
   @IsOptional() @IsNumber() @Min(0) rate?: number;
   @IsOptional() @IsIn(COST_BEARERS) costBearer?: CostBearer;
+  @IsOptional() @IsObject() costBearerSplitJson?: Record<string, unknown>;
+  @IsOptional() @IsUUID() bearerPartyId?: string;
   @IsDateString() effectiveFrom!: string;
 }
 

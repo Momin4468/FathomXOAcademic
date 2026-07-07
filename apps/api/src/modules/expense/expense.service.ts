@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, type Db } from "@business-os/db";
 import { sumAmounts, type SessionPrincipal } from "@business-os/shared";
-import { and, desc, eq, gte, isNull, lte, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, lte, type SQL } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import type { CreateExpenseDto, ListExpensesQueryDto, UpdateExpenseDto } from "./dto.js";
 
@@ -9,21 +9,58 @@ const day = (s: string) => s.slice(0, 10);
 const numOrNull = (v: number | null | undefined): string | null =>
   v === null || v === undefined ? null : String(v);
 
-/** A split must be a non-empty object of numeric shares (cost-bearer is load-bearing). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A split must be a non-empty map keyed by party UUID → a positive numeric share
+ * (0036: keys are party ids, not the old named strings; cost-bearer is load-bearing).
+ */
 function isValidSplit(split: unknown): boolean {
   if (!split || typeof split !== "object") return false;
   const entries = Object.entries(split as Record<string, unknown>);
-  return entries.length > 0 && entries.every(([, v]) => typeof v === "number" && Number.isFinite(v));
+  return (
+    entries.length > 0 &&
+    entries.every(([k, v]) => UUID_RE.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0)
+  );
 }
 
 @Injectable()
 export class ExpenseService {
   constructor(private readonly audit: AuditService) {}
 
-  async create(tx: Db, principal: SessionPrincipal, dto: CreateExpenseDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
-    if (dto.costBearer === "split" && !isValidSplit(dto.costBearerSplitJson)) {
-      throw new BadRequestException("A split expense needs a non-empty numeric cost_bearer_split_json");
+  /** Every party a cost is attributed to must exist in the caller's org (RLS-scoped). */
+  private async assertPartiesInOrg(tx: Db, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const rows = await tx.select({ id: schema.party.id }).from(schema.party).where(inArray(schema.party.id, ids));
+    const found = new Set(rows.map((r) => r.id));
+    for (const id of ids) {
+      if (!found.has(id)) throw new BadRequestException(`Cost-bearer party ${id} is not in this org`);
     }
+  }
+
+  /** Enforce the cost_bearer discriminator ↔ its party reference(s). */
+  private async validateBearer(
+    tx: Db,
+    costBearer: string,
+    bearerPartyId: string | null | undefined,
+    split: unknown,
+  ): Promise<void> {
+    if (costBearer === "party") {
+      if (!bearerPartyId) throw new BadRequestException("cost_bearer 'party' requires bearerPartyId");
+      await this.assertPartiesInOrg(tx, [bearerPartyId]);
+    } else if (costBearer === "split") {
+      if (!isValidSplit(split)) {
+        throw new BadRequestException(
+          "A split expense needs a non-empty cost_bearer_split_json keyed by party UUID with positive shares",
+        );
+      }
+      await this.assertPartiesInOrg(tx, Object.keys(split as Record<string, unknown>));
+    }
+    // 'writer' → the job's writer; no bearer party.
+  }
+
+  async create(tx: Db, principal: SessionPrincipal, dto: CreateExpenseDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
+    await this.validateBearer(tx, dto.costBearer, dto.bearerPartyId, dto.costBearerSplitJson);
     const [row] = await tx
       .insert(schema.expense)
       .values({
@@ -32,7 +69,8 @@ export class ExpenseService {
         amount: String(dto.amount),
         incurredAt: day(dto.incurredAt),
         costBearer: dto.costBearer,
-        costBearerSplitJson: dto.costBearerSplitJson ?? null,
+        costBearerSplitJson: dto.costBearer === "split" ? (dto.costBearerSplitJson ?? null) : null,
+        bearerPartyId: dto.costBearer === "party" ? (dto.bearerPartyId ?? null) : null,
         payeePartyId: dto.payeePartyId ?? null,
         campaignTag: dto.campaignTag ?? null,
         revenueLinkId: dto.revenueLinkId ?? null,
@@ -61,15 +99,19 @@ export class ExpenseService {
     if (!existing) throw new NotFoundException("Expense not found");
     const nextCostBearer = dto.costBearer ?? existing.costBearer;
     const nextSplit = dto.costBearerSplitJson ?? existing.costBearerSplitJson;
-    if (nextCostBearer === "split" && !isValidSplit(nextSplit)) {
-      throw new BadRequestException("A split expense needs a non-empty numeric cost_bearer_split_json");
-    }
+    const nextBearerPartyId = dto.bearerPartyId !== undefined ? dto.bearerPartyId : existing.bearerPartyId;
+    await this.validateBearer(tx, nextCostBearer, nextBearerPartyId, nextSplit);
     const patch: Record<string, unknown> = { updatedBy: principal.userId, updatedAt: new Date() };
     if (dto.category !== undefined) patch.category = dto.category;
     if (dto.amount !== undefined && dto.amount !== null) patch.amount = numOrNull(dto.amount);
     if (dto.incurredAt !== undefined) patch.incurredAt = day(dto.incurredAt);
     if (dto.costBearer !== undefined) patch.costBearer = dto.costBearer;
     if (dto.costBearerSplitJson !== undefined) patch.costBearerSplitJson = dto.costBearerSplitJson;
+    if (dto.bearerPartyId !== undefined) patch.bearerPartyId = dto.bearerPartyId;
+    // Keep the discriminator and its party ref consistent: only 'party'/'split'
+    // retain their reference(s); switching to 'writer' (or away from 'party'/'split') clears them.
+    if (nextCostBearer !== "party") patch.bearerPartyId = null;
+    if (nextCostBearer !== "split") patch.costBearerSplitJson = null;
     if (dto.payeePartyId !== undefined) patch.payeePartyId = dto.payeePartyId;
     if (dto.campaignTag !== undefined) patch.campaignTag = dto.campaignTag;
     if (dto.revenueLinkId !== undefined) patch.revenueLinkId = dto.revenueLinkId;

@@ -37,6 +37,7 @@ const SCHEMA_MIGRATIONS = [
   "0033_client_portal.sql",
   "0034_password_reset.sql",
   "0035_pf_planner.sql",
+  "0036_cost_bearer_party_ref.sql",
 ];
 
 async function main() {

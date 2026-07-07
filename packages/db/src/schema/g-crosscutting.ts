@@ -31,8 +31,9 @@ export const expense = pgTable("expense", {
   category: text("category").notNull(), // subscription|salary|promo|loss|event|other
   amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
   incurredAt: date("incurred_at").notNull(),
-  costBearer: text("cost_bearer").notNull(), // momin|emon|split|writer
-  costBearerSplitJson: jsonb("cost_bearer_split_json"),
+  costBearer: text("cost_bearer").notNull(), // party|split|writer (0036)
+  costBearerSplitJson: jsonb("cost_bearer_split_json"), // when 'split': {partyUuid: share}
+  bearerPartyId: uuid("bearer_party_id"), // when 'party': the partner who bears it (0036)
   payeePartyId: uuid("payee_party_id"),
   campaignTag: text("campaign_tag"),
   revenueLinkId: uuid("revenue_link_id"),

@@ -8,7 +8,7 @@ import {
   type SessionPrincipal,
   type TermType,
 } from "@business-os/shared";
-import { and, asc, eq, gt, isNull, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lte, or, type SQL } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import type {
   CreateCompRuleDto,
@@ -22,6 +22,17 @@ import type {
 const day = (s: string): string => s.slice(0, 10); // normalize ISO → 'YYYY-MM-DD'
 const numOrNull = (v: number | null | undefined): string | null =>
   v === null || v === undefined ? null : String(v);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** A split map: party UUID → positive numeric share (0036). */
+function isValidSplit(split: unknown): boolean {
+  if (!split || typeof split !== "object") return false;
+  const entries = Object.entries(split as Record<string, unknown>);
+  return (
+    entries.length > 0 &&
+    entries.every(([k, v]) => UUID_RE.test(k) && typeof v === "number" && Number.isFinite(v) && v > 0)
+  );
+}
 
 @Injectable()
 export class RulesService {
@@ -146,6 +157,33 @@ export class RulesService {
 
   // ─── comp_rule ──────────────────────────────────────────────────────────────
 
+  /** Enforce cost_bearer ↔ its party reference(s); every named party must be in-org. */
+  private async validateBearer(
+    tx: Db,
+    costBearer: string,
+    bearerPartyId: string | null | undefined,
+    split: unknown,
+  ): Promise<void> {
+    const ids: string[] = [];
+    if (costBearer === "party") {
+      if (!bearerPartyId) throw new BadRequestException("cost_bearer 'party' requires bearerPartyId");
+      ids.push(bearerPartyId);
+    } else if (costBearer === "split") {
+      if (!isValidSplit(split)) {
+        throw new BadRequestException(
+          "A split comp rule needs a non-empty cost_bearer_split_json keyed by party UUID with positive shares",
+        );
+      }
+      ids.push(...Object.keys(split as Record<string, unknown>));
+    }
+    if (ids.length === 0) return;
+    const rows = await tx.select({ id: schema.party.id }).from(schema.party).where(inArray(schema.party.id, ids));
+    const found = new Set(rows.map((r) => r.id));
+    for (const id of ids) {
+      if (!found.has(id)) throw new BadRequestException(`Cost-bearer party ${id} is not in this org`);
+    }
+  }
+
   async createCompRule(tx: Db, principal: SessionPrincipal, dto: CreateCompRuleDto) {
     if (!dto.partyId && !dto.roleId) {
       throw new BadRequestException("A comp rule needs a partyId or a roleId");
@@ -153,6 +191,7 @@ export class RulesService {
     if (dto.effectiveTo && day(dto.effectiveTo) <= day(dto.effectiveFrom)) {
       throw new BadRequestException("effectiveTo must be after effectiveFrom");
     }
+    await this.validateBearer(tx, dto.costBearer, dto.bearerPartyId, dto.costBearerSplitJson);
     const [row] = await tx
       .insert(schema.compRule)
       .values({
@@ -162,7 +201,8 @@ export class RulesService {
         basis: dto.basis,
         rate: numOrNull(dto.rate),
         costBearer: dto.costBearer,
-        costBearerSplitJson: dto.costBearerSplitJson ?? null,
+        costBearerSplitJson: dto.costBearer === "split" ? (dto.costBearerSplitJson ?? null) : null,
+        bearerPartyId: dto.costBearer === "party" ? (dto.bearerPartyId ?? null) : null,
         cadence: dto.cadence ?? null,
         effectiveFrom: day(dto.effectiveFrom),
         effectiveTo: dto.effectiveTo ? day(dto.effectiveTo) : null,
@@ -192,6 +232,10 @@ export class RulesService {
     if (from <= prior.effectiveFrom) {
       throw new BadRequestException("New effectiveFrom must be after the prior version's");
     }
+    const nextCostBearer = dto.costBearer ?? prior.costBearer;
+    const nextSplit = dto.costBearerSplitJson ?? prior.costBearerSplitJson;
+    const nextBearerPartyId = dto.bearerPartyId !== undefined ? dto.bearerPartyId : prior.bearerPartyId;
+    await this.validateBearer(tx, nextCostBearer, nextBearerPartyId, nextSplit);
     await tx
       .update(schema.compRule)
       .set({ effectiveTo: from })
@@ -204,8 +248,9 @@ export class RulesService {
         roleId: prior.roleId,
         basis: prior.basis,
         rate: dto.rate !== undefined ? numOrNull(dto.rate) : prior.rate,
-        costBearer: dto.costBearer ?? prior.costBearer,
-        costBearerSplitJson: prior.costBearerSplitJson,
+        costBearer: nextCostBearer,
+        costBearerSplitJson: nextCostBearer === "split" ? nextSplit : null,
+        bearerPartyId: nextCostBearer === "party" ? nextBearerPartyId : null,
         cadence: prior.cadence,
         effectiveFrom: from,
         effectiveTo: null,
