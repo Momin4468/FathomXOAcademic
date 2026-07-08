@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
 import { Button } from "./ui";
+import { NotificationBell } from "./NotificationBell";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
@@ -127,6 +128,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             {me?.party?.displayName && (
               <span className="hidden text-xs text-gray-500 sm:inline">{me.party.displayName}</span>
+            )}
+            {can(me?.permissions, "notifications:view") && (
+              <NotificationBell canBroadcast={can(me?.permissions, "notifications:approve")} />
             )}
             <Button variant="ghost" className="px-2 text-xs" onClick={() => logout()}>
               Sign out

@@ -21,3 +21,4 @@ export * from "./q-ai-capture.js";
 export * from "./r-import.js";
 export * from "./s-channels.js";
 export * from "./t-client-portal.js";
+export * from "./u-notifications.js";

@@ -29,6 +29,7 @@ import { ReferenceModule } from "./modules/refdata/reference.module.js";
 import { RulesModule } from "./modules/rules/rules.module.js";
 import { TaskModule } from "./modules/task/task.module.js";
 import { WorkModule } from "./modules/work/work.module.js";
+import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -65,6 +66,7 @@ import { WorkModule } from "./modules/work/work.module.js";
     ...(isModuleEnabled("import_export") ? [ImportExportModule] : []),
     ...(isModuleEnabled("channels") ? [ChannelsModule] : []),
     ...(isModuleEnabled("client_portal") ? [ClientPortalModule] : []),
+    ...(isModuleEnabled("notifications") ? [NotificationsModule] : []),
   ],
 })
 export class AppModule {}

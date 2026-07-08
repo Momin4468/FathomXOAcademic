@@ -211,6 +211,7 @@ export const MODULES = [
   "import_export", // module 16 — bulk import / scoped export / dated file archive
   "channels", // module 17 — admin-creatable sources + source-driven routing + N-way profit-share (§3/§4.4)
   "client_portal", // module 18 — the client-facing login plane (scoped jobs/AR + draft intake + messages)
+  "notifications", // module 19 — in-app notifications + admin broadcast (§ P1 item 7; closes UI_AUDIT R6)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
