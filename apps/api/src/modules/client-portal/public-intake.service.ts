@@ -7,6 +7,7 @@ import { AuditService } from "../../common/audit/audit.service.js";
 import { PasswordService } from "../../common/auth/password.service.js";
 import { DbService } from "../../common/db/db.service.js";
 import { EmailService } from "../../common/email/email.service.js";
+import { WhatsAppService } from "../../common/whatsapp/whatsapp.service.js";
 import { SlidingWindowRateLimiter } from "../../common/ratelimit/sliding-window.js";
 import { StorageService } from "../../common/storage/storage.service.js";
 import { FILES_MAX_BYTES, type UploadedFile } from "../files/files.service.js";
@@ -42,6 +43,8 @@ export class PublicIntakeService {
   private readonly turnstileSecret = process.env.TURNSTILE_SECRET_KEY?.trim() || null;
   private readonly leadTtlDays = Number(process.env.CLIENT_LEAD_TTL_DAYS ?? 30);
   private readonly opsInbox = process.env.PUBLIC_QUOTE_NOTIFY_EMAIL ?? null;
+  // Ops WhatsApp number for a new-quote ping (stub adapter → dev no-op unless wired).
+  private readonly opsWhatsApp = process.env.PUBLIC_QUOTE_NOTIFY_WHATSAPP ?? null;
   private readonly ipLimiter = new SlidingWindowRateLimiter(
     Number(process.env.PUBLIC_QUOTE_RATE_MAX ?? 5),
     Number(process.env.PUBLIC_QUOTE_RATE_WINDOW_MS ?? 60 * 60 * 1000),
@@ -60,6 +63,7 @@ export class PublicIntakeService {
     private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly email: EmailService,
+    private readonly whatsapp: WhatsAppService,
   ) {}
 
   async submitQuote(dto: PublicQuoteDto, file: UploadedFile | undefined, clientIp: string): Promise<{ ok: true }> {
@@ -266,6 +270,10 @@ export class PublicIntakeService {
     const subject = `New quote request: ${dto.service?.trim() || "general"}`;
     if (this.opsInbox) {
       await this.email.send({ to: this.opsInbox, subject, text: `A new quote request was submitted by ${dto.name} <${dto.email}>.` });
+    }
+    // Ops WhatsApp ping via the swappable stub (dev no-op until a provider is wired).
+    if (this.opsWhatsApp) {
+      await this.whatsapp.send({ to: this.opsWhatsApp, text: `${subject} — from ${dto.name} <${dto.email}>.` });
     }
     // Acknowledge the prospective client — capped per recipient so this can't be
     // abused as an unauthenticated "email anyone" primitive once SMTP is wired.

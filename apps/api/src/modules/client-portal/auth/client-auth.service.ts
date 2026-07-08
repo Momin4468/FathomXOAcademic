@@ -51,7 +51,12 @@ export class ClientAuthService {
     return { orgId: p.orgId, partyId: p.partyId, isSuperadmin: false };
   }
 
-  async login(loginId: string, password: string, totp?: string, deviceLabel?: string): Promise<ClientTokenPair> {
+  async login(
+    loginId: string,
+    password: string,
+    totp?: string,
+    deviceLabel?: string,
+  ): Promise<ClientTokenPair | { resetRequired: true }> {
     const row = await this.db.clientAuthLookup(loginId);
     if (!row) {
       this.logger.warn("Client login failed: unknown login id");
@@ -91,6 +96,23 @@ export class ClientAuthService {
         return fail("totp_unreadable");
       }
       if (!totp || !this.totp.verify(totp, plaintext)) return fail("totp");
+    }
+    // Forced first-login reset (0040): credentials are correct, but an auto-provisioned
+    // account must reset its derivable initial password before any session is issued.
+    // Checked AFTER password+2FA so the signal never leaks that an account exists.
+    if (row.must_reset_password) {
+      await this.db
+        .withTenant(ctx, (tx) =>
+          this.audit.record(tx, row.org_id, {
+            actorUserId: null,
+            action: "client.login_reset_required",
+            entity: "client_account",
+            entityId: row.id,
+            detail: null,
+          }),
+        )
+        .catch(() => undefined);
+      return { resetRequired: true };
     }
     // First successful login flips an 'invited' account to 'active'.
     if (row.status === "invited") {

@@ -41,6 +41,7 @@ const SCHEMA_MIGRATIONS = [
   "0037_payment_currency_other_income.sql",
   "0038_leg_reprice.sql",
   "0039_price_group.sql",
+  "0040_client_first_login.sql",
 ];
 
 async function main() {

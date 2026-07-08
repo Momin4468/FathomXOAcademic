@@ -20,6 +20,18 @@ export class ProvisionAccountDto {
   @IsString() @MinLength(8) @MaxLength(200) password!: string;
 }
 
+/**
+ * Auto-provision a portal login from a student id + name (P1 item 8). Either name
+ * an EXISTING client party (`partyId`) or give `studentId` + `name` to find/create
+ * one. The login id is the student id; the initial password is DERIVED (returned to
+ * the admin to hand over) and must be reset on first login (must_reset_password).
+ */
+export class AutoProvisionDto {
+  @IsOptional() @IsUUID() partyId?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(160) studentId?: string;
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(300) name?: string;
+}
+
 export class UpdateAccountDto {
   @IsOptional() @IsString() @MinLength(8) @MaxLength(200) password?: string;
   // Admins may only activate/deactivate here — never set lead/invited.

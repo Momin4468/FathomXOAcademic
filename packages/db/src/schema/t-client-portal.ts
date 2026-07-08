@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { citext } from "./_shared.js";
 import { org, party } from "./a-tenancy.js";
 
@@ -19,6 +19,8 @@ export const clientAccount = pgTable("client_account", {
   passwordHash: text("password_hash").notNull(),
   twofaSecret: text("twofa_secret"),
   status: text("status").notNull().default("invited"), // invited | active | lead | deactivated
+  // First-login gate (0040): an auto-provisioned account must reset before a session issues.
+  mustResetPassword: boolean("must_reset_password").notNull().default(false),
   expiresAt: timestamp("expires_at", { withTimezone: true }), // set for leads
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -31,6 +31,7 @@ export interface ClientAuthLookupRow {
   status: string;
   twofa_secret: string | null;
   expires_at: Date | null;
+  must_reset_password: boolean;
 }
 
 /** The three auth planes a reset token can belong to (matches the DB check). */
@@ -102,7 +103,7 @@ export class DbService implements OnModuleDestroy {
     const client = await this.pool.connect();
     try {
       const res = await client.query<ClientAuthLookupRow>(
-        "select id, org_id, party_id, password_hash, status, twofa_secret, expires_at from client_auth_lookup($1)",
+        "select id, org_id, party_id, password_hash, status, twofa_secret, expires_at, must_reset_password from client_auth_lookup($1)",
         [loginId],
       );
       return res.rows[0] ?? null;

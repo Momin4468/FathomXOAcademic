@@ -5,7 +5,7 @@ import { RequirePermission } from "../../common/authz/require-permission.decorat
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
 import { ClientAdminService } from "./client-admin.service.js";
-import { AdminReplyDto, ProvisionAccountDto, UpdateAccountDto } from "./dto.js";
+import { AdminReplyDto, AutoProvisionDto, ProvisionAccountDto, UpdateAccountDto } from "./dto.js";
 
 /**
  * Admin-side client-portal management (Module 18), on the BUSINESS plane and
@@ -30,6 +30,13 @@ export class ClientAdminController {
   @RequirePermission("client_portal", "create")
   provision(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: ProvisionAccountDto) {
     return this.db.withTenant(ctx, (tx) => this.admin.provisionAccount(tx, p, dto));
+  }
+
+  /** Auto-provision a login from a student id + name (item 8); returns the derived initial creds. */
+  @Post("accounts/auto")
+  @RequirePermission("client_portal", "create")
+  autoProvision(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: AutoProvisionDto) {
+    return this.db.withTenant(ctx, (tx) => this.admin.autoProvisionAccount(tx, p, dto));
   }
 
   @Patch("accounts/:id")

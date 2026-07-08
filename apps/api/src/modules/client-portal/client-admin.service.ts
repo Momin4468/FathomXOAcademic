@@ -6,7 +6,17 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { PasswordService } from "../../common/auth/password.service.js";
 import { DbService } from "../../common/db/db.service.js";
-import type { AdminReplyDto, ProvisionAccountDto, UpdateAccountDto } from "./dto.js";
+import type { AdminReplyDto, AutoProvisionDto, ProvisionAccountDto, UpdateAccountDto } from "./dto.js";
+
+/** Derive a first-login initial password from a student id + name (≥ 8 chars). */
+function deriveInitialPassword(studentId: string, name: string): string {
+  const first = (name.trim().split(/\s+/)[0] ?? "").replace(/[^a-zA-Z0-9]/g, "");
+  const cap = first ? first[0]!.toUpperCase() + first.slice(1).toLowerCase() : "Client";
+  const base = `${studentId.trim()}-${cap}`;
+  // The account forces a reset on first login, so this is a one-time handover secret;
+  // pad to satisfy any downstream min-length without weakening it.
+  return base.length >= 8 ? base : `${base}-2026`;
+}
 
 /**
  * Admin-side management of the client portal (Module 18), gated by the
@@ -78,6 +88,100 @@ export class ClientAdminService {
       detail: { partyId: dto.partyId, loginId: dto.loginId },
     });
     return { id: row!.id, loginId: dto.loginId, status: "invited" as const };
+  }
+
+  /**
+   * Auto-provision a client login from a student id + name (P1 item 8). Names an
+   * existing client party (partyId) or finds/creates one from (studentId, name).
+   * The login id IS the student id; the initial password is DERIVED and RETURNED to
+   * the admin to hand over — the account is forced to reset it on first login
+   * (must_reset_password), so the derivable secret can never stand as a credential.
+   */
+  async autoProvisionAccount(tx: Db, principal: SessionPrincipal, dto: AutoProvisionDto) {
+    let partyId: string;
+    let studentId: string;
+    let name: string;
+
+    if (dto.partyId) {
+      const [party] = await tx
+        .select({ id: schema.party.id, partyType: schema.party.partyType, externalRef: schema.party.externalRef, displayName: schema.party.displayName })
+        .from(schema.party)
+        .where(and(eq(schema.party.id, dto.partyId), isNull(schema.party.archivedAt)));
+      if (!party) throw new NotFoundException("Client party not found");
+      if (!(party.partyType ?? []).includes("client")) {
+        throw new BadRequestException("That party is not a client (tag party_type 'client' first)");
+      }
+      if (!party.externalRef?.trim()) {
+        throw new BadRequestException("That client has no student id (external_ref) to derive a login from");
+      }
+      partyId = party.id;
+      studentId = party.externalRef.trim();
+      name = dto.name?.trim() || party.displayName;
+    } else {
+      studentId = dto.studentId?.trim() ?? "";
+      name = dto.name?.trim() ?? "";
+      if (!studentId || !name) {
+        throw new BadRequestException("Provide a partyId, or both studentId and name");
+      }
+      // Find an existing client party by student id, else create a provisional one.
+      const [existing] = await tx
+        .select({ id: schema.party.id, partyType: schema.party.partyType })
+        .from(schema.party)
+        .where(and(eq(schema.party.externalRef, studentId), isNull(schema.party.archivedAt)));
+      if (existing) {
+        if (!(existing.partyType ?? []).includes("client")) {
+          throw new BadRequestException("A non-client party already uses that student id — tag it 'client' or resolve the clash");
+        }
+        partyId = existing.id;
+      } else {
+        const [created] = await tx
+          .insert(schema.party)
+          .values({
+            orgId: principal.orgId,
+            displayName: name,
+            partyType: ["client"],
+            externalRef: studentId,
+            createdBy: principal.userId,
+            updatedBy: principal.userId,
+          })
+          .returning({ id: schema.party.id });
+        partyId = created!.id;
+      }
+    }
+
+    const initialPassword = deriveInitialPassword(studentId, name);
+    const passwordHash = await this.passwords.hash(initialPassword);
+    let row: { id: string } | undefined;
+    try {
+      [row] = await tx
+        .insert(schema.clientAccount)
+        .values({
+          orgId: principal.orgId,
+          partyId,
+          loginId: studentId,
+          passwordHash,
+          status: "invited",
+          mustResetPassword: true,
+          createdBy: principal.userId,
+          updatedBy: principal.userId,
+        })
+        .returning({ id: schema.clientAccount.id });
+    } catch (e) {
+      if ((e as { code?: string }).code === "23505") {
+        throw new ConflictException("That login id is taken, or this client already has a login");
+      }
+      throw e;
+    }
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "client_portal.account_auto_provisioned",
+      entity: "client_account",
+      entityId: row!.id,
+      // NEVER audit the password — only the non-secret derivation inputs.
+      detail: { partyId, loginId: studentId },
+    });
+    // The initial password is returned ONCE for the admin to hand over; it is never stored in clear.
+    return { id: row!.id, partyId, loginId: studentId, initialPassword, status: "invited" as const, mustResetPassword: true };
   }
 
   async updateAccount(tx: Db, principal: SessionPrincipal, id: string, dto: UpdateAccountDto) {
