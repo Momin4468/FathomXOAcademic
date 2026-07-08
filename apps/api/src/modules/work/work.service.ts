@@ -83,13 +83,57 @@ export class WorkService {
       entityId: item!.id,
       detail: { title: item!.title },
     });
-    return item!;
+    // Capture-first soft warning: surface possible duplicates on the created item
+    // (never blocks). Skipped for bulk import / AI-capture to avoid a per-row scan.
+    const possibleDuplicates =
+      opts?.importBatchId || opts?.aiCaptureId
+        ? []
+        : await this.possibleDuplicates(tx, {
+            id: item!.id,
+            sourcePartyId: item!.sourcePartyId,
+            courseRefId: item!.courseRefId,
+            assignmentTypeRefId: item!.assignmentTypeRefId,
+            title: item!.title,
+          });
+    return { ...item!, possibleDuplicates };
   }
 
   async getRaw(tx: Db, id: string) {
     const [item] = await tx.select().from(schema.workItem).where(eq(schema.workItem.id, id));
     if (!item) throw new NotFoundException("Work item not found");
     return item;
+  }
+
+  /**
+   * Possible duplicate/overlap work items (P1 item 10) — a capture-first, NEVER
+   * blocking heuristic reusing pg_trgm `similarity()` (0004). Requires the strong
+   * pair (same source party + same course) to even consider a match, then either
+   * the same assignment type OR a similar title. RLS scopes to the caller's org.
+   * Returns [] when there isn't enough signal (no source/course) — never fabricates.
+   */
+  async possibleDuplicates(
+    tx: Db,
+    candidate: { id?: string; sourcePartyId: string | null; courseRefId: string | null; assignmentTypeRefId: string | null; title: string },
+  ): Promise<Array<{ id: string; title: string; workState: string; createdAt: string; titleSim: number }>> {
+    if (!candidate.sourcePartyId || !candidate.courseRefId) return [];
+    const res = await tx.execute(sql`
+      select w.id, w.title, w.work_state as "workState", w.created_at as "createdAt",
+             round(similarity(w.title, ${candidate.title})::numeric, 3) as "titleSim"
+      from work_item w
+      where w.org_id = app_current_org()
+        and w.archived_at is null
+        and (${candidate.id ?? null}::uuid is null or w.id <> ${candidate.id ?? null})
+        and w.source_party_id = ${candidate.sourcePartyId}
+        and w.course_ref_id = ${candidate.courseRefId}
+        and (
+          (${candidate.assignmentTypeRefId ?? null}::uuid is not null
+             and w.assignment_type_ref_id = ${candidate.assignmentTypeRefId ?? null})
+          or similarity(w.title, ${candidate.title}) > 0.3
+        )
+      order by "titleSim" desc, w.created_at desc
+      limit 5
+    `);
+    return res.rows as Array<{ id: string; title: string; workState: string; createdAt: string; titleSim: number }>;
   }
 
   async update(tx: Db, principal: SessionPrincipal, id: string, dto: UpdateWorkItemDto) {

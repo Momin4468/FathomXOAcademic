@@ -13,7 +13,8 @@
 Per the approved P1 plan (order 5 → 6 → 10 → 9 → 8 → 7). Item 8 defers WhatsApp to a stub adapter; item 9 uses anchor-line grouping.
 - ✅ **Item 5 — per-line negative-margin flag (derived, no migration).** Pure `deriveLineMargin` (client amount − producer cost ÷ copies via `source_line_id`); `mapLines` enriches fanned consumer lines with `{margin, negativeMargin}` + a job-level `hasNegativeMarginLine`; money-gated, derive-at-read. work-money-math 20/20, work-http 34/34. See DECISIONS 2026-07-08.
 - ✅ **Item 6 — price-correction + discount line kind (migration 0038).** `POST /work/:id/legs/reprice` posts an append-only delta leg (via the `leg_pair_sum` definer) + optional writer fee-adjusted note; a `discount` line kind allows a negative client amount (fenced to discount-only); `deriveMoneyState` gains `lineCount` so a fully-credited job reads `settled`. billing-money-math 22, reprice-discount 5, billing-http 21, work-http 34, guard clean. See DECISIONS 2026-07-08.
-- ⏳ Next: 10 (dup detection), 9 (bulk-price), 8 (client auto-provision), 7 (notifications + Toast/R6).
+- ✅ **Item 10 — duplicate/overlap detection (heuristic, no migration).** `WorkService.possibleDuplicates` (pg_trgm similarity over same source+course, then assignment/title) surfaced as a soft warning on `create` + `GET /work/:id/possible-duplicates`; capture-first, never blocks. duplicate-detection 4/4 + create-consumers green. See DECISIONS 2026-07-08.
+- ⏳ Next: 9 (bulk-price), 8 (client auto-provision), 7 (notifications + Toast/R6).
 
 ## ✅ Done — P0 backlog (BUSINESS_MODEL_AUDIT items 1–4; migrations 0036–0037)
 The 4 P0 items from `docs/BUSINESS_MODEL_AUDIT.md`, per the approved plan (order 1 → 2 → 4 → 3), all on `main`. One deferred sub-item: the admin all-partners settlement board (item 3 part 3) — the opacity-safe self view shipped; the board is a future approve-gated add.

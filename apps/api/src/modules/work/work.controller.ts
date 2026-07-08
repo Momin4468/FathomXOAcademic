@@ -84,6 +84,22 @@ export class WorkController {
     );
   }
 
+  /** Possible duplicate/overlap work items (capture-first heuristic; never blocks). */
+  @Get(":id/possible-duplicates")
+  @RequirePermission("work", "view")
+  possibleDuplicates(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const item = await this.work.getRaw(tx, id);
+      return this.work.possibleDuplicates(tx, {
+        id: item.id,
+        sourcePartyId: item.sourcePartyId,
+        courseRefId: item.courseRefId,
+        assignmentTypeRefId: item.assignmentTypeRefId,
+        title: item.title,
+      });
+    });
+  }
+
   @Patch(":id")
   @RequirePermission("work", "edit")
   update(
