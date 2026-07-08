@@ -133,24 +133,29 @@ function resolveTerm(
 export interface PartnerBalanceResult {
   accrued: number; // total profit-share accrued to the focal party
   received: number; // net settlement transfers received (business payouts)
-  owed: number; // accrued − received: what the business still owes them (negative = overpaid)
+  borneCost: number; // costs attributed to the focal party (cost_bearer party/split, 0036)
+  owed: number; // accrued − received − borneCost (negative = overpaid)
 }
 
 /**
- * A focal party's running profit-share balance vs the business (P0 item 3):
- *   owed = (profit_share accrued to them) − (net settlement transfers received).
+ * A focal party's running profit-share balance vs the business (P0 item 3, +
+ * the 0036 cost-attribution follow-on):
+ *   owed = (profit_share accrued to them) − (net transfers received) − (costs they bear).
  * A transfer TO them (a payout) reduces what they're owed; a transfer FROM them
- * increases it; reversing transfers (negative amounts) net automatically. The
- * caller supplies ONLY the focal party's own accrual (from the caller-guarded
- * my_profit_share definer) and the transfers RLS-scoped to them — so this stays
- * §4.4-opaque: no other partner's figure is ever an input, and a default net
- * dividend arrives already aggregated. Generalises the pair-only deriveSettlement
- * to an arbitrary single party without touching the binary Momin↔Emon path.
+ * increases it; reversing transfers (negative amounts) net automatically. A cost
+ * ATTRIBUTED to them (an expense with cost_bearer='party'→them, or their share of
+ * a 'split') further reduces what the business owes them — they absorb it. The
+ * caller supplies ONLY the focal party's own accrual (caller-guarded
+ * my_profit_share definer), the transfers RLS-scoped to them, and the sum of
+ * costs THEY bear — so this stays §4.4-opaque: no other partner's figure is ever
+ * an input. Generalises the pair-only deriveSettlement to an arbitrary single
+ * party WITHOUT touching the binary Momin↔Emon path.
  */
 export function derivePartnerBalance(
   accrued: number,
   transfers: SettlementTransferRow[],
   focalParty: string,
+  borneCost = 0,
 ): PartnerBalanceResult {
   let received = 0;
   for (const t of transfers) {
@@ -160,5 +165,6 @@ export function derivePartnerBalance(
     else if (t.fromPartyId === focalParty) received = round2(received - amt);
   }
   const acc = round2(accrued);
-  return { accrued: acc, received, owed: round2(acc - received) };
+  const cost = round2(borneCost);
+  return { accrued: acc, received, borneCost: cost, owed: round2(acc - received - cost) };
 }

@@ -336,17 +336,18 @@ export class ChannelsService {
   }
 
   /**
-   * The caller's OWN running settlement balance vs the business (P0 item 3):
-   * owed = profit-share accrued to them − net transfers received. Opacity-safe by
-   * construction: the accrual comes from the caller-guarded `my_profit_share`
-   * definer (own cuts only; default net dividends already aggregated), and
-   * settlement_transfer RLS scopes to transfers the caller is a party to — so no
-   * other partner's figure is ever read. Generalises the pair-only deriveSettlement
-   * to an arbitrary single party. (Admins net across ALL partners via a future
-   * approve-gated board; this self view is the opacity-safe primitive.)
+   * The caller's OWN running settlement balance vs the business (P0 item 3 + the
+   * 0036 cost-attribution follow-on): owed = profit-share accrued − net transfers
+   * received − costs the caller bears. Opacity-safe by construction: the accrual
+   * comes from the caller-guarded `my_profit_share` definer (own cuts only;
+   * default net dividends already aggregated), settlement_transfer RLS scopes to
+   * transfers the caller is a party to, and the borne-cost sum SELF-FILTERS to the
+   * caller's own attribution (expenses are org-tenant-RLS; only the caller's own
+   * bearer_party_id / split share is ever summed, never another party's figure).
+   * (Admins net across ALL partners via a future approve-gated board.)
    */
   async mySettlementBalance(tx: Db, principal: SessionPrincipal) {
-    if (!principal.partyId) return { accrued: 0, received: 0, owed: 0 };
+    if (!principal.partyId) return { accrued: 0, received: 0, borneCost: 0, owed: 0 };
     const acc = await tx.execute(sql`select coalesce(sum(amount), 0) as total from my_profit_share(${principal.partyId})`);
     const accrued = Number((acc.rows[0] as { total: string }).total);
     const transfers = await tx
@@ -362,7 +363,25 @@ export class ChannelsService {
           eq(schema.settlementTransfer.toPartyId, principal.partyId),
         ),
       );
-    return derivePartnerBalance(accrued, transfers as SettlementTransferRow[], principal.partyId);
+    // Costs the caller BEARS (derive-at-read; only their own attribution is summed):
+    //  • cost_bearer='party'  → the whole amount, when bearer_party_id = caller
+    //  • cost_bearer='split'  → amount × (caller's share ÷ Σ shares)
+    // Archived expenses are excluded (soft-delete). Never sums another party's cost.
+    const costRes = await tx.execute(sql`
+      select coalesce(sum(
+        case
+          when cost_bearer = 'party' and bearer_party_id = ${principal.partyId}::uuid then amount
+          when cost_bearer = 'split' and jsonb_exists(cost_bearer_split_json, ${principal.partyId})
+            then amount * (cost_bearer_split_json->>${principal.partyId})::numeric
+                 / nullif((select sum(v::numeric) from jsonb_each_text(cost_bearer_split_json) as e(k, v)), 0)
+          else 0
+        end
+      ), 0) as borne
+      from expense
+      where archived_at is null
+    `);
+    const borneCost = Number((costRes.rows[0] as { borne: string }).borne);
+    return derivePartnerBalance(accrued, transfers as SettlementTransferRow[], principal.partyId, borneCost);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────────
