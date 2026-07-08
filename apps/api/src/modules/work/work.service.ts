@@ -255,9 +255,11 @@ export class WorkService {
       scope,
       item.customJson as Record<string, unknown> | null,
     );
+    const { lines, hasNegativeMarginLine } = this.lines.mapLines(lineRows, canSeeMoney);
     return {
       item,
-      lines: lineRows.map((l) => this.lines.mapLine(l, canSeeMoney)),
+      lines,
+      hasNegativeMarginLine,
       legs,
       margins: this.legs.marginsFor(legs),
       pnl,

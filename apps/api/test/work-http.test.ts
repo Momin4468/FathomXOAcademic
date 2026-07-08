@@ -211,6 +211,51 @@ describe("copy fan-out: 1 producer entry → N independent consumer lines (§3.2
   });
 });
 
+// ─── Per-line negative-margin flag (P1 item 5) ──────────────────────────────────
+
+describe("per-line negative-margin flag — derived, money-gated (P1 item 5)", () => {
+  let workId = "";
+
+  it("a copy billed BELOW its share of writer cost is flagged negativeMargin (money caller)", async () => {
+    workId = await createWorkItem();
+    // Producer: writer paid ৳6000 total for 2 copies → ৳3000/copy.
+    const res = await api(BASE, `/work/${workId}/fan-out`, {
+      method: "POST",
+      token: mominToken,
+      body: {
+        producer: { writerPartyId, writerRate: 3000 }, // unit_count set to 2 (copies) → 3000×2 = 6000 total
+        consumers: [
+          { consumerPartyId: clientPartyId, fixedAmount: 5000 }, // above cost → +2000
+          { consumerPartyId: EMON_PARTY, fixedAmount: 2000 }, // BELOW ৳3000/copy → −1000
+        ],
+      },
+    });
+    assert.equal(res.status, 201, JSON.stringify(res.body));
+
+    const detail = await api(BASE, `/work/${workId}`, { token: sysToken });
+    assert.equal(detail.status, 200);
+    const consumers = (detail.body.lines as Array<any>).filter((l) => l.side === "consumer");
+    const below = consumers.find((c) => Number(c.amount) === 2000);
+    const above = consumers.find((c) => Number(c.amount) === 5000);
+    assert.equal(below.negativeMargin, true, "the ৳2000 copy is below its ৳3000/copy writer cost");
+    assert.equal(below.margin, -1000);
+    assert.equal(above.negativeMargin, false, "the ৳5000 copy is profitable");
+    assert.equal(above.margin, 2000);
+    assert.equal(detail.body.hasNegativeMarginLine, true, "the job flags at least one below-cost line");
+  });
+
+  it("the flag is REDACTED for a non-money caller (a Writer)", async () => {
+    const detail = await api(BASE, `/work/${workId}`, { token: writerToken });
+    assert.equal(detail.status, 200);
+    const lines = detail.body.lines as Array<any>;
+    for (const l of lines) {
+      assert.equal(l.negativeMargin, undefined, "no per-line margin flag for a non-money caller");
+      assert.equal(l.amount, undefined, "no amount either (money redacted)");
+    }
+    assert.equal(detail.body.hasNegativeMarginLine, false, "the job-level flag is false when money is hidden");
+  });
+});
+
 // ─── Leg chain + derived margins (HTTP, RLS-filtered per caller) ─────────────────
 
 describe("leg chain + derived margins — RLS-filtered per caller (SCHEMA §D)", () => {

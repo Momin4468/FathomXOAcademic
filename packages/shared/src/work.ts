@@ -18,6 +18,29 @@ export function computeLineAmount(opts: {
   return round2(Number(opts.rate ?? 0) * Number(opts.count ?? 0));
 }
 
+export interface LineMargin {
+  margin: number;
+  negativeMargin: boolean;
+}
+
+/**
+ * Per-consumer-line margin (P1 item 5) — DERIVED, never stored. A copy's client
+ * amount minus the writer cost allocated to it: the producer's total ÷ the number
+ * of copies (a producer entry `unit_count` = N copies fanned from it). Only
+ * meaningful when the consumer line links to a producer via `source_line_id`;
+ * otherwise the writer cost is unknown and NO margin is implied (don't fabricate
+ * a cost). `negativeMargin` flags a copy billed below its share of writer cost.
+ */
+export function deriveLineMargin(opts: {
+  consumerAmount: number;
+  producerTotalAmount: number;
+  copies: number;
+}): LineMargin {
+  const perCopyCost = opts.copies > 0 ? opts.producerTotalAmount / opts.copies : opts.producerTotalAmount;
+  const margin = round2(opts.consumerAmount - perCopyCost);
+  return { margin, negativeMargin: margin < 0 };
+}
+
 export interface LegLike {
   fromPartyId: string | null;
   toPartyId: string | null;

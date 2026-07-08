@@ -9,6 +9,11 @@
 
 ---
 
+## 🔨 In progress — P1 backlog (BUSINESS_MODEL_AUDIT items 5–10)
+Per the approved P1 plan (order 5 → 6 → 10 → 9 → 8 → 7). Item 8 defers WhatsApp to a stub adapter; item 9 uses anchor-line grouping.
+- ✅ **Item 5 — per-line negative-margin flag (derived, no migration).** Pure `deriveLineMargin` (client amount − producer cost ÷ copies via `source_line_id`); `mapLines` enriches fanned consumer lines with `{margin, negativeMargin}` + a job-level `hasNegativeMarginLine`; money-gated, derive-at-read. work-money-math 20/20, work-http 34/34. See DECISIONS 2026-07-08.
+- ⏳ Next: item 6 (price-correction + discount lines), 10 (dup detection), 9 (bulk-price), 8 (client auto-provision), 7 (notifications + Toast/R6).
+
 ## ✅ Done — P0 backlog (BUSINESS_MODEL_AUDIT items 1–4; migrations 0036–0037)
 The 4 P0 items from `docs/BUSINESS_MODEL_AUDIT.md`, per the approved plan (order 1 → 2 → 4 → 3), all on `main`. One deferred sub-item: the admin all-partners settlement board (item 3 part 3) — the opacity-safe self view shipped; the board is a future approve-gated add.
 - ✅ **Item 1 — cost_bearer → party ref (migration 0036).** `cost_bearer` discriminator is now `{party|split|writer}` + a new `bearer_party_id` party ref on `expense`/`comp_rule`; split-json keyed by party UUID. Unblocks N-partner cost attribution + HRM salary ownership. DATA MODEL ONLY (attribution recorded, not yet deducted in derived P&L). All item-1 suites green (expense-http 24, rules-http 31, reminders 6, checks-http 26, ai-capture 18, expense-task-rls 8, rules-tenant 4, rules-resolution 43); guard clean; build 5/5. See DECISIONS 2026-07-08.

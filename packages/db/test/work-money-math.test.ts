@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { computeLineAmount, deriveMargins } from "@business-os/shared";
+import { computeLineAmount, deriveLineMargin, deriveMargins } from "@business-os/shared";
 
 /**
  * Module 2 — PURE money-math unit tests (no DB). These pin the two functions the
@@ -11,6 +11,39 @@ import { computeLineAmount, deriveMargins } from "@business-os/shared";
  *
  * NOTE: these are not "stored profit" — they are read-time derivations.
  */
+
+describe("deriveLineMargin (per-copy client amount − writer cost ÷ copies; P1 item 5)", () => {
+  it("a profitable copy → positive margin, not flagged", () => {
+    // producer total 3000 across 3 copies = 1000/copy; this copy billed 1500.
+    const m = deriveLineMargin({ consumerAmount: 1500, producerTotalAmount: 3000, copies: 3 });
+    assert.equal(m.margin, 500);
+    assert.equal(m.negativeMargin, false);
+  });
+
+  it("a below-cost copy → negative margin, flagged", () => {
+    // 3000/3 = 1000/copy; this copy billed only 800 → −200.
+    const m = deriveLineMargin({ consumerAmount: 800, producerTotalAmount: 3000, copies: 3 });
+    assert.equal(m.margin, -200);
+    assert.equal(m.negativeMargin, true);
+  });
+
+  it("exactly at cost → zero margin, NOT flagged (negativeMargin is strictly < 0)", () => {
+    const m = deriveLineMargin({ consumerAmount: 1000, producerTotalAmount: 3000, copies: 3 });
+    assert.equal(m.margin, 0);
+    assert.equal(m.negativeMargin, false);
+  });
+
+  it("copies = 1 (a single deliverable) uses the whole producer cost", () => {
+    const m = deriveLineMargin({ consumerAmount: 5000, producerTotalAmount: 6000, copies: 1 });
+    assert.equal(m.margin, -1000);
+    assert.equal(m.negativeMargin, true);
+  });
+
+  it("copies = 0 falls back to the whole producer cost (no divide-by-zero)", () => {
+    const m = deriveLineMargin({ consumerAmount: 100, producerTotalAmount: 400, copies: 0 });
+    assert.equal(m.margin, -300);
+  });
+});
 
 describe("computeLineAmount (line total = fixed OR rate×count, never stored)", () => {
   it("fixed_amount wins over rate×count when present", () => {

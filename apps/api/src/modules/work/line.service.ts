@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { schema, type Db } from "@business-os/db";
-import { computeLineAmount, type SessionPrincipal } from "@business-os/shared";
+import { computeLineAmount, deriveLineMargin, type SessionPrincipal } from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import type { AddLineDto, FanOutDto } from "./dto.js";
@@ -52,6 +52,50 @@ export class LineService {
 
   async getLines(tx: Db, workItemId: string): Promise<LineRow[]> {
     return tx.select().from(schema.workLine).where(eq(schema.workLine.workItemId, workItemId));
+  }
+
+  /** The writer-side total of a producer line (same convention as mapLine). */
+  private producerTotal(row: LineRow): number {
+    return computeLineAmount({
+      rate: row.writerRate,
+      count: row.wordCount ?? row.unitCount ?? 1,
+      fixedAmount: row.fixedAmount,
+    });
+  }
+
+  /**
+   * Map all a job's lines to API shape and, for money-visible callers, enrich each
+   * CONSUMER line that links to a producer (source_line_id) with a DERIVED per-line
+   * margin flag (P1 item 5). Also returns a job-level `hasNegativeMarginLine`.
+   * Non-money callers get the plain redacted specs and no flag.
+   */
+  mapLines(rows: LineRow[], canSeeMoney: boolean): {
+    lines: ReturnType<LineService["mapLine"]>[];
+    hasNegativeMarginLine: boolean;
+  } {
+    const mapped = rows.map((r) => this.mapLine(r, canSeeMoney));
+    if (!canSeeMoney) return { lines: mapped, hasNegativeMarginLine: false };
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    let hasNegative = false;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]!;
+      if (!row.consumerPartyId || !row.sourceLineId) continue; // only fanned consumer lines
+      const producer = byId.get(row.sourceLineId);
+      if (!producer) continue; // no visible producer → cost unknown, don't flag
+      const consumerAmount = computeLineAmount({
+        rate: row.clientRate,
+        count: row.wordCount ?? row.unitCount ?? 1,
+        fixedAmount: row.fixedAmount,
+      });
+      const m = deriveLineMargin({
+        consumerAmount,
+        producerTotalAmount: this.producerTotal(producer),
+        copies: producer.unitCount ?? 1,
+      });
+      Object.assign(mapped[i]!, { margin: m.margin, negativeMargin: m.negativeMargin });
+      if (m.negativeMargin) hasNegative = true;
+    }
+    return { lines: mapped, hasNegativeMarginLine: hasNegative };
   }
 
   /** Add a single line — strictly one side (producer XOR consumer). */
