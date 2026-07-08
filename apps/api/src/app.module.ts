@@ -31,6 +31,7 @@ import { TaskModule } from "./modules/task/task.module.js";
 import { WorkModule } from "./modules/work/work.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { AdvancesModule } from "./modules/advances/advances.module.js";
+import { VendorModule } from "./modules/vendor/vendor.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -69,6 +70,7 @@ import { AdvancesModule } from "./modules/advances/advances.module.js";
     ...(isModuleEnabled("client_portal") ? [ClientPortalModule] : []),
     ...(isModuleEnabled("notifications") ? [NotificationsModule] : []),
     ...(isModuleEnabled("advances") ? [AdvancesModule] : []),
+    ...(isModuleEnabled("vendor") ? [VendorModule] : []),
   ],
 })
 export class AppModule {}

@@ -23,3 +23,4 @@ export * from "./s-channels.js";
 export * from "./t-client-portal.js";
 export * from "./u-notifications.js";
 export * from "./v-advances.js";
+export * from "./w-vendor.js";

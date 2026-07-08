@@ -1,0 +1,132 @@
+"use client";
+import { useState } from "react";
+import { apiSend, useApi } from "@/lib/api";
+import { formatDate } from "@/lib/format";
+import { AppShell } from "@/components/AppShell";
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Spinner } from "@/components/ui";
+
+/**
+ * The vendor self-view (audit item 13). Shows ONLY this vendor's own slice —
+ * their handoff earnings + balance (chain/client price redacted by RLS) — plus a
+ * "submit an invoice" form and the status of their submitted claims.
+ */
+interface VendorMe {
+  balance: { earnings: { owed: number; paid: number; outstanding: number } };
+  handoffs: Array<{ id: string; workItemId: string; amount: string; createdAt: string }>;
+  claims: Array<{ id: string; amount: string; note: string | null; status: string; createdAt: string }>;
+}
+
+export default function VendorMePage() {
+  const { data, error, isLoading, mutate } = useApi<VendorMe>("vendor/me");
+  const earnings = data?.balance?.earnings;
+
+  return (
+    <AppShell>
+      <h1 className="mb-5 text-lg font-semibold tracking-tight">My invoices</h1>
+
+      {isLoading && <Spinner />}
+      {error && <ErrorNote message={error.message} />}
+
+      {data && (
+        <>
+          <Card className="mb-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your earnings</p>
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <div className="text-xs text-gray-500">earned</div>
+                <div className="font-semibold"><Money value={earnings?.owed} /></div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">paid out</div>
+                <div className="font-medium"><Money value={earnings?.paid} /></div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500">outstanding</div>
+                <div className="font-medium"><Money value={earnings?.outstanding} /></div>
+              </div>
+            </div>
+          </Card>
+
+          <SubmitClaim onSaved={mutate} />
+
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">Submitted invoices</h2>
+          {data.claims.length === 0 ? (
+            <EmptyState title="No invoices submitted" hint="Submit one above; an admin will review it." />
+          ) : (
+            <ul className="mb-6 divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+              {data.claims.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <div>
+                    <span className="font-medium tabular-nums"><Money value={c.amount} /></span>
+                    {c.note && <span className="ml-2 text-xs text-gray-500">{c.note}</span>}
+                    <div className="mt-0.5 text-xs text-gray-400">{formatDate(c.createdAt)}</div>
+                  </div>
+                  <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">Your handoffs (paid via the ledger)</h2>
+          {data.handoffs.length === 0 ? (
+            <EmptyState title="No handoffs yet" hint="Jobs paid to you will appear here." />
+          ) : (
+            <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+              {data.handoffs.map((h) => (
+                <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                  <span className="text-xs text-gray-500">{formatDate(h.createdAt)}</span>
+                  <span className="font-medium tabular-nums"><Money value={h.amount} /></span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+function SubmitClaim({ onSaved }: { onSaved: () => void }) {
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const amt = Number(amount);
+    if (!(amt > 0)) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await apiSend("vendor/claims", "POST", { amount: amt, note: note.trim() || undefined });
+      setAmount("");
+      setNote("");
+      onSaved();
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Could not submit");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="mb-5">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Submit an invoice</p>
+      <form onSubmit={submit} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <Field label="Amount (৳)">
+          <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        </Field>
+        <Field label="Note (optional)">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What it's for" />
+        </Field>
+        <div className="flex items-end">
+          <Button type="submit" variant="secondary" disabled={busy || !(Number(amount) > 0)}>
+            {busy ? "Submitting…" : "Submit invoice"}
+          </Button>
+        </div>
+        {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
+      </form>
+    </Card>
+  );
+}

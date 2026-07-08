@@ -119,6 +119,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 My referrals
               </Link>
             )}
+            {can(me?.permissions, "vendor:create") && (
+              <Link href="/vendor/me" className="text-gray-600 hover:text-gray-900">
+                My invoices
+              </Link>
+            )}
+            {can(me?.permissions, "vendor:approve") && (
+              <Link href="/vendor-admin" className="text-gray-600 hover:text-gray-900">
+                Vendor claims
+              </Link>
+            )}
             {can(me?.permissions, "work:approve") && (
               <Link href="/resit" className="text-gray-600 hover:text-gray-900">
                 Resit

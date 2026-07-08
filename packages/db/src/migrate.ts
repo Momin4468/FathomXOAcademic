@@ -44,6 +44,7 @@ const SCHEMA_MIGRATIONS = [
   "0040_client_first_login.sql",
   "0041_notifications.sql",
   "0042_advance_ledger.sql",
+  "0043_vendor_claim.sql",
 ];
 
 async function main() {
