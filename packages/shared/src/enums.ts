@@ -62,7 +62,7 @@ export const MONEY_STATES = ["unbilled", "invoiced", "partial", "settled"] as co
 export type MoneyState = (typeof MONEY_STATES)[number];
 
 /** work_line.line_kind — copies / layers / parts are one mechanism (SCHEMA C, spec §3.3). */
-export const LINE_KINDS = ["copy", "rate_layer", "extra", "part"] as const;
+export const LINE_KINDS = ["copy", "rate_layer", "extra", "part", "discount"] as const;
 export type LineKind = (typeof LINE_KINDS)[number];
 
 /** milestone.state (SCHEMA C). */

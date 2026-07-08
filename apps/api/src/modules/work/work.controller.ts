@@ -22,6 +22,7 @@ import {
   CreateWorkItemDto,
   FanOutDto,
   ListWorkQueryDto,
+  RepriceLegDto,
   ResitDto,
   TransitionDto,
   UpdateWorkItemDto,
@@ -181,6 +182,23 @@ export class WorkController {
     @Body() dto: ResitDto,
   ) {
     return this.db.withTenant(ctx, (tx) => this.resits.resit(tx, principal, id, dto));
+  }
+
+  /**
+   * Re-price a from→to leg pair to a new total (P1 item 6). Append-only: posts a
+   * single delta leg (new − current) via the caller-guarded leg_pair_sum definer.
+   * Money-affecting → work:approve.
+   */
+  @Post(":id/legs/reprice")
+  @HttpCode(200)
+  @RequirePermission("work", "approve")
+  reprice(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: RepriceLegDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.legs.repriceLeg(tx, principal, id, dto));
   }
 
   /** Visible legs (RLS-filtered to the caller) + derived margins. */

@@ -105,6 +105,16 @@ export class LineService {
     if (isConsumer && isProducer) {
       throw new BadRequestException("A line is producer OR consumer, not both");
     }
+    // A NEGATIVE client amount is a discount/credit — allowed ONLY on a client-side
+    // 'discount' line (P1 item 6); everywhere else amounts stay non-negative.
+    const negativeAmt =
+      (dto.clientRate != null && dto.clientRate < 0) || (dto.fixedAmount != null && dto.fixedAmount < 0);
+    if (dto.lineKind === "discount") {
+      if (!isConsumer) throw new BadRequestException("A discount line is client-side (needs consumerPartyId)");
+      if (isProducer) throw new BadRequestException("A discount line cannot be a writer line");
+    } else if (negativeAmt) {
+      throw new BadRequestException("A negative amount is only allowed on a 'discount' line");
+    }
     const [row] = await tx
       .insert(schema.workLine)
       .values({

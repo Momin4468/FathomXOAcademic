@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { schema, type Db } from "@business-os/db";
-import { deriveMargins, type SessionPrincipal } from "@business-os/shared";
-import { asc, eq, inArray } from "drizzle-orm";
+import { schema, sql, type Db } from "@business-os/db";
+import { deriveMargins, round2, type SessionPrincipal } from "@business-os/shared";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
-import type { AppendLegsDto, LegSpecDto } from "./dto.js";
+import type { AppendLegsDto, LegSpecDto, RepriceLegDto } from "./dto.js";
 import { PricingService } from "./pricing.service.js";
+
+/** Correction legs sit above the chain seqs (resit uses 80–82). */
+const SEQ_REPRICE = 90;
 
 export interface LegView {
   id: string;
@@ -162,6 +165,79 @@ export class LegService {
       });
     }
     return { proposals };
+  }
+
+  /**
+   * Re-price a from→to pair to a new total (P1 item 6). Legs are append-only, so
+   * the correction is a single DELTA leg = new − current. The current sum is read
+   * via the `leg_pair_sum` SECURITY DEFINER (the admin isn't a party to every leg,
+   * so leg RLS would hide it). Optionally stamps a work_line's note so the writer
+   * sees their fee was adjusted. Money-affecting → gated work:approve.
+   */
+  async repriceLeg(tx: Db, principal: SessionPrincipal, workItemId: string, dto: RepriceLegDto) {
+    if (!dto.fromPartyId && !dto.toPartyId) {
+      throw new BadRequestException("Reprice needs a from or to party");
+    }
+    if (dto.fromPartyId && dto.toPartyId && dto.fromPartyId === dto.toPartyId) {
+      throw new BadRequestException("from and to must differ");
+    }
+    const [item] = await tx
+      .select({ id: schema.workItem.id })
+      .from(schema.workItem)
+      .where(eq(schema.workItem.id, workItemId));
+    if (!item) throw new NotFoundException("Work item not found");
+
+    const res = await tx.execute(
+      sql`select leg_pair_sum(${workItemId}, ${dto.fromPartyId ?? null}, ${dto.toPartyId ?? null}) as current`,
+    );
+    const current = Number((res.rows[0] as { current: string }).current);
+    const delta = round2(dto.newAmount - current);
+
+    if (delta !== 0) {
+      // Append-only: post the delta leg (client-side id, no RETURNING — leg RLS).
+      await tx.insert(schema.leg).values({
+        id: randomUUID(),
+        orgId: principal.orgId,
+        workItemId,
+        seq: SEQ_REPRICE,
+        fromPartyId: dto.fromPartyId ?? null,
+        toPartyId: dto.toPartyId ?? null,
+        amount: String(delta),
+        note: dto.note ?? `reprice to ${dto.newAmount}`,
+        createdBy: principal.userId,
+      });
+    }
+
+    // Optional: stamp the writer's line so they can see the fee was adjusted.
+    if (dto.stampLineId) {
+      const [line] = await tx
+        .select({ id: schema.workLine.id, workItemId: schema.workLine.workItemId })
+        .from(schema.workLine)
+        .where(eq(schema.workLine.id, dto.stampLineId));
+      if (!line || line.workItemId !== workItemId) {
+        throw new BadRequestException("stampLineId is not a line on this work item");
+      }
+      await tx
+        .update(schema.workLine)
+        .set({ note: dto.note ?? `fee adjusted (repriced to ${dto.newAmount})` })
+        .where(and(eq(schema.workLine.id, dto.stampLineId), eq(schema.workLine.workItemId, workItemId)));
+    }
+
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "leg.repriced",
+      entity: "work_item",
+      entityId: workItemId,
+      detail: {
+        fromPartyId: dto.fromPartyId ?? null,
+        toPartyId: dto.toPartyId ?? null,
+        oldAmount: current,
+        newAmount: dto.newAmount,
+        delta,
+        stampLineId: dto.stampLineId ?? null,
+      },
+    });
+    return { current, newAmount: dto.newAmount, delta };
   }
 
   /** RLS filters this to the caller's own legs (or all for SuperAdmin). */

@@ -35,6 +35,15 @@ describe("deriveMoneyState (the MONEY close: unbilled→invoiced→partial→set
     assert.equal(deriveMoneyState({ billedTotal: 6000, allocatedTotal: 99999 }), "settled");
   });
 
+  it("lines that net to ≤ 0 (fully discounted) → settled, NOT unbilled (P1 item 6)", () => {
+    // A discount line credited the whole bill: there ARE lines, nothing is owed.
+    assert.equal(deriveMoneyState({ billedTotal: 0, allocatedTotal: 0, lineCount: 2 }), "settled");
+    assert.equal(deriveMoneyState({ billedTotal: -500, allocatedTotal: 0, lineCount: 3 }), "settled");
+    // No lines at all is still genuinely unbilled.
+    assert.equal(deriveMoneyState({ billedTotal: 0, allocatedTotal: 0, lineCount: 0 }), "unbilled");
+    assert.equal(deriveMoneyState({ billedTotal: 0, allocatedTotal: 0 }), "unbilled");
+  });
+
   it("rounds inputs to 2dp so float drift cannot flip the boundary", () => {
     // 0.1+0.2 = 0.30000000000000004; billed 0.3 must read as settled, not partial.
     assert.equal(deriveMoneyState({ billedTotal: 0.3, allocatedTotal: 0.1 + 0.2 }), "settled");

@@ -39,6 +39,7 @@ const SCHEMA_MIGRATIONS = [
   "0035_pf_planner.sql",
   "0036_cost_bearer_party_ref.sql",
   "0037_payment_currency_other_income.sql",
+  "0038_leg_reprice.sql",
 ];
 
 async function main() {

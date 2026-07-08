@@ -71,10 +71,22 @@ export class AddLineDto {
   @IsOptional() @IsUUID() writerPartyId?: string;
   @IsOptional() @IsInt() @Min(0) wordCount?: number;
   @IsOptional() @IsInt() @Min(1) unitCount?: number;
-  @IsOptional() @IsNumber() @Min(0) clientRate?: number;
+  // clientRate/fixedAmount may be NEGATIVE only for a lineKind='discount' consumer
+  // line (P1 item 6) — the service enforces that; writerRate stays non-negative.
+  @IsOptional() @IsNumber() clientRate?: number;
   @IsOptional() @IsNumber() @Min(0) writerRate?: number;
-  @IsOptional() @IsNumber() @Min(0) fixedAmount?: number;
+  @IsOptional() @IsNumber() fixedAmount?: number;
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
+
+/** Re-price a from→to leg pair to a new total (P1 item 6). Posts a delta leg. */
+export class RepriceLegDto {
+  @IsOptional() @IsUUID() fromPartyId?: string;
+  @IsOptional() @IsUUID() toPartyId?: string;
+  @IsNumber() @Min(0) newAmount!: number; // the new total for that pair (delta may be negative)
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  // Optionally stamp a work_line's note so the writer sees their fee was adjusted.
+  @IsOptional() @IsUUID() stampLineId?: string;
 }
 
 export class ProducerSpecDto {

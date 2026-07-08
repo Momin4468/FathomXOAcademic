@@ -42,12 +42,20 @@ export function derivePosition(input: {
 
 /**
  * The money close (independent of work-state): unbilled → invoiced → partial →
- * settled, from the job's billed total and allocated total.
+ * settled, from the job's billed total and allocated total. `lineCount`
+ * distinguishes a truly-unbilled job (no lines) from one whose lines net to ≤ 0
+ * (fully credited by a discount line, P1 item 6) — the latter owes nothing, so
+ * it is "settled", not "unbilled".
  */
-export function deriveMoneyState(input: { billedTotal: number; allocatedTotal: number }): MoneyState {
+export function deriveMoneyState(input: {
+  billedTotal: number;
+  allocatedTotal: number;
+  lineCount?: number;
+}): MoneyState {
   const billed = round2(input.billedTotal);
   const allocated = round2(input.allocatedTotal);
-  if (billed <= 0) return "unbilled";
+  const hasLines = (input.lineCount ?? 0) > 0;
+  if (billed <= 0) return hasLines ? "settled" : "unbilled";
   if (allocated <= 0) return "invoiced";
   if (allocated < billed) return "partial";
   return "settled";

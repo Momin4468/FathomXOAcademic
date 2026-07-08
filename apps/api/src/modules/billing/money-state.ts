@@ -18,13 +18,15 @@ export async function recomputeMoneyState(tx: Db, workItemId: string): Promise<v
     )
     select
       coalesce((select sum(amount) from job_lines), 0) as billed,
+      coalesce((select count(*) from job_lines), 0) as line_count,
       coalesce((select sum(pa.amount) from payment_allocation pa
                 where pa.invoice_line_id in (select id from job_lines)), 0) as allocated
   `);
-  const row = res.rows[0] as { billed: string; allocated: string };
+  const row = res.rows[0] as { billed: string; line_count: string; allocated: string };
   const state = deriveMoneyState({
     billedTotal: Number(row.billed),
     allocatedTotal: Number(row.allocated),
+    lineCount: Number(row.line_count),
   });
   await tx
     .update(schema.workItem)
