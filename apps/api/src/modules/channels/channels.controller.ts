@@ -48,6 +48,13 @@ export class ChannelsController {
     return this.db.withTenant(ctx, (tx) => this.channels.myProfitShare(tx, p, q));
   }
 
+  // ── the caller's own running settlement balance (accrual − transfers) ─────────
+  @Get("settlement-balance/mine")
+  @RequirePermission("channels", "view")
+  mySettlementBalance(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal) {
+    return this.db.withTenant(ctx, (tx) => this.channels.mySettlementBalance(tx, p));
+  }
+
   // ── profit-share terms ────────────────────────────────────────────────────────
   @Get("profit-shares")
   @RequirePermission("channels", "view")

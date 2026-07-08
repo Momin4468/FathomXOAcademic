@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
 import {
+  derivePartnerBalance,
   deriveProfitShares,
   round2,
   type DealTermLike,
   type ProfitShareJobInput,
   type SessionPrincipal,
+  type SettlementTransferRow,
 } from "@business-os/shared";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { PartyService } from "../refdata/party.service.js";
 import type {
@@ -331,6 +333,36 @@ export class ChannelsService {
       }
     }
     return { total, dividendTotal, channelShares, jobCount: rows.length };
+  }
+
+  /**
+   * The caller's OWN running settlement balance vs the business (P0 item 3):
+   * owed = profit-share accrued to them − net transfers received. Opacity-safe by
+   * construction: the accrual comes from the caller-guarded `my_profit_share`
+   * definer (own cuts only; default net dividends already aggregated), and
+   * settlement_transfer RLS scopes to transfers the caller is a party to — so no
+   * other partner's figure is ever read. Generalises the pair-only deriveSettlement
+   * to an arbitrary single party. (Admins net across ALL partners via a future
+   * approve-gated board; this self view is the opacity-safe primitive.)
+   */
+  async mySettlementBalance(tx: Db, principal: SessionPrincipal) {
+    if (!principal.partyId) return { accrued: 0, received: 0, owed: 0 };
+    const acc = await tx.execute(sql`select coalesce(sum(amount), 0) as total from my_profit_share(${principal.partyId})`);
+    const accrued = Number((acc.rows[0] as { total: string }).total);
+    const transfers = await tx
+      .select({
+        fromPartyId: schema.settlementTransfer.fromPartyId,
+        toPartyId: schema.settlementTransfer.toPartyId,
+        amount: schema.settlementTransfer.amount,
+      })
+      .from(schema.settlementTransfer)
+      .where(
+        or(
+          eq(schema.settlementTransfer.fromPartyId, principal.partyId),
+          eq(schema.settlementTransfer.toPartyId, principal.partyId),
+        ),
+      );
+    return derivePartnerBalance(accrued, transfers as SettlementTransferRow[], principal.partyId);
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────────

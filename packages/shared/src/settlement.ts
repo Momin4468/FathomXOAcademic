@@ -129,3 +129,36 @@ function resolveTerm(
 ): DealTermLike | null {
   return resolveDealTerm(dealTerms, { fromPartyId, toPartyId, termType, asOf });
 }
+
+export interface PartnerBalanceResult {
+  accrued: number; // total profit-share accrued to the focal party
+  received: number; // net settlement transfers received (business payouts)
+  owed: number; // accrued − received: what the business still owes them (negative = overpaid)
+}
+
+/**
+ * A focal party's running profit-share balance vs the business (P0 item 3):
+ *   owed = (profit_share accrued to them) − (net settlement transfers received).
+ * A transfer TO them (a payout) reduces what they're owed; a transfer FROM them
+ * increases it; reversing transfers (negative amounts) net automatically. The
+ * caller supplies ONLY the focal party's own accrual (from the caller-guarded
+ * my_profit_share definer) and the transfers RLS-scoped to them — so this stays
+ * §4.4-opaque: no other partner's figure is ever an input, and a default net
+ * dividend arrives already aggregated. Generalises the pair-only deriveSettlement
+ * to an arbitrary single party without touching the binary Momin↔Emon path.
+ */
+export function derivePartnerBalance(
+  accrued: number,
+  transfers: SettlementTransferRow[],
+  focalParty: string,
+): PartnerBalanceResult {
+  let received = 0;
+  for (const t of transfers) {
+    const amt = Number(t.amount);
+    if (!Number.isFinite(amt)) continue;
+    if (t.toPartyId === focalParty) received = round2(received + amt);
+    else if (t.fromPartyId === focalParty) received = round2(received - amt);
+  }
+  const acc = round2(accrued);
+  return { accrued: acc, received, owed: round2(acc - received) };
+}
