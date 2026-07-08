@@ -32,6 +32,7 @@ import { WorkModule } from "./modules/work/work.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { AdvancesModule } from "./modules/advances/advances.module.js";
 import { VendorModule } from "./modules/vendor/vendor.module.js";
+import { HrmModule } from "./modules/hrm/hrm.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -71,6 +72,7 @@ import { VendorModule } from "./modules/vendor/vendor.module.js";
     ...(isModuleEnabled("notifications") ? [NotificationsModule] : []),
     ...(isModuleEnabled("advances") ? [AdvancesModule] : []),
     ...(isModuleEnabled("vendor") ? [VendorModule] : []),
+    ...(isModuleEnabled("hrm") ? [HrmModule] : []),
   ],
 })
 export class AppModule {}

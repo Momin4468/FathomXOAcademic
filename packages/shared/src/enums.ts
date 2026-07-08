@@ -214,6 +214,7 @@ export const MODULES = [
   "notifications", // module 19 — in-app notifications + admin broadcast (§ P1 item 7; closes UI_AUDIT R6)
   "advances", // module 20 — business-plane loan/advance ledger (§ P1 item 11)
   "vendor", // module 21 — vendor self-service invoicing surface (§ item 13)
+  "hrm", // module 22 — HRM employee work-logging + salary attribution (§ item 12)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
