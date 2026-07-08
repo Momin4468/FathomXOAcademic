@@ -60,6 +60,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Expenses
               </Link>
             )}
+            {can(me?.permissions, "advances:view") && (
+              <Link href="/advances" className="text-gray-600 hover:text-gray-900">
+                Advances
+              </Link>
+            )}
             {can(me?.permissions, "dashboard:view") && (
               <Link href="/analytics" className="text-gray-600 hover:text-gray-900">
                 Analytics

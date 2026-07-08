@@ -30,6 +30,7 @@ import { RulesModule } from "./modules/rules/rules.module.js";
 import { TaskModule } from "./modules/task/task.module.js";
 import { WorkModule } from "./modules/work/work.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
+import { AdvancesModule } from "./modules/advances/advances.module.js";
 
 /**
  * Root module. DbModule + AuditModule (global) and AuthModule (global guards:
@@ -67,6 +68,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
     ...(isModuleEnabled("channels") ? [ChannelsModule] : []),
     ...(isModuleEnabled("client_portal") ? [ClientPortalModule] : []),
     ...(isModuleEnabled("notifications") ? [NotificationsModule] : []),
+    ...(isModuleEnabled("advances") ? [AdvancesModule] : []),
   ],
 })
 export class AppModule {}

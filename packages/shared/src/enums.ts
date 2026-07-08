@@ -212,6 +212,7 @@ export const MODULES = [
   "channels", // module 17 — admin-creatable sources + source-driven routing + N-way profit-share (§3/§4.4)
   "client_portal", // module 18 — the client-facing login plane (scoped jobs/AR + draft intake + messages)
   "notifications", // module 19 — in-app notifications + admin broadcast (§ P1 item 7; closes UI_AUDIT R6)
+  "advances", // module 20 — business-plane loan/advance ledger (§ P1 item 11)
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 

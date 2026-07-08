@@ -43,6 +43,7 @@ const SCHEMA_MIGRATIONS = [
   "0039_price_group.sql",
   "0040_client_first_login.sql",
   "0041_notifications.sql",
+  "0042_advance_ledger.sql",
 ];
 
 async function main() {

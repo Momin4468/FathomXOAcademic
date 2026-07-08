@@ -9,6 +9,11 @@
 
 ---
 
+## 🔨 In progress — remaining backlog (BUSINESS_MODEL_AUDIT items 11–14)
+Per the approved plan (order A→B→C→D). Excludes item 15 (10%/40% split — blocked on a business decision). Design calls: vendor = light business-plane user; loan/advance = disjoint ledger surfaced next to balance; HRM work-log = new producer_work_log capture table.
+- ✅ **Item 11 (P1) — business-plane loan/advance ledger (migration 0042).** Module 20 (`advances`, FEATURE_ADVANCES): `advance` + append-only `advance_event` (mirror pf_loan); outstanding DERIVED (principal ∓ Σ events); arbitrary/provisional counterparty; DISJOINT from leg/settlement math, surfaced via `GET /advances/party/:id` next to `BalanceService`. `/advances` web page. advances-http 5/5, billing-http 21, settlement-http 11, partner-settlement-balance 6, guard clean, web build clean. See DECISIONS 2026-07-08.
+- ⏳ Next: B (client portal turn-on), C (vendor surface), D (HRM/employee).
+
 ## ✅ Done — P1 backlog complete (BUSINESS_MODEL_AUDIT items 5–10; migrations 0038–0041)
 All six P1 items shipped to `main` per the approved plan (order 5 → 6 → 10 → 9 → 8 → 7), each a focused commit with DECISIONS + PROGRESS updates. Additive throughout — no invariant (derive-don't-store, append-only ledger, §4.4 opacity, org_id everywhere, capture-first) was weakened. Deferred sub-item: the WhatsApp push (item 8) ships as a swappable dev-no-op stub; a real provider is an env-only drop-in.
 - ✅ **Item 5 — per-line negative-margin flag (derived, no migration).** Pure `deriveLineMargin` (client amount − producer cost ÷ copies via `source_line_id`); `mapLines` enriches fanned consumer lines with `{margin, negativeMargin}` + a job-level `hasNegativeMarginLine`; money-gated, derive-at-read. work-money-math 20/20, work-http 34/34. See DECISIONS 2026-07-08.
