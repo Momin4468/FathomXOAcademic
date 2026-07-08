@@ -19,6 +19,7 @@ import {
   Field,
   Input,
   Money,
+  MoneyInput,
   Select,
   Spinner,
 } from "@/components/ui";
@@ -155,7 +156,7 @@ export default function ResitPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Field label="Writer"><EntityPicker key={`ow${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setOrigWriter(i?.id ?? null)} /></Field>
               <Field label="Paid by (partner)"><EntityPicker key={`of${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setOrigFrom(i?.id ?? null)} /></Field>
-              <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback"><Input type="number" min="0" step="0.01" value={reduction} onChange={(e) => setReduction(e.target.value)} /></Field>
+              <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback"><MoneyInput value={reduction} onChange={(v) => setReduction(v)} /></Field>
             </div>
           </Card>
 
@@ -167,7 +168,7 @@ export default function ResitPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="Resit writer"><EntityPicker key={`rw${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setResitWriter(i?.id ?? null)} /></Field>
                 <Field label="Paid by (partner)"><EntityPicker key={`rf${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setResitFrom(i?.id ?? null)} /></Field>
-                <Field label="Resit pay (৳)"><Input type="number" min="0" step="0.01" value={resitAmount} onChange={(e) => setResitAmount(e.target.value)} /></Field>
+                <Field label="Resit pay (৳)"><MoneyInput value={resitAmount} onChange={(v) => setResitAmount(v)} /></Field>
               </div>
             )}
           </Card>
@@ -180,14 +181,14 @@ export default function ResitPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field label="Client"><EntityPicker key={`cf${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientFrom(i?.id ?? null)} /></Field>
                 <Field label="Paid to (partner)"><EntityPicker key={`ct${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setClientTo(i?.id ?? null)} /></Field>
-                <Field label="Revenue to reverse (৳)"><Input type="number" min="0" step="0.01" value={clientAmount} onChange={(e) => setClientAmount(e.target.value)} /></Field>
+                <Field label="Revenue to reverse (৳)"><MoneyInput value={clientAmount} onChange={(v) => setClientAmount(v)} /></Field>
               </div>
             )}
           </Card>
 
           <Card>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Rework cost (৳, optional)"><Input type="number" min="0" step="0.01" value={reworkCost} onChange={(e) => setReworkCost(e.target.value)} /></Field>
+              <Field label="Rework cost (৳, optional)"><MoneyInput value={reworkCost} onChange={(v) => setReworkCost(v)} /></Field>
               <Field label="Note"><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
             </div>
           </Card>

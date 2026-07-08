@@ -4,7 +4,7 @@ import { apiSend, useApi } from "@/lib/api";
 import { uploadFile } from "@/lib/upload";
 import { can, type FileMeta, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Select, Spinner, Textarea } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner, Textarea } from "@/components/ui";
 
 interface Proposal {
   id: string;
@@ -185,7 +185,7 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
           {proposal.targetType === "payment" && (
             <>
               <Field label="Direction"><Select value={str("direction") || "in"} onChange={(e) => set("direction", e.target.value)}><option value="in">received (in)</option><option value="out">paid (out)</option></Select></Field>
-              <Field label="Amount (৳)"><Input type="number" min="0" step="0.01" value={str("amount")} onChange={(e) => set("amount", Number(e.target.value))} /></Field>
+              <Field label="Amount (৳)"><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
               <Field label="Date"><DateInput value={str("paidAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("paidAt", v)} /></Field>
               <Field label="Note"><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>
             </>
@@ -193,7 +193,7 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
           {proposal.targetType === "expense" && (
             <>
               <Field label="Category"><Select value={str("category") || "other"} onChange={(e) => set("category", e.target.value)}>{["subscription", "salary", "promo", "loss", "event", "other"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-              <Field label="Amount (৳)"><Input type="number" min="0" step="0.01" value={str("amount")} onChange={(e) => set("amount", Number(e.target.value))} /></Field>
+              <Field label="Amount (৳)"><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
               <Field label="Date"><DateInput value={str("incurredAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("incurredAt", v)} /></Field>
               <Field label="Cost bearer"><Select value={str("costBearer") || "momin"} onChange={(e) => set("costBearer", e.target.value)}>{["momin", "emon", "split", "writer"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
               <Field label="Note"><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>

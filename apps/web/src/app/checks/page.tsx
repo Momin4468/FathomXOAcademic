@@ -24,6 +24,7 @@ import {
   Field,
   Input,
   Money,
+  MoneyInput,
   Select,
   Spinner,
   StateBadge,
@@ -152,7 +153,7 @@ export default function ChecksPage() {
               <Field label="Date"><DateInput value={form.periodDate} onChange={(v) => setForm({ ...form, periodDate: v })} /></Field>
               <Field label="Files checked"><Input type="number" min="0" value={form.filesChecked} onChange={(e) => setForm({ ...form, filesChecked: e.target.value })} /></Field>
               <Field label="Files paid"><Input type="number" min="0" value={form.filesPaid} onChange={(e) => setForm({ ...form, filesPaid: e.target.value })} /></Field>
-              <Field label="Collected (৳)"><Input type="number" min="0" step="0.01" value={form.amountCollected} onChange={(e) => setForm({ ...form, amountCollected: e.target.value })} /></Field>
+              <Field label="Collected (৳)"><MoneyInput value={form.amountCollected} onChange={(v) => setForm({ ...form, amountCollected: v })} /></Field>
             </div>
             <Field label="Customer (optional — stand-alone if blank)">
               <EntityPicker key={resetSeq} placeholder="Search customer…" search={searchParties} onPick={(i) => setForm({ ...form, customerPartyId: i?.id ?? null })} />
@@ -305,7 +306,7 @@ function AdminSetup({
             {accounts.map((a) => (<option key={a.id} value={a.id}>{a.label}</option>))}
           </Select>
           <Input type="number" min="0" placeholder="Credits" value={topup.credits} onChange={(e) => setTopup({ ...topup, credits: e.target.value })} />
-          <Input type="number" min="0" step="0.01" placeholder="Cost (৳)" value={topup.cost} onChange={(e) => setTopup({ ...topup, cost: e.target.value })} />
+          <MoneyInput placeholder="Cost (৳)" value={topup.cost} onChange={(v) => setTopup({ ...topup, cost: v })} />
           <Button type="submit" variant="secondary" disabled={!topup.toolAccountId || !topup.credits}>Add top-up</Button>
         </form>
       </Card>

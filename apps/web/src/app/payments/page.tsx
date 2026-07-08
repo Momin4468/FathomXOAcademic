@@ -7,7 +7,7 @@ import { can, type PartyRow, type Payment, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Money, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const MEDIUMS = ["", "DBBL", "Bank", "bkash", "Nagad", "Sonali", "cash"];
 
@@ -83,7 +83,7 @@ export default function PaymentsPage() {
                 </Select>
               </Field>
               <Field label="Amount">
-                <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                <MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
             </div>
             <Field label="Counterparty" hint="The client (in) or writer (out) on the other side.">

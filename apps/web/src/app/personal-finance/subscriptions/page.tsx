@@ -4,7 +4,7 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 export default function PfSubscriptionsPage() {
   const { data, error, isLoading, mutate } = usePfApi<PfSubscription[]>("subscriptions");
@@ -70,7 +70,7 @@ export default function PfSubscriptionsPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Netflix" /></Field>
               <Field label="Next due date" hint="Reminder fires 3 days before."><DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} /></Field>
-              <Field label="Amount"><Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+              <Field label="Amount"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
               <Field label="Currency"><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
             </div>
             <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>

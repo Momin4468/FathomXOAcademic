@@ -1,3 +1,5 @@
+"use client";
+import { useEffect, useState } from "react";
 import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
@@ -5,7 +7,8 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
-import { formatMoney } from "@/lib/format";
+import { CURRENCIES } from "@business-os/shared";
+import { displayAmount, formatMoney, sanitizeAmount } from "@/lib/format";
 
 export const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
@@ -69,6 +72,120 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
     </select>
   );
 }
+/**
+ * Money entry control (UI_AUDIT R1). A text input (never `type="number"`, so NO
+ * spinner arrows), right-aligned + tabular, with a currency adornment. Formats
+ * thousand separators + 2 decimals on blur; while focused it shows the raw number
+ * for easy editing. Emits the bare numeric string via onChange (parent does
+ * `Number(v)`), so a pasted "৳1,500.50" is captured cleanly. Keyboard-first —
+ * arrow keys don't increment.
+ */
+export function MoneyInput({
+  value,
+  onChange,
+  currency = "৳",
+  allowNegative = false,
+  className,
+  onFocus,
+  onBlur,
+  ...rest
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  currency?: string;
+  allowNegative?: boolean;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  const [text, setText] = useState(value ?? "");
+  const [focused, setFocused] = useState(false);
+  // Re-sync when the parent resets/sets the value while we're not editing.
+  useEffect(() => {
+    if (!focused) setText(value ?? "");
+  }, [value, focused]);
+
+  const display = focused ? text : displayAmount(text);
+  // Keep the adornment to a compact symbol so a 3-letter code doesn't overrun.
+  const symbol = ({ BDT: "৳", USD: "$", GBP: "£", EUR: "€", AUD: "A$" } as Record<string, string>)[currency] ?? currency;
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400">{symbol}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        value={display}
+        // Chain a caller-supplied onFocus/onBlur (e.g. an amount clamp) with the
+        // internal focus tracking, so both the guard AND the blur-reformat run.
+        onFocus={(e) => {
+          setFocused(true);
+          onFocus?.(e);
+        }}
+        onBlur={(e) => {
+          setFocused(false);
+          onBlur?.(e);
+        }}
+        onChange={(e) => {
+          const t = sanitizeAmount(e.target.value, allowNegative);
+          setText(t);
+          onChange(t);
+        }}
+        className={cx(
+          "min-h-[44px] w-full rounded-lg border border-gray-300 pl-7 pr-3 text-right text-sm tabular-nums outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+          className,
+        )}
+        {...rest}
+      />
+    </div>
+  );
+}
+
+/** Percentage entry (R1): text input, right-aligned, `%` suffix, no spinners. */
+export function PercentInput({
+  value,
+  onChange,
+  className,
+  ...rest
+}: {
+  value: string;
+  onChange: (v: string) => void;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "type">) {
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        // Reuse the money sanitizer so a percent can't hold multiple dots (→ NaN).
+        onChange={(e) => onChange(sanitizeAmount(e.target.value))}
+        className={cx(
+          "min-h-[44px] w-full rounded-lg border border-gray-300 pl-3 pr-7 text-right text-sm tabular-nums outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+          className,
+        )}
+        {...rest}
+      />
+      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-gray-400">%</span>
+    </div>
+  );
+}
+
+/** Currency picker (R1) — sits beside a MoneyInput for multi-currency capture. */
+export function CurrencySelect({
+  value,
+  onChange,
+  ...rest
+}: {
+  value: string;
+  onChange: (v: string) => void;
+} & Omit<SelectHTMLAttributes<HTMLSelectElement>, "value" | "onChange" | "children">) {
+  return (
+    <Select value={value} onChange={(e) => onChange(e.target.value)} {...rest}>
+      {CURRENCIES.map((c) => (
+        <option key={c} value={c}>
+          {c}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
 /** Curated IANA zones (spec §8: UK / Melbourne / Sydney / Dhaka) + UTC. */
 export const TZ_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "Asia/Dhaka", label: "Dhaka" },

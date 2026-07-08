@@ -4,7 +4,7 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfLoan, type PfLoanEvent } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -69,7 +69,7 @@ function AddLoan({ onDone }: { onDone: () => void }) {
             </Select>
           </Field>
           <Field label="Counterparty"><Input value={form.counterpartyName} onChange={(e) => setForm({ ...form, counterpartyName: e.target.value })} placeholder="Name" /></Field>
-          <Field label="Principal"><Input type="number" min="0" step="0.01" value={form.principal} onChange={(e) => setForm({ ...form, principal: e.target.value })} /></Field>
+          <Field label="Principal"><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></Field>
           <Field label="Currency"><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
           <Field label="Started"><DateInput value={form.startedOn} onChange={(v) => setForm({ ...form, startedOn: v })} /></Field>
           <Field label="Due (optional)"><DateInput value={form.dueOn} onChange={(v) => setForm({ ...form, dueOn: v })} /></Field>
@@ -153,7 +153,7 @@ function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
             )}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="sm:w-40"><Field label="Type"><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="repayment">repayment</option><option value="disbursement">disbursement</option><option value="adjustment">adjustment</option></Select></Field></div>
-              <div className="flex-1"><Field label="Amount"><Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field></div>
+              <div className="flex-1"><Field label="Amount"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field></div>
               <div className="sm:w-40"><Field label="Date"><DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} /></Field></div>
               <Button variant="secondary" disabled={busy || !form.amount} onClick={addEvent}>Add</Button>
             </div>

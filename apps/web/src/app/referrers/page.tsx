@@ -23,6 +23,8 @@ import {
   Field,
   Input,
   Money,
+  MoneyInput,
+  PercentInput,
   Select,
   Spinner,
 } from "@/components/ui";
@@ -174,7 +176,9 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
           </Select>
         </Field>
         <Field label={form.basis === "fixed" ? "Amount (৳)" : "Percent (%)"}>
-          <Input type="number" min="0" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} />
+          {form.basis === "fixed"
+            ? <MoneyInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />
+            : <PercentInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />}
         </Field>
         <Field label="Effective from">
           <DateInput value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} />
@@ -347,7 +351,7 @@ function AttachReferral() {
         )}
 
         <Field label="Amount (৳) — override or enter manually">
-          <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
         </Field>
 
         {err && <ErrorNote message={err} />}

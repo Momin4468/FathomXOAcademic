@@ -13,7 +13,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
 
 const FAULTS = ["", "writer", "brief_change", "client"];
 const SATISFACTION = ["", "high", "neutral", "low"];
@@ -196,7 +196,7 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
                 {SATISFACTION.map((s) => <option key={s} value={s}>{s || "—"}</option>)}
               </Select>
             </Field>
-            <Field label="Rework cost (৳)"><Input type="number" min="0" step="0.01" value={form.reworkCost} onChange={(e) => setForm({ ...form, reworkCost: e.target.value })} /></Field>
+            <Field label="Rework cost (৳)"><MoneyInput value={form.reworkCost} onChange={(v) => setForm({ ...form, reworkCost: v })} /></Field>
           </div>
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.complaint} onChange={(e) => setForm({ ...form, complaint: e.target.checked })} /> complaint</label>

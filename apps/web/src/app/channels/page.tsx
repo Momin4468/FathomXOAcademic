@@ -23,6 +23,8 @@ import {
   Field,
   Input,
   Money,
+  MoneyInput,
+  PercentInput,
   Select,
   Spinner,
 } from "@/components/ui";
@@ -292,7 +294,9 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
           </Select>
         </Field>
         <Field label={basis === "fixed" ? "Amount (৳)" : "Percent (%)"}>
-          <Input type="number" min="0" step="0.01" value={value} onChange={(e) => setValue(e.target.value)} />
+          {basis === "fixed"
+            ? <MoneyInput value={value} onChange={(v) => setValue(v)} />
+            : <PercentInput value={value} onChange={(v) => setValue(v)} />}
         </Field>
         <Field label="Scope to a channel (blank = standing dividend)">
           <EntityPicker key={`s${resetSeq}`} placeholder="All jobs (default)…" search={searchChannels} onPick={(i) => setSourcePartyId(i?.id ?? null)} />

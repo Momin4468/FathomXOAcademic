@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -80,7 +80,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
                 <DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} />
               </Field>
               <Field label="Amount">
-                <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                <MoneyInput currency={form.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
               <Field label="Currency">
                 <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
@@ -91,7 +91,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
             {form.currency !== "BDT" && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Converted amount (optional)" hint="No automatic conversion — record it if you want.">
-                  <Input type="number" min="0" step="0.01" value={form.convertedAmount} onChange={(e) => setForm({ ...form, convertedAmount: e.target.value })} />
+                  <MoneyInput currency={form.convertedCurrency} value={form.convertedAmount} onChange={(v) => setForm({ ...form, convertedAmount: v })} />
                 </Field>
                 <Field label="Converted currency">
                   <Select value={form.convertedCurrency} onChange={(e) => setForm({ ...form, convertedCurrency: e.target.value })}>

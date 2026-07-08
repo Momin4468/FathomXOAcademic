@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/format";
 import { can, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
 
 /**
  * Business-plane loan/advance ledger (P1 item 11). Advances to writers, vendors,
@@ -118,7 +118,7 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
           </Select>
         </Field>
         <Field label="Principal (৳)">
-          <Input type="number" min="0" step="0.01" value={principal} onChange={(e) => setPrincipal(e.target.value)} />
+          <MoneyInput value={principal} onChange={(v) => setPrincipal(v)} />
         </Field>
         <Field label="Started">
           <DateInput value={startedOn} onChange={setStartedOn} />
@@ -218,7 +218,7 @@ function AdvanceCard({
             </Select>
           </Field>
           <Field label="Amount (৳)">
-            <Input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-28" />
+            <MoneyInput value={amount} onChange={(v) => setAmount(v)} className="w-28" />
           </Field>
           <Field label="Date">
             <DateInput value={occurredOn} onChange={setOccurredOn} />

@@ -15,6 +15,7 @@ import {
   Field,
   Input,
   Money,
+  MoneyInput,
   Select,
   Spinner,
 } from "@/components/ui";
@@ -137,7 +138,7 @@ export default function ExpensesPage() {
                 </Select>
               </Field>
               <Field label="Amount">
-                <Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+                <MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
               <Field label="Cost bearer">
                 <Select value={form.costBearer} onChange={(e) => setForm({ ...form, costBearer: e.target.value })}>
@@ -163,14 +164,11 @@ export default function ExpensesPage() {
                   {splitRows.map((r, i) => (
                     <div key={r.id} className="flex items-center gap-2">
                       <span className="flex-1 truncate text-sm">{r.label}</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <MoneyInput
                         className="w-24"
                         value={r.share}
-                        onChange={(e) =>
-                          setSplitRows(splitRows.map((x, j) => (j === i ? { ...x, share: e.target.value } : x)))
+                        onChange={(v) =>
+                          setSplitRows(splitRows.map((x, j) => (j === i ? { ...x, share: v } : x)))
                         }
                       />
                       <button

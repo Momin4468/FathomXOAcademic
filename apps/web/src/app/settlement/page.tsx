@@ -13,7 +13,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const searchPartners = async (q: string): Promise<PickItem[]> => {
@@ -154,7 +154,7 @@ function RecordTransfer({ a, b, onDone }: { a: string; b: string; onDone: () => 
             <option value={b}>Partner B</option>
           </Select>
         </Field>
-        <Field label="Amount (৳)"><Input type="number" min="0" step="0.01" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+        <Field label="Amount (৳)"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
         <Field label="Date"><DateInput value={form.transferredAt} onChange={(v) => setForm({ ...form, transferredAt: v })} /></Field>
         <Field label="Medium"><Input value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })} placeholder="bkash / cash …" /></Field>
         <div className="sm:col-span-2">

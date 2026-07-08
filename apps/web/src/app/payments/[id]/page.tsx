@@ -8,7 +8,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Spinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Money, MoneyInput, Spinner } from "@/components/ui";
 
 /** A candidate the payment can be allocated to, with the amount entered so far. */
 interface Target {
@@ -221,14 +221,11 @@ export default function PaymentDetailPage() {
                         {t.sub && <div className="mt-0.5 text-xs text-gray-500">{t.sub}</div>}
                       </div>
                       <div className="w-32">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                        <MoneyInput
                           placeholder="0"
                           value={t.amount}
                           disabled={!canCreate}
-                          onChange={(e) => setAmount(t.key, e.target.value)}
+                          onChange={(v) => setAmount(t.key, v)}
                           onBlur={() => {
                             // Clamp to the line/charge due if known (UI guard; server is authority).
                             if (t.due !== undefined && Number(t.amount) > 0) {

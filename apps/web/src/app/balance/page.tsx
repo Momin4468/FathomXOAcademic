@@ -6,7 +6,7 @@ import { can, type Balance, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { BalanceView } from "@/components/BalanceView";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import { Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"];
 
@@ -120,7 +120,7 @@ export default function BalancePage() {
                         </Select>
                       </Field>
                       <Field label="Amount">
-                        <Input type="number" min="0" step="0.01" value={charge.amount} onChange={(e) => setCharge({ ...charge, amount: e.target.value })} required />
+                        <MoneyInput value={charge.amount} onChange={(v) => setCharge({ ...charge, amount: v })} required />
                       </Field>
                     </div>
                     <Field label="Reason">

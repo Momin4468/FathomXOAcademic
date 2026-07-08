@@ -3,7 +3,7 @@ import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Spinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Spinner } from "@/components/ui";
 
 /**
  * The vendor self-view (audit item 13). Shows ONLY this vendor's own slice —
@@ -115,7 +115,7 @@ function SubmitClaim({ onSaved }: { onSaved: () => void }) {
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Submit an invoice</p>
       <form onSubmit={submit} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Amount (৳)">
-          <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
         </Field>
         <Field label="Note (optional)">
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What it's for" />
