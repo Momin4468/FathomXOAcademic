@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, sql, type Db } from "@business-os/db";
-import { computeLineAmount, lineBalance, type SessionPrincipal } from "@business-os/shared";
+import { computeLineAmount, lineBalance, round2, type SessionPrincipal } from "@business-os/shared";
 import { and, eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { recomputeMoneyState } from "./money-state.js";
@@ -166,7 +166,11 @@ export class InvoiceService {
     return final!;
   }
 
-  /** Invoice with per-line DERIVED paid/due (client per-job tracking). */
+  /** Invoice with per-line DERIVED paid/due (client per-job tracking) + a
+   *  DERIVED `previousDue` = the client's outstanding across all PRIOR real
+   *  (non-estimate, non-void, non-paid) invoices — the brought-forward opening
+   *  balance a repeat client carries. Never stored; summed at read time from the
+   *  same allocation truth (a stored opening balance would duplicate + drift). */
   async getInvoice(tx: Db, id: string) {
     const [inv] = await tx.select().from(schema.invoice).where(eq(schema.invoice.id, id));
     if (!inv) throw new NotFoundException("Invoice not found");
@@ -179,7 +183,21 @@ export class InvoiceService {
         .where(eq(schema.paymentAllocation.invoiceLineId, l.id));
       withBalances.push({ ...l, ...lineBalance(l.amount, allocs.map((a) => a.amount)) });
     }
-    return { invoice: inv, lines: withBalances };
+    const prev = await tx.execute(sql`
+      select coalesce(sum(il.amount - coalesce(pa.paid, 0)), 0) as prev_due
+      from invoice i
+      join invoice_line il on il.invoice_id = i.id
+      left join lateral (
+        select sum(amount) as paid from payment_allocation where invoice_line_id = il.id
+      ) pa on true
+      where i.client_party_id = ${inv.clientPartyId}
+        and i.id <> ${id}
+        and i.created_at < ${inv.createdAt}
+        and i.is_estimate = false
+        and i.status not in ('void', 'paid')
+    `);
+    const previousDue = round2(Number((prev.rows[0] as { prev_due: string }).prev_due));
+    return { invoice: inv, lines: withBalances, previousDue };
   }
 
   async list(tx: Db, filters: { clientPartyId?: string; status?: string }) {
