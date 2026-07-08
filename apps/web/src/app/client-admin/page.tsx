@@ -44,10 +44,74 @@ export default function ClientAdminPage() {
   return (
     <AppShell>
       <h1 className="mb-5 text-lg font-semibold tracking-tight">Client portal</h1>
+      <AutoProvision />
       <Provision />
       <Accounts />
       <Messages />
     </AppShell>
+  );
+}
+
+/** Auto-provision a login from a student ID + name; shows the derived initial password once. */
+function AutoProvision() {
+  const [studentId, setStudentId] = useState("");
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [result, setResult] = useState<{ loginId: string; initialPassword: string } | null>(null);
+
+  async function run(e: React.FormEvent) {
+    e.preventDefault();
+    if (!studentId.trim() || !name.trim()) return;
+    setBusy(true);
+    setErr("");
+    setResult(null);
+    try {
+      const res = await apiSend<{ loginId: string; initialPassword: string }>("client-portal/accounts/auto", "POST", {
+        studentId: studentId.trim(),
+        name: name.trim(),
+      });
+      setResult({ loginId: res.loginId, initialPassword: res.initialPassword });
+      setStudentId("");
+      setName("");
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Could not auto-provision");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="mb-5">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Auto-provision from student ID + name</p>
+      <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <Field label="Student ID">
+          <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. ICT-701" />
+        </Field>
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+        </Field>
+        <div className="flex items-end">
+          <Button type="submit" variant="secondary" disabled={busy || !studentId.trim() || !name.trim()}>
+            {busy ? "Creating…" : "Auto-provision"}
+          </Button>
+        </div>
+        <div className="sm:col-span-2">
+          {err && <ErrorNote message={err} />}
+          {result && (
+            <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm">
+              <p className="font-medium text-green-900">Login created — hand these over now (shown once):</p>
+              <p className="mt-1 font-mono text-xs text-green-900">
+                Login: {result.loginId}
+                <br />
+                Temporary password: {result.initialPassword}
+              </p>
+              <p className="mt-1 text-xs text-green-700">The client must reset this password on first login.</p>
+            </div>
+          )}
+        </div>
+      </form>
+    </Card>
   );
 }
 

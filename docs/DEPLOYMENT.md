@@ -209,11 +209,19 @@ Each is infra/adapter only. Build + test after.
 - **Env:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server-only — never `NEXT_PUBLIC`), `SUPABASE_STORAGE_BUCKET`. Create a **private** bucket in Supabase first.
 - **Verify:** upload a file through the API (a brief on a public quote, or a vault/knowledge file) → object appears in the bucket; download streams back.
 
-### B2. Resend email adapter (Stage 3)
-- **Today:** `apps/api/src/common/email/email.service.ts` switches on `EMAIL_ADAPTER` (only `dev`; throws for unknown). Interface: `send({to,subject,text,html?})`.
-- **Change:** add an `EMAIL_ADAPTER==='resend'` branch (dep: `resend`): `await new Resend(process.env.RESEND_API_KEY).emails.send({ from: EMAIL_FROM, to, subject, text, html })`. Preserve **envelope-only logging** (log to/subject, never the body). Throw a clear error if `RESEND_API_KEY` is missing.
+### B2. Resend email adapter (Stage 3) — ✅ CODE DONE, config-only
+- **Status:** the `EMAIL_ADAPTER==='resend'` branch is **already implemented** (`apps/api/src/common/email/email.service.ts:60` — Resend send + envelope-only logging + fail-loud if `RESEND_API_KEY` is missing). No code change remains — this is now **config-only**.
 - **Env:** `EMAIL_ADAPTER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` on the **Resend-verified domain** (e.g. `no-reply@xfactoras.com`).
 - **Verify:** trigger a password-reset for a real address → email arrives.
+
+### B2b. WhatsApp adapter (client-portal turn-on) — ✅ CODE DONE, config to enable
+- **Status:** `apps/api/src/common/whatsapp/whatsapp.service.ts` switches on `WHATSAPP_ADAPTER`: `dev` (default) is a no-op; **`meta`** sends via the Meta WhatsApp Cloud API (`POST graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages`, Bearer `WHATSAPP_ACCESS_TOKEN`, `{messaging_product:'whatsapp', to, type:'text', text:{body}}`). Envelope-only logging; fail-loud at boot if `meta` config is missing. Wired into the new-quote `notify()` (`public-intake.service.ts`) behind `PUBLIC_QUOTE_NOTIFY_WHATSAPP`. (Twilio is a straightforward future alternative branch.)
+- **Env to enable:** `WHATSAPP_ADAPTER=meta`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (from a Meta Business WhatsApp app), `PUBLIC_QUOTE_NOTIFY_WHATSAPP` (ops number, E.164). Leave `WHATSAPP_ADAPTER` unset (or `dev`) to keep it a no-op.
+- **Verify:** submit a public quote with the meta config set → the ops number receives a "new quote request" message; missing config throws clearly at boot.
+
+### B2c. Client portal turn-on (backlog item 14) — config + shipped code
+- **Config:** `FEATURE_CLIENT_PORTAL=true` (permissions seeded in `0002`), `EMAIL_ADAPTER=resend` (B2), optionally `PUBLIC_QUOTE_NOTIFY_EMAIL` (ops inbox) and the WhatsApp config (B2b).
+- **Shipped code:** auto-provisioning + forced first-login reset (`POST /client-portal/accounts/auto`, migration 0040) **and** its admin **web form** (client-admin page, "Auto-provision from student ID + name" — shows the derived one-time password). The client-facing portal (login, dashboard, requests, messages, reset) is complete.
 
 ### B3. Auth-endpoint rate limiting (Stage 5)
 - Reuse `SlidingWindowRateLimiter` (`apps/api/src/common/ratelimit/sliding-window.ts`) + `clientIpOf` (`apps/api/src/common/auth/client-ip.ts`) — **same pattern as `password-reset.service.ts`** (study it).
