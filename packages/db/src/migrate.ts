@@ -40,6 +40,7 @@ const SCHEMA_MIGRATIONS = [
   "0036_cost_bearer_party_ref.sql",
   "0037_payment_currency_other_income.sql",
   "0038_leg_reprice.sql",
+  "0039_price_group.sql",
 ];
 
 async function main() {

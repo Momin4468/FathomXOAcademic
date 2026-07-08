@@ -4,6 +4,7 @@ import { ChargeService } from "../billing/charge.service.js";
 import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
+import { PriceGroupService } from "./price-group.service.js";
 import { PricingService } from "./pricing.service.js";
 import { ResitService } from "./resit.service.js";
 import { WorkController } from "./work.controller.js";
@@ -18,7 +19,7 @@ import { WorkService } from "./work.service.js";
 @Module({
   imports: [AuthModule],
   controllers: [WorkController],
-  providers: [WorkService, LineService, LegService, PricingService, ResitService, ChargeService, CustomFieldService],
+  providers: [WorkService, LineService, LegService, PriceGroupService, PricingService, ResitService, ChargeService, CustomFieldService],
   exports: [WorkService],
 })
 export class WorkModule {}

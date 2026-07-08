@@ -19,6 +19,7 @@ import { CurrentRls } from "../../common/rls/rls-context.js";
 import {
   AddLineDto,
   AppendLegsDto,
+  CreatePriceGroupDto,
   CreateWorkItemDto,
   FanOutDto,
   ListWorkQueryDto,
@@ -29,6 +30,7 @@ import {
 } from "./dto.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
+import { PriceGroupService } from "./price-group.service.js";
 import { ResitService } from "./resit.service.js";
 import { WorkService } from "./work.service.js";
 
@@ -45,7 +47,25 @@ export class WorkController {
     private readonly lines: LineService,
     private readonly legs: LegService,
     private readonly resits: ResitService,
+    private readonly priceGroups: PriceGroupService,
   ) {}
+
+  /** Ad-hoc bulk pricing: group N consumer lines under one combined price (item 9). */
+  @Post("price-groups")
+  @RequirePermission("work", "approve")
+  createPriceGroup(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Body() dto: CreatePriceGroupDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.priceGroups.createGroup(tx, principal, dto));
+  }
+
+  @Get("price-groups/:id")
+  @RequirePermission("work", "view")
+  getPriceGroup(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.db.withTenant(ctx, (tx) => this.priceGroups.getGroup(tx, id));
+  }
 
   @Post()
   @RequirePermission("work", "create")

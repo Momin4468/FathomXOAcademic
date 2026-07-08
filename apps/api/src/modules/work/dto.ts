@@ -79,6 +79,14 @@ export class AddLineDto {
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
 
+/** Create an ad-hoc bulk-price group over N consumer lines (P1 item 9). */
+export class CreatePriceGroupDto {
+  @IsOptional() @IsUUID() clientPartyId?: string;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+  @IsNumber() @Min(0) combinedAmount!: number; // one combined figure for the whole set
+  @IsArray() @ArrayMinSize(2) @IsUUID("4", { each: true }) lineIds!: string[]; // lineIds[0] = the anchor
+}
+
 /** Re-price a from→to leg pair to a new total (P1 item 6). Posts a delta leg. */
 export class RepriceLegDto {
   @IsOptional() @IsUUID() fromPartyId?: string;

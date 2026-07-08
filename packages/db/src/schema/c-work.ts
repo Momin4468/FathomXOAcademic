@@ -127,5 +127,18 @@ export const workLine = pgTable("work_line", {
   fixedAmount: numeric("fixed_amount", { precision: 14, scale: 2 }),
   // Copy fan-out: a consumer line points back to the one producer line it came from.
   sourceLineId: uuid("source_line_id"),
+  // Ad-hoc bulk pricing (0039): N consumer lines share a group; the anchor carries
+  // the combined amount, siblings sit at ৳0 tagged with the group.
+  priceGroupId: uuid("price_group_id"),
   note: text("note"),
+});
+
+/** SCHEMA C (0039) — an ad-hoc bulk-price container: N tasks, one combined sum. */
+export const priceGroup = pgTable("price_group", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull(),
+  clientPartyId: uuid("client_party_id").references(() => party.id),
+  note: text("note"),
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
