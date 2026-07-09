@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
 import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
@@ -17,6 +18,9 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
   const [form, setForm] = useState({ categoryId: "", amount: "", currency: "BDT", convertedAmount: "", convertedCurrency: "BDT", occurredOn: today(), note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const dirty = !!form.amount || !!form.note || !!form.categoryId;
+  const { confirmClose } = useUnsavedGuard(dirty);
 
   const catName = useMemo(() => {
     const m = new Map<string, string>();
@@ -63,7 +67,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
     <>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold capitalize tracking-tight">{kind}</h1>
-        <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : `+ Add ${kind}`}</Button>
+        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : `+ Add ${kind}`}</Button>
       </div>
 
       {open && (

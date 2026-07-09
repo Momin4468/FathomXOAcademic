@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiGet, apiSend } from "@/lib/api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import type { PartyRow, RefEntity, WorkItem } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
@@ -31,6 +32,10 @@ export default function NewJobPage() {
   const [doerPartyId, setDoerPartyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const dirty =
+    !!title || !!details || !!courseRefId || !!assignmentTypeRefId || !!sourcePartyId || !!doerPartyId;
+  const { confirmClose } = useUnsavedGuard(dirty);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,7 +99,7 @@ export default function NewJobPage() {
             <Button type="submit" disabled={busy || !title.trim()}>
               {busy ? "Saving…" : "Save draft"}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => router.back()}>
+            <Button type="button" variant="ghost" onClick={() => confirmClose(() => router.back())}>
               Cancel
             </Button>
           </div>

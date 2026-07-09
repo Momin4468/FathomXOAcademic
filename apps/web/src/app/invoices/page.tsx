@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { can, type Invoice, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
@@ -35,6 +36,9 @@ export default function InvoicesPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
+  const dirty = !!newClient || isEstimate;
+  const { confirmClose } = useUnsavedGuard(dirty);
+
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (!newClient) return;
@@ -57,7 +61,7 @@ export default function InvoicesPage() {
     <AppShell>
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Invoices</h1>
-        {canCreate && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ New invoice"}</Button>}
+        {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ New invoice"}</Button>}
       </div>
 
       {open && canCreate && (

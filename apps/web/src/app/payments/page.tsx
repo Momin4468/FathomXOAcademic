@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { can, type PartyRow, type Payment, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
@@ -37,6 +38,9 @@ export default function PaymentsPage() {
     note: "",
   });
 
+  const dirty = !!form.amount || !!form.counterpartyPartyId || !!form.trxId || !!form.note;
+  const { confirmClose } = useUnsavedGuard(dirty);
+
   async function record(e: React.FormEvent) {
     e.preventDefault();
     const amount = Number(form.amount);
@@ -70,7 +74,7 @@ export default function PaymentsPage() {
     <AppShell>
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Payments</h1>
-        {canCreate && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Record payment"}</Button>}
+        {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Record payment"}</Button>}
       </div>
 
       {open && canCreate && (

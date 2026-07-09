@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatMoney } from "@/lib/format";
 import { can, type Expense, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -54,6 +55,9 @@ export default function ExpensesPage() {
 
   const canCreate = can(me?.permissions, "expenses:create");
   const canApprove = can(me?.permissions, "expenses:approve");
+
+  const dirty = !!form.amount || !!bearer || !!form.note || splitRows.length > 0;
+  const { confirmClose } = useUnsavedGuard(dirty);
 
   async function runReminders() {
     setReminderMsg("");
@@ -118,7 +122,7 @@ export default function ExpensesPage() {
         </div>
         <div className="flex items-center gap-2">
           {canApprove && <Button variant="secondary" onClick={runReminders}>Run reminders</Button>}
-          {canCreate && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add expense"}</Button>}
+          {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add expense"}</Button>}
         </div>
       </div>
       {reminderMsg && <p className="mb-3 text-xs text-green-700">{reminderMsg}</p>}

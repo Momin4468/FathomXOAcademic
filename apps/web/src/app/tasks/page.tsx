@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDateTime } from "@/lib/format";
 import type { Task } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -42,6 +43,9 @@ export default function TasksPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
 
+  const dirty = !!title || !!(due.date || due.time);
+  const { confirmClose } = useUnsavedGuard(dirty);
+
   async function complete(id: string) {
     await apiSend(`tasks/${id}/complete`, "POST");
     await mutate();
@@ -73,7 +77,7 @@ export default function TasksPage() {
           <h1 className="text-lg font-semibold tracking-tight">Tasks</h1>
           <p className="text-xs text-gray-500">Due tracking in your timezone — nudges, never blocks.</p>
         </div>
-        <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Task"}</Button>
+        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Task"}</Button>
       </div>
 
       {open && (

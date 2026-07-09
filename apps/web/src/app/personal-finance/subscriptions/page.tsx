@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
@@ -16,6 +17,9 @@ export default function PfSubscriptionsPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+
+  const dirty = !!form.name || !!form.amount || !!form.nextDueDate || !!form.note;
+  const { confirmClose } = useUnsavedGuard(dirty);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,7 +67,7 @@ export default function PfSubscriptionsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={runReminders}>Run reminders</Button>
-          <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add"}</Button>
+          <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add"}</Button>
         </div>
       </div>
       {msg && <p className="mb-3 text-xs text-emerald-700">{msg}</p>}

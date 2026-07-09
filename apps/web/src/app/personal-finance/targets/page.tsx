@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { pfMoney, type PfCategory, type PfTarget } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { DataTable } from "@/components/DataTable";
@@ -18,6 +19,9 @@ export default function PfTargetsPage() {
   const [form, setForm] = useState({ kind: "budget_cap", categoryId: "", period: "month", periodStart: monthStart(), amount: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const dirty = !!form.amount || !!form.categoryId || !!form.note;
+  const { confirmClose } = useUnsavedGuard(dirty);
 
   const relevantCats = useMemo(() => {
     const wantKind = form.kind === "income_goal" ? "income" : form.kind === "budget_cap" ? "expense" : null;
@@ -58,7 +62,7 @@ export default function PfTargetsPage() {
     <PfShell>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Targets & budgets</h1>
-        <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add target"}</Button>
+        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add target"}</Button>
       </div>
 
       {open && (

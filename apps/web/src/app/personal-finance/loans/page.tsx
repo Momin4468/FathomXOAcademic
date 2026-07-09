@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfLoan, type PfLoanEvent } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
@@ -12,14 +13,16 @@ const today = () => new Date().toISOString().slice(0, 10);
 export default function PfLoansPage() {
   const { data, error, isLoading, mutate } = usePfApi<PfLoan[]>("loans");
   const [open, setOpen] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
+  const { confirmClose } = useUnsavedGuard(open && formDirty);
 
   return (
     <PfShell>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold tracking-tight">Loans</h1>
-        <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add loan"}</Button>
+        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add loan"}</Button>
       </div>
-      {open && <AddLoan onDone={() => { setOpen(false); void mutate(); }} />}
+      {open && <AddLoan onDirtyChange={setFormDirty} onDone={() => { setOpen(false); void mutate(); }} />}
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
@@ -33,10 +36,16 @@ export default function PfLoansPage() {
   );
 }
 
-function AddLoan({ onDone }: { onDone: () => void }) {
+function AddLoan({ onDone, onDirtyChange }: { onDone: () => void; onDirtyChange: (dirty: boolean) => void }) {
   const [form, setForm] = useState({ direction: "given", counterpartyName: "", principal: "", currency: "BDT", startedOn: today(), dueOn: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  const dirty = !!form.counterpartyName || !!form.principal || !!form.dueOn || !!form.note;
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.counterpartyName.trim() || !form.principal) return;
