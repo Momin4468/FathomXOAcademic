@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,26 @@ import { pgSsl } from "./client.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const migrationsDir = resolve(here, "../migrations");
+
+/**
+ * Seed files carry DATA (org/roles/reference), not schema, and are applied
+ * SEPARATELY by `pnpm db:seed` — never by `pnpm db:migrate`. This is the single
+ * source of truth for that exclusion (both migrate.ts and seed.ts import it).
+ */
+export const SEED_FILES: readonly string[] = ["0002_seed.sql", "0005_seed_reference.sql"];
+
+/**
+ * The schema/RLS migration set = every `.sql` in the migrations dir (sorted by
+ * filename — the zero-padded numeric prefix makes lexicographic order == numeric
+ * order), minus the seed files. Auto-discovered so a new migration can NEVER be
+ * silently forgotten by failing to register it in a hand-maintained list (the
+ * exact bug that let 0045 no-op on first run).
+ */
+export function discoverSchemaMigrations(): string[] {
+  return readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql") && !SEED_FILES.includes(f))
+    .sort();
+}
 
 /**
  * Apply a list of .sql files exactly once, tracked in schema_migrations.

@@ -1,8 +1,8 @@
 import { env } from "./env.js";
-import { applyMigrations } from "./run-migrations.js";
+import { applyMigrations, SEED_FILES } from "./run-migrations.js";
 
 async function main() {
-  await applyMigrations(env.adminUrl, ["0002_seed.sql", "0005_seed_reference.sql"]);
+  await applyMigrations(env.adminUrl, [...SEED_FILES]);
   console.log("Seed complete.");
 }
 
