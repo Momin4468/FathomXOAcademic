@@ -31,26 +31,10 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: db
 
-  # Embedded BI (DESIGN_SPEC §8). Metabase reads the business DB ONLY as the
-  # read-only `analytics_ro` role over the redacted `analytics` schema of views
-  # (added as a data source in Metabase's UI — see docs/METABASE_SETUP.md). Its
-  # OWN app DB is the bundled H2 in the volume (use a dedicated Postgres in prod).
-  # MB_EMBEDDING_SECRET_KEY must equal the API's METABASE_EMBED_SECRET so signed
-  # embeds verify. In prod, point Metabase at a read replica using the same role.
-  metabase:
-    image: metabase/metabase:latest
-    container_name: businessos_metabase
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "${METABASE_PORT:-3000}:3000"
-    environment:
-      MB_EMBEDDING_SECRET_KEY: ${METABASE_EMBED_SECRET:-}
-    volumes:
-      - businessos_metabase:/metabase.db
+  # NB: the former embedded-Metabase service was removed — analytics now render as
+  # native in-app charts (the `analytics` schema of redacted views is queried
+  # directly via org-scoped SECURITY DEFINER wrappers). See docs/METABASE_SETUP.md
+  # (archived) for the old BI path if it's ever reconsidered.
 
 volumes:
   businessos_pgdata:
-  businessos_metabase:

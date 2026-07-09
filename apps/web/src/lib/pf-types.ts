@@ -12,7 +12,7 @@ export interface PfProfile {
 
 export interface PfCategory {
   id: string;
-  kind: "income" | "expense";
+  kind: "income" | "expense" | "investment";
   name: string;
   archivedAt: string | null;
 }
@@ -73,6 +73,49 @@ export interface PfSavingEvent {
   reversesId: string | null;
 }
 
+export interface PfInvestment {
+  id: string;
+  categoryId: string | null;
+  name: string;
+  currency: string;
+  principal: string;
+  startedOn: string;
+  note: string | null;
+  archivedAt: string | null;
+  // Derived at read (never stored):
+  costBasis: number;
+  currentValue: number;
+  unrealizedPl: number;
+}
+
+export interface PfInvestmentEvent {
+  id: string;
+  investmentId: string;
+  kind: string; // valuation | contribution | withdrawal
+  amount: string;
+  occurredOn: string;
+  note: string | null;
+  reversesId: string | null;
+}
+
+export interface PfCashCheckin {
+  id: string;
+  asOf: string;
+  declaredAmount: string;
+  currency: string;
+  note: string | null;
+}
+
+export interface PfReconcile {
+  status: "none" | "baseline" | "reconciled" | "over" | "under";
+  latest: PfCashCheckin | null;
+  prior?: PfCashCheckin | null;
+  netFlow?: number | null;
+  expected?: number | null;
+  discrepancy?: number | null;
+  suggestedAdjustment?: { kind: "income" | "expense"; amount: number; currency: string } | null;
+}
+
 export interface PfTarget {
   id: string;
   kind: "budget_cap" | "income_goal" | "savings_target";
@@ -104,6 +147,14 @@ export interface PfDashboard {
   month: { income: string; expense: string; net: string };
   loans: { givenOutstanding: string; takenOutstanding: string };
   savingsTotal: string;
+  investmentsTotal: string;
+  cashOnHand: string;
+  netWorth: {
+    value: string;
+    assets: { savings: string; investments: string; receivable: string; cash: string };
+    liabilities: { owed: string };
+    monthlyFlow: { income: string; expense: string; net: string };
+  };
   upcomingSubscriptions: Array<{ id: string; name: string; amount: string; currency: string; nextDueDate: string }>;
   recent: Array<{ kind: string; id: string; amount: string; currency: string; occurredOn: string; note: string | null }>;
 }

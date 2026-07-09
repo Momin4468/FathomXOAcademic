@@ -260,8 +260,8 @@ export type CredentialType = (typeof CREDENTIAL_TYPES)[number];
 // the UI suggests); enums below are the small fixed dimensions of the model.
 // ────────────────────────────────────────────────────────────────────────────
 
-/** pf_category.kind — a user-defined category is for income or expense. */
-export const PF_CATEGORY_KINDS = ["income", "expense"] as const;
+/** pf_category.kind — a user-defined category is for income, expense, or an investment type. */
+export const PF_CATEGORY_KINDS = ["income", "expense", "investment"] as const;
 export type PfCategoryKind = (typeof PF_CATEGORY_KINDS)[number];
 
 /** pf_income.source — where an income row came from (business_payout = via the one-way bridge). */
@@ -279,6 +279,16 @@ export type PfLoanEventKind = (typeof PF_LOAN_EVENT_KINDS)[number];
 /** pf_saving_event.kind — movements in a savings pot (balance is derived). */
 export const PF_SAVING_EVENT_KINDS = ["deposit", "withdraw"] as const;
 export type PfSavingEventKind = (typeof PF_SAVING_EVENT_KINDS)[number];
+
+/**
+ * pf_investment_event.kind — the append-only value log for an investment holding.
+ *   valuation    = an ABSOLUTE current-value re-mark (latest one wins; NOT a delta)
+ *   contribution = money added to the holding (raises cost basis)
+ *   withdrawal   = money taken out / realized (lowers cost basis)
+ * current value & P/L are DERIVED at read from these + the principal, never stored.
+ */
+export const PF_INVESTMENT_EVENT_KINDS = ["valuation", "contribution", "withdrawal"] as const;
+export type PfInvestmentEventKind = (typeof PF_INVESTMENT_EVENT_KINDS)[number];
 
 /** pf_target.kind — a budget cap, an income goal, or a savings target (progress derived). */
 export const PF_TARGET_KINDS = ["budget_cap", "income_goal", "savings_target"] as const;

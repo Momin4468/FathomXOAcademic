@@ -32,4 +32,26 @@ export class DashboardController {
   ) {
     return this.db.withTenant(ctx, (tx) => this.dashboard.getDashboard(tx, principal, perms));
   }
+
+  /** Writer leaderboard — volume for all; reputation + margin for owners (in-service). */
+  @Get("leaderboard")
+  @RequirePermission("dashboard", "view")
+  leaderboard(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.dashboard.leaderboard(tx, principal, perms));
+  }
+
+  /** Chart series (owner-only org net / trend / expenses; member gets scope only). */
+  @Get("charts")
+  @RequirePermission("dashboard", "view")
+  charts(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.dashboard.charts(tx, principal, perms));
+  }
 }

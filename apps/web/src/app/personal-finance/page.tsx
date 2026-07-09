@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePfApi, pfDismissAnomaly } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
-import { pfMoney, type PfInsights } from "@/lib/pf-types";
+import { pfMoney, type PfInsights, type PfDashboard } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { Donut, IncomeExpenseBars, NetTrend, PF_PALETTE } from "@/components/PfCharts";
 import { Badge, Card, EmptyState, ErrorNote, Spinner, cx } from "@/components/ui";
@@ -29,6 +29,8 @@ export default function PfOverviewPage() {
   }
   const query = sel ? `?period=${sel}${sel === "custom" ? `&days=${customDays}` : ""}` : "";
   const { data, error, isLoading } = usePfApi<PfInsights>(`insights${query}`);
+  // Net worth is a point-in-time STOCK (not period-scoped) — from the dashboard overview.
+  const { data: dash } = usePfApi<PfDashboard>("dashboard");
   const activeKind: Kind = sel ?? (data?.period.kind ?? "month");
   const base = data?.baseCurrency ?? "BDT";
 
@@ -102,12 +104,25 @@ export default function PfOverviewPage() {
             </div>
           )}
 
+          {/* Net worth headline (a stock: assets − liabilities). Run-rates below are FLOWS. */}
+          {dash && (
+            <Card className="mb-4">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Net worth</h2>
+              <div className="mt-1 text-2xl font-semibold tabular-nums">{pfMoney(dash.netWorth.value, base)}</div>
+              <p className="mt-1 text-xs text-gray-500">
+                Savings {pfMoney(dash.netWorth.assets.savings, base)} · Investments {pfMoney(dash.netWorth.assets.investments, base)} ·
+                Owed to you {pfMoney(dash.netWorth.assets.receivable, base)} · Cash {pfMoney(dash.netWorth.assets.cash, base)} · You owe {pfMoney(dash.netWorth.liabilities.owed, base)}
+              </p>
+            </Card>
+          )}
+
           {/* KPI cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Kpi label={`Income`} value={pfMoney(data.totals.income, base)} tone="text-emerald-700" />
             <Kpi label={`Expense`} value={pfMoney(data.totals.expense, base)} tone="text-rose-700" />
             <Kpi label={`Net`} value={pfMoney(data.totals.net, base)} tone={Number(data.totals.net) >= 0 ? "text-emerald-700" : "text-rose-700"} />
             <Kpi label="Savings" value={pfMoney(data.totals.savingsTotal, base)} />
+            <Kpi label="Investments" value={pfMoney(dash?.netWorth.assets.investments, base)} />
             <Kpi label="Lent out" value={pfMoney(data.totals.loansGivenOutstanding, base)} />
             <Kpi label="Owed by you" value={pfMoney(data.totals.loansTakenOutstanding, base)} />
           </div>

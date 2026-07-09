@@ -19,6 +19,10 @@ import { PfLoanService } from "./loans/pf-loan.service.js";
 import { PfAuditService } from "./pf-audit.service.js";
 import { PfSavingController } from "./savings/pf-saving.controller.js";
 import { PfSavingService } from "./savings/pf-saving.service.js";
+import { PfInvestmentController } from "./investments/pf-investment.controller.js";
+import { PfInvestmentService } from "./investments/pf-investment.service.js";
+import { PfCashController } from "./cash/pf-cash.controller.js";
+import { PfCashService } from "./cash/pf-cash.service.js";
 import { PfSubscriptionController } from "./subscriptions/pf-subscription.controller.js";
 import { PfReminderService } from "./subscriptions/pf-reminder.service.js";
 import { PfSubscriptionService } from "./subscriptions/pf-subscription.service.js";
@@ -74,6 +78,8 @@ import { ClaudeCaptureProvider } from "../ai-capture/provider/claude.provider.js
     PfEntryController,
     PfLoanController,
     PfSavingController,
+    PfInvestmentController,
+    PfCashController,
     PfTargetController,
     PfSubscriptionController,
     PfDashboardController,
@@ -95,6 +101,8 @@ import { ClaudeCaptureProvider } from "../ai-capture/provider/claude.provider.js
     PfEntryService,
     PfLoanService,
     PfSavingService,
+    PfInvestmentService,
+    PfCashService,
     PfTargetService,
     PfSubscriptionService,
     PfReminderService,

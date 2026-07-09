@@ -136,6 +136,43 @@ export const pfSavingEvent = pgTable("pf_saving_event", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Investment holdings (0047). Current value + P/L derived from principal + events. */
+export const pfInvestment = pgTable("pf_investment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  categoryId: uuid("category_id"), // investment TYPE (pf_category kind='investment')
+  name: text("name").notNull(),
+  principal: numeric("principal", { precision: 16, scale: 2 }).notNull(), // initial cost basis
+  currency: text("currency").notNull().default("BDT"),
+  startedOn: date("started_on").notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp("archived_at", { withTimezone: true }),
+});
+
+export const pfInvestmentEvent = pgTable("pf_investment_event", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  investmentId: uuid("investment_id").notNull(),
+  kind: text("kind").notNull(), // valuation | contribution | withdrawal
+  amount: numeric("amount", { precision: 16, scale: 2 }).notNull(),
+  occurredOn: date("occurred_on").notNull(),
+  note: text("note"),
+  reversesId: uuid("reverses_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Periodic declared cash-on-hand snapshot (0047). Append-only; discrepancy derived. */
+export const pfCashCheckin = pgTable("pf_cash_checkin", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  pfAccountId: uuid("pf_account_id").notNull(),
+  asOf: date("as_of").notNull(),
+  declaredAmount: numeric("declared_amount", { precision: 16, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("BDT"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Budgets/goals. Progress is derived at read (never stored). */
 export const pfTarget = pgTable("pf_target", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -12,6 +12,8 @@ const LINKS = [
   { href: "/personal-finance/expenses", label: "Expenses" },
   { href: "/personal-finance/loans", label: "Loans" },
   { href: "/personal-finance/savings", label: "Savings" },
+  { href: "/personal-finance/investments", label: "Investments" },
+  { href: "/personal-finance/cash", label: "Cash check-in" },
   { href: "/personal-finance/targets", label: "Targets" },
   { href: "/personal-finance/subscriptions", label: "Subscriptions" },
   { href: "/personal-finance/notes", label: "Notes" },

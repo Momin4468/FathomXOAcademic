@@ -1,8 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import { sql, type Db } from "@business-os/db";
+import { schema, sql, type Db } from "@business-os/db";
 import { round2, type SessionPrincipal } from "@business-os/shared";
+import { inArray } from "drizzle-orm";
 import type { EffectivePermissions } from "../../common/authz/permission.service.js";
 import { BalanceService } from "../billing/balance.service.js";
+
+const num = (v: unknown): number => round2(Number(v));
+const numOrNull = (v: unknown): number | null => (v == null ? null : Number(v));
 
 
 /**
@@ -81,5 +85,145 @@ export class DashboardService {
         openLoopsTotal: openLoops.count, // canSeeAllLoops is true here
       },
     };
+  }
+
+  /**
+   * The writer leaderboard. The VOLUME board (job counts) is returned to every
+   * viewer (§4.5 "job counts" are org-visible; no money). Reputation
+   * (reliability/on-time/fail) and the profit-per-writer margin ranking are added
+   * ONLY for an analytics approver — a non-owner payload carries volume columns
+   * and nothing else, so the opacity guarantee holds by construction.
+   */
+  async leaderboard(tx: Db, principal: SessionPrincipal, perms: EffectivePermissions) {
+    const canAnalytics = principal.isSystemSuperadmin || perms.perms.has("dashboard:approve");
+
+    const volRows = (
+      await tx.execute(sql`
+        select party_id as "partyId", total_jobs as "totalJobs", delivered, open_jobs as "openJobs"
+        from dashboard_work_volume()
+        order by total_jobs desc, delivered desc
+      `)
+    ).rows as Array<{ partyId: string; totalJobs: number; delivered: number; openJobs: number }>;
+    const ids = new Set<string>(volRows.map((v) => v.partyId));
+
+    let repRaw: Array<Record<string, unknown>> = [];
+    let profitRaw: Array<Record<string, unknown>> = [];
+    if (canAnalytics) {
+      repRaw = (
+        await tx.execute(sql`
+          select writer_party_id as "writerPartyId", jobs, on_time_rate as "onTimeRate",
+                 avg_days_late as "avgDaysLate", revision_rate as "revisionRate",
+                 complaints, failed, fail_rate as "failRate", avg_ai_score as "avgAiScore",
+                 reliability_score as "reliabilityScore"
+          from dashboard_writer_reputation()
+          order by reliability_score desc nulls last, jobs desc
+        `)
+      ).rows as Array<Record<string, unknown>>;
+      repRaw.forEach((r) => ids.add(r.writerPartyId as string));
+      profitRaw = (
+        await tx.execute(sql`
+          select writer_party_id as "writerPartyId", jobs, revenue, writer_cost as "writerCost", net
+          from dashboard_writer_pnl() order by net desc
+        `)
+      ).rows as Array<Record<string, unknown>>;
+      profitRaw.forEach((r) => ids.add(r.writerPartyId as string));
+    }
+
+    const names = await this.partyNames(tx, [...ids]);
+    const volume = volRows.map((v) => ({
+      partyId: v.partyId,
+      displayName: names.get(v.partyId) ?? null,
+      totalJobs: Number(v.totalJobs),
+      delivered: Number(v.delivered),
+      openJobs: Number(v.openJobs),
+    }));
+
+    if (!canAnalytics) return { scope: "member" as const, volume };
+
+    return {
+      scope: "owner" as const,
+      volume,
+      reputation: repRaw.map((r) => ({
+        writerPartyId: r.writerPartyId as string,
+        displayName: names.get(r.writerPartyId as string) ?? null,
+        jobs: Number(r.jobs),
+        onTimeRate: numOrNull(r.onTimeRate),
+        avgDaysLate: numOrNull(r.avgDaysLate),
+        revisionRate: numOrNull(r.revisionRate),
+        complaints: Number(r.complaints),
+        failed: Number(r.failed),
+        failRate: numOrNull(r.failRate),
+        avgAiScore: numOrNull(r.avgAiScore),
+        reliabilityScore: numOrNull(r.reliabilityScore),
+      })),
+      profitPerWriter: profitRaw.map((r) => ({
+        writerPartyId: r.writerPartyId as string,
+        displayName: names.get(r.writerPartyId as string) ?? null,
+        jobs: Number(r.jobs),
+        revenue: num(r.revenue),
+        writerCost: num(r.writerCost),
+        profit: num(r.net), // derived in TS; SQL exposes it as `net`
+      })),
+    };
+  }
+
+  /**
+   * Chart series for the analytics page. Owner-only (in-service): org net + the
+   * monthly net trend + expense breakdown/trend. A non-owner gets `scope:"member"`
+   * and NO owner keys — their personal KPIs come from getDashboard (own balance).
+   */
+  async charts(tx: Db, principal: SessionPrincipal, perms: EffectivePermissions) {
+    const canAnalytics = principal.isSystemSuperadmin || perms.perms.has("dashboard:approve");
+    if (!canAnalytics) return { scope: "member" as const };
+
+    const netRow = (await tx.execute(sql`select revenue, writer_cost as "writerCost", net from dashboard_org_net()`))
+      .rows[0] as { revenue: unknown; writerCost: unknown; net: unknown } | undefined;
+    const orgNet = {
+      revenue: num(netRow?.revenue ?? 0),
+      writerCost: num(netRow?.writerCost ?? 0),
+      net: num(netRow?.net ?? 0),
+    };
+
+    const netMonthly = (
+      await tx.execute(sql`
+        select to_char(month, 'YYYY-MM') as month, revenue, writer_cost as "writerCost", net
+        from dashboard_org_net_monthly()
+      `)
+    ).rows.map((m) => {
+      const r = m as { month: string; revenue: unknown; writerCost: unknown; net: unknown };
+      return { month: r.month, revenue: num(r.revenue), writerCost: num(r.writerCost), net: num(r.net) };
+    });
+
+    const expRows = (
+      await tx.execute(sql`select to_char(month, 'YYYY-MM') as month, category, total from dashboard_expense_totals()`)
+    ).rows as Array<{ month: string; category: string; total: unknown }>;
+    const byCat = new Map<string, number>();
+    const byMonth = new Map<string, number>();
+    for (const e of expRows) {
+      byCat.set(e.category, (byCat.get(e.category) ?? 0) + Number(e.total));
+      byMonth.set(e.month, (byMonth.get(e.month) ?? 0) + Number(e.total));
+    }
+
+    return {
+      scope: "owner" as const,
+      orgNet,
+      netMonthly,
+      expenseByCategory: [...byCat.entries()]
+        .map(([category, total]) => ({ category, total: round2(total) }))
+        .sort((a, b) => b.total - a.total),
+      expenseMonthly: [...byMonth.entries()]
+        .map(([month, total]) => ({ month, total: round2(total) }))
+        .sort((a, b) => a.month.localeCompare(b.month)),
+    };
+  }
+
+  /** Batch-resolve party display names (org-scoped by RLS; names are not money). */
+  private async partyNames(tx: Db, ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+    const rows = await tx
+      .select({ id: schema.party.id, displayName: schema.party.displayName })
+      .from(schema.party)
+      .where(inArray(schema.party.id, ids));
+    return new Map(rows.map((r) => [r.id, r.displayName]));
   }
 }

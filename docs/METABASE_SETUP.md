@@ -1,4 +1,17 @@
-# Metabase analytics setup (DESIGN_SPEC §8)
+# Metabase analytics setup (DESIGN_SPEC §8) — ⚠️ ARCHIVED / DEPRECATED
+
+> **Superseded 2026-07-09.** Analytics now render as **native in-app charts** (the
+> `/analytics` page + `GET /dashboard/leaderboard` + `GET /dashboard/charts`),
+> which query the same redacted `analytics` schema of views (0029) directly via
+> org-scoped `SECURITY DEFINER` wrappers (migration 0046) — no iframe, no external
+> dependency. The Metabase embed endpoint (`GET /analytics/embed`), the
+> `MetabaseEmbedService`, the `METABASE_*` env vars, and the docker-compose
+> `metabase` service were **removed**. The `analytics` schema/views and the
+> read-only `analytics_ro` role are **kept dormant** in case an external BI tool is
+> reconsidered. This document is retained for reference only — nothing below is
+> wired up anymore.
+
+---
 
 Embedded Metabase provides role-scoped dashboards + a SuperAdmin ad-hoc query/chart
 builder. **It can never leak a figure a role can't see** because it reads the

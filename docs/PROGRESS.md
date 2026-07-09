@@ -9,13 +9,24 @@
 
 ---
 
-## 🔨 In review (uncommitted) — RBAC admin layer (roles/permissions management)
-The write side of the roles-as-data engine (`PermissionService` was read-only). All gated to the `platform` module (SuperAdmin-only) and audited. See DECISIONS 2026-07-09 for the three decisions (SuperAdmin-only + no-self-escalation · built-in name/delete locked but perms editable, System SuperAdmin fully immutable · strict grid driven by a runtime `DiscoveryService` catalog).
-- **Backend (`apps/api/src/modules/platform/`):** `roles.controller.ts` + `roles.service.ts` (role CRUD, permission toggle, `GET /platform/users`; guards for is_system/System-SuperAdmin/strict-grant/no-self-escalation), `permission-catalog.service.ts` (enforced module×action set derived from `@RequirePermission` metadata). Assign/unassign reuse the existing `admin.controller.ts` endpoints. Migration **0045** (`role.description` + unique indexes; registered in `migrate.ts`); `PERMISSION_ACTIONS` extended with `delete`/`export` (grantable-but-inert until an endpoint enforces them).
-- **Web:** `/roles` (list + create) and `/roles/[id]` (details + `PermissionGrid` module×action matrix + assigned-users + delete), nav entry gated `platform:view`. Reuses DataTable/Field/ConfirmDialog + the `fieldErrorMap`/`bannerMessage` pattern.
-- **Verified:** API typecheck + build clean; `roles-http.test.ts` **8/8** (gate, catalog truthfulness, denial, is_system protections, no-self-escalation, cross-org isolation); web build clean; web unit 25/25. Migration 0045 applied to the Supabase DB the suite runs against (additive/safe). **Left UNCOMMITTED for review.**
+## 🔨 In review (uncommitted) — PF investments + net-worth + cash check-in
+Extended the Personal Finance plane (§11) with investments, a unified net-worth number, and a periodic cash check-in — each mirroring an existing PF pattern. See DECISIONS 2026-07-10.
+- **Migration 0047** (auto-discovered): `pf_investment` (mutable header, immutable `principal`), `pf_investment_event` (append-only value log), `pf_cash_checkin` (append-only snapshot) — all with the `pf_account_isolation` RLS (FORCE, no superadmin) + the append-only grant tier. Investment TYPES reuse `pf_category` (`kind='investment'`, seeded in `pf_register` + backfill). `PF_CATEGORY_KINDS += investment`; new `PF_INVESTMENT_EVENT_KINDS`.
+- **API:** `investments/` module (holdings + value log; current value & P/L **derived** — latest valuation vs. cost basis, never stored) and `cash/` module (`POST/GET checkins`, `GET reconcile` = derived discrepancy + optional nudge). Net worth added to `pf-dashboard.service.ts` (composed in-service under `withPfAccount` — no definer needed for PF).
+- **Web:** `/personal-finance/investments`, `/personal-finance/cash`, a net-worth headline + investments KPI on the overview, two nav links.
+- **Verified:** `guard:no-stored-profit` green; API typecheck + build clean; **`pf-investments.test.ts` 3/3** + **`pf-cash-networth.test.ts` 3/3** (P/L derived + no stored column, isolation cross-account/cross-plane, net worth stock + base-currency-only + moves-on-reverse, reconcile discrepancy with no side-effect); web build clean. **Left UNCOMMITTED for review.**
 
-> **Previously in review, now COMMITTED** (by the user, `c702172` + `7d8686e`): the UI polish pass (closed all `docs/UI_POLISH_AUDIT.md` [Review] items A1–A8) and per-field validation error display (structured `fieldErrors` end-to-end across 36 forms, all three auth planes) + the `flattenValidationErrors` throw-hardening. See DECISIONS 2026-07-09.
+---
+
+## 🔨 In review (uncommitted) — native dashboards + writer leaderboard (retire Metabase embed)
+Replaced the `/analytics` Metabase iframe with **native in-app charts + a writer leaderboard**, reusing the `analytics` schema of redaction-safe views (0029), `deriveReputation`, the SVG chart components, and the `dashboard` module's `view`/`approve` gates. See DECISIONS 2026-07-09.
+- **Migration 0046** (auto-discovered): aggregate-only `SECURITY DEFINER` wrappers over the analytics views, org-scoped, granted `app_user` — `dashboard_work_volume()` + `dashboard_writer_reputation()` (leaderboard sources, **money-free**), owner-only `dashboard_org_net()` / `dashboard_expense_totals()` / new `analytics.org_net_monthly` + `dashboard_org_net_monthly()`.
+- **API:** `GET /dashboard/leaderboard` + `GET /dashboard/charts` on `DashboardController` (`dashboard:view`, owner extras gated in-service). Volume board for all; reputation + profit-per-writer + org net for owners only.
+- **Web:** shared `components/Charts.tsx` (PfCharts re-exports); rewrote `app/analytics/page.tsx` native (KPI tiles + net trend + expense donut + leaderboard table).
+- **Retired Metabase:** removed `analytics.controller.ts` + `metabase-embed.service.ts` + `analytics-embed.test.ts`; stripped `METABASE_*` env + the docker-compose `metabase` service; archived `docs/METABASE_SETUP.md`. Kept the `analytics` schema/views + `analytics_ro` dormant.
+- **Verified:** 0046 applies; API typecheck + build clean; **`dashboard-natives.test.ts` 5/5** (owner full vs member volume-only, no `61234`/`30987` money leak, `/charts` member-scoped, cross-org isolation, superadmin owner); **`dashboard-http` regression 7/7**; web build clean; no lingering Metabase/embed reference. **Left UNCOMMITTED for review.**
+
+> **Previously in review, now COMMITTED:** the **RBAC admin layer** (roles/permissions management — `1e92237`) + the migrate **auto-discovery fix** (`f730320`); and earlier, the UI polish pass + per-field validation (`c702172` + `7d8686e`). See DECISIONS 2026-07-09.
 
 ---
 
