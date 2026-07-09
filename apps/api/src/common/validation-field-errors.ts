@@ -30,6 +30,11 @@ export function flattenValidationErrors(errors: ValidationError[]): {
   const fieldErrors: FieldError[] = [];
 
   const walk = (errs: ValidationError[], prefix: string): void => {
+    // Defensive: this runs in front of the login endpoint and every form, so a
+    // malformed error shape must degrade to an empty result, never throw (a throw
+    // here turns a clean 400 into an unhandled 500). class-validator always hands
+    // us arrays; the guard just makes that assumption un-break-able.
+    if (!Array.isArray(errs)) return;
     for (const err of errs) {
       const path = prefix ? `${prefix}.${err.property}` : err.property;
       const constraintMessages = err.constraints ? Object.values(err.constraints) : [];
@@ -41,7 +46,7 @@ export function flattenValidationErrors(errors: ValidationError[]): {
         fieldErrors.push({ field: path, message: firstMessage });
       }
       // Recurse into nested DTOs / arrays (err.children carries the sub-errors).
-      if (err.children && err.children.length > 0) {
+      if (Array.isArray(err.children) && err.children.length > 0) {
         walk(err.children, path);
       }
     }
