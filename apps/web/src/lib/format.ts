@@ -10,7 +10,8 @@ export function formatMoney(value: number | string | null | undefined, prefix = 
   if (value === null || value === undefined || value === "") return null;
   const n = typeof value === "string" ? Number(value) : value;
   if (Number.isNaN(n)) return null;
-  return `${prefix}${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  // Finance convention (R7): ALWAYS 2 decimals (৳1,500 → ৳1,500.00).
+  return `${prefix}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // ─── Money-input helpers (R1 MoneyInput) ──────────────────────────────────────

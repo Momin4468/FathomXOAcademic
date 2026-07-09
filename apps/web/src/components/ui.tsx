@@ -304,10 +304,22 @@ export function ErrorNote({ message }: { message: string }) {
  * redacts money the caller can't see, so an absent value renders NOTHING here —
  * the single place "absent ⇒ hidden" is enforced in the UI. Never invent a 0/—.
  */
-export function Money({ value, prefix = "৳" }: { value: number | string | null | undefined; prefix?: string }) {
-  const formatted = formatMoney(value, prefix);
+export function Money({
+  value,
+  prefix = "৳",
+  signed = false,
+}: {
+  value: number | string | null | undefined;
+  prefix?: string;
+  /** Finance convention (R7): render a negative in red + (parentheses). */
+  signed?: boolean;
+}) {
+  const n = value === null || value === undefined || value === "" ? NaN : Number(value);
+  const negative = signed && !Number.isNaN(n) && n < 0;
+  // For a signed negative, format the magnitude and wrap it in parentheses.
+  const formatted = formatMoney(negative ? Math.abs(n) : value, prefix);
   if (formatted === null) return null;
-  return <span className="tabular-nums">{formatted}</span>;
+  return <span className={cx("tabular-nums", negative && "text-red-600")}>{negative ? `(${formatted})` : formatted}</span>;
 }
 
 /**

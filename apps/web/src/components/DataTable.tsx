@@ -37,7 +37,7 @@ function colValue<T>(col: Column<T>, row: T): string | number | null | undefined
 function formatCell<T>(col: Column<T>, row: T): ReactNode {
   if (col.render) return col.render(row);
   const v = colValue(col, row);
-  if (col.format === "money") return <Money value={v as never} prefix={col.currency ?? "৳"} />;
+  if (col.format === "money") return <Money value={v as never} prefix={col.currency ?? "৳"} signed />;
   if (col.format === "date") return v ? formatDate(String(v)) : "";
   if (col.format === "badge") return v ? <StateBadge state={String(v)} /> : "";
   return v === null || v === undefined ? "" : String(v);

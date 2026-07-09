@@ -1,4 +1,5 @@
 /** Types for the Personal Finance plane (§11). */
+import { formatMoney } from "./format";
 
 export interface PfProfile {
   id: string;
@@ -211,11 +212,11 @@ export interface PfExpenseDraft {
 /** Currency suggestions (recorded as entered; any value allowed). */
 export const PF_CURRENCIES = ["BDT", "USD", "GBP", "EUR", "AUD"];
 
-/** Multi-currency money string — the business <Money> is ৳-only, so PF formats its own. */
+/**
+ * Multi-currency money string. Unified with the business formatter (R7) — delegates
+ * to `formatMoney` (single source of truth: forced 2 decimals, thousand separators)
+ * with a currency-aware prefix. Returns "" (not null) for absent, per PF call sites.
+ */
 export function pfMoney(amount: string | number | null | undefined, currency = "BDT"): string {
-  if (amount === null || amount === undefined || amount === "") return "";
-  const n = typeof amount === "string" ? Number(amount) : amount;
-  if (Number.isNaN(n)) return "";
-  const formatted = n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  return currency === "BDT" ? `৳${formatted}` : `${currency} ${formatted}`;
+  return formatMoney(amount, currency === "BDT" ? "৳" : `${currency} `) ?? "";
 }

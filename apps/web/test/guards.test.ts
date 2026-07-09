@@ -9,10 +9,10 @@ test("formatMoney returns null for absent/invalid values (redacted money stays h
     assert.equal(formatMoney(v as never), null);
   }
 });
-test("formatMoney formats present values (incl. zero)", () => {
-  assert.equal(formatMoney(0), "৳0");
-  assert.equal(formatMoney("1500"), "৳1,500");
-  assert.equal(formatMoney(2000.5, "$"), "$2,000.5");
+test("formatMoney forces 2 decimals + thousand separators (R7 finance convention)", () => {
+  assert.equal(formatMoney(0), "৳0.00");
+  assert.equal(formatMoney("1500"), "৳1,500.00");
+  assert.equal(formatMoney(2000.5, "$"), "$2,000.50");
 });
 
 // ─── Proxy path guard (SSRF / traversal) ─────────────────────────────────────
