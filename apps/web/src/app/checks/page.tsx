@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import {
   can,
@@ -47,6 +48,7 @@ export default function ChecksPage() {
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [boardErr, setBoardErr] = useState("");
   const [resetSeq, setResetSeq] = useState(0); // force-remount the customer picker on submit
@@ -66,6 +68,7 @@ export default function ChecksPage() {
     if (!form.channelId) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("checks/batches", "POST", {
         channelId: form.channelId,
@@ -81,7 +84,8 @@ export default function ChecksPage() {
       setResetSeq((n) => n + 1); // clear the customer picker so it can't carry over
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record batch");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record batch") ?? "");
     } finally {
       setBusy(false);
     }
@@ -107,7 +111,7 @@ export default function ChecksPage() {
       {/* Admin: the unit P&L (derived; confirmed batches only). */}
       {canApprove && pnl && (
         <Card className="mb-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Unit P&amp;L (confirmed)</p>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Unit P&amp;L (confirmed)</h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div><div className="text-xs text-gray-500">revenue</div><div className="font-medium"><Money value={pnl.revenue} /></div></div>
             <div><div className="text-xs text-gray-500">account cost</div><div className="font-medium"><Money value={pnl.accountCost} /></div></div>
@@ -132,7 +136,7 @@ export default function ChecksPage() {
         ) : (
           <form onSubmit={record} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Channel (WhatsApp account)">
+              <Field label="Channel (WhatsApp account)" error={fieldErrs.channelId}>
                 <Select value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })} required>
                   <option value="">Select channel…</option>
                   {(channels ?? []).map((c) => (
@@ -140,7 +144,7 @@ export default function ChecksPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Tool account">
+              <Field label="Tool account" error={fieldErrs.toolAccountId}>
                 <Select value={form.toolAccountId} onChange={(e) => setForm({ ...form, toolAccountId: e.target.value })}>
                   <option value="">(none)</option>
                   {(accounts ?? []).map((a) => (
@@ -150,15 +154,15 @@ export default function ChecksPage() {
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Field label="Date"><DateInput value={form.periodDate} onChange={(v) => setForm({ ...form, periodDate: v })} /></Field>
-              <Field label="Files checked"><Input type="number" min="0" value={form.filesChecked} onChange={(e) => setForm({ ...form, filesChecked: e.target.value })} /></Field>
-              <Field label="Files paid"><Input type="number" min="0" value={form.filesPaid} onChange={(e) => setForm({ ...form, filesPaid: e.target.value })} /></Field>
-              <Field label="Collected (৳)"><MoneyInput value={form.amountCollected} onChange={(v) => setForm({ ...form, amountCollected: v })} /></Field>
+              <Field label="Date" error={fieldErrs.periodDate}><DateInput value={form.periodDate} onChange={(v) => setForm({ ...form, periodDate: v })} /></Field>
+              <Field label="Files checked" error={fieldErrs.filesChecked}><Input type="number" min="0" value={form.filesChecked} onChange={(e) => setForm({ ...form, filesChecked: e.target.value })} /></Field>
+              <Field label="Files paid" error={fieldErrs.filesPaid}><Input type="number" min="0" value={form.filesPaid} onChange={(e) => setForm({ ...form, filesPaid: e.target.value })} /></Field>
+              <Field label="Collected (৳)" error={fieldErrs.amountCollected}><MoneyInput value={form.amountCollected} onChange={(v) => setForm({ ...form, amountCollected: v })} /></Field>
             </div>
-            <Field label="Customer (optional — stand-alone if blank)">
+            <Field label="Customer (optional — stand-alone if blank)" error={fieldErrs.customerPartyId}>
               <EntityPicker key={resetSeq} placeholder="Search customer…" search={searchParties} onPick={(i) => setForm({ ...form, customerPartyId: i?.id ?? null })} />
             </Field>
-            <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
             {err && <ErrorNote message={err} />}
             <Button type="submit" disabled={busy || !form.channelId}>{busy ? "Saving…" : "Record batch"}</Button>
           </form>
@@ -274,7 +278,7 @@ function AdminSetup({
 
       {/* Tool accounts + derived credit balances */}
       <Card>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Tool accounts</p>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Tool accounts</h2>
         {accounts.length === 0 ? (
           <EmptyState title="No tool accounts" />
         ) : (
@@ -299,7 +303,7 @@ function AdminSetup({
 
       {/* Record a credit top-up (the cost basis) */}
       <Card>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record a credit top-up</p>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record a credit top-up</h2>
         <form onSubmit={addTopup} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
           <Select value={topup.toolAccountId} onChange={(e) => setTopup({ ...topup, toolAccountId: e.target.value })}>
             <option value="">Account…</option>
@@ -313,7 +317,7 @@ function AdminSetup({
 
       {/* Channels */}
       <Card>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Channels ({channels.length})</p>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Channels ({channels.length})</h2>
         <form onSubmit={addChannel} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Input placeholder="Channel label (WhatsApp acct)" value={chLabel} onChange={(e) => setChLabel(e.target.value)} />
           <EntityPicker placeholder="Employee…" search={searchParties} onPick={(i) => setChEmployee(i?.id ?? null)} />

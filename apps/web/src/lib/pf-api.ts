@@ -1,6 +1,6 @@
 "use client";
 import useSWR, { mutate, type SWRConfiguration } from "swr";
-import { ApiError } from "./api";
+import { ApiError, extractFieldErrors } from "./api";
 import type { PfExpenseDraft } from "./pf-types";
 
 /** All PF browser calls go through the SEPARATE PF BFF proxy; tokens stay server-side. */
@@ -14,7 +14,7 @@ async function parse(res: Response) {
       window.location.href = "/personal-finance/login";
     }
     const msg = Array.isArray(data?.message) ? data.message.join(", ") : data?.message;
-    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`, extractFieldErrors(data));
   }
   return data;
 }

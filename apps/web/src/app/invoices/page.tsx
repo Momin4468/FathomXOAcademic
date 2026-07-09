@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { can, type Invoice, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -35,6 +36,7 @@ export default function InvoicesPage() {
   const [isEstimate, setIsEstimate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const dirty = !!newClient || isEstimate;
   const { confirmClose } = useUnsavedGuard(dirty);
@@ -44,6 +46,7 @@ export default function InvoicesPage() {
     if (!newClient) return;
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("invoices", "POST", { clientPartyId: newClient, isEstimate });
       setOpen(false);
@@ -51,7 +54,8 @@ export default function InvoicesPage() {
       setIsEstimate(false);
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create invoice");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not create invoice") ?? "");
     } finally {
       setBusy(false);
     }
@@ -67,7 +71,7 @@ export default function InvoicesPage() {
       {open && canCreate && (
         <Card className="mb-5">
           <form onSubmit={create} className="space-y-3">
-            <Field label="Client" hint="Pick the client this invoice bills.">
+            <Field label="Client" required hint="Pick the client this invoice bills." error={fieldErrs.clientPartyId}>
               <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setNewClient(i?.id ?? null)} />
             </Field>
             <label className="flex items-center gap-2 text-sm text-gray-700">

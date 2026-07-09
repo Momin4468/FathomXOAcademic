@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import {
   can,
   type PartyRow,
@@ -64,7 +65,7 @@ export default function SettlementPage() {
 
       {pos && (
         <Card className="mb-5">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Position</p>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Position</h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <div><div className="text-xs text-gray-500">shared jobs</div><div className="font-medium">{pos.jobCount}</div></div>
             <div><div className="text-xs text-gray-500">total pool</div><div className="font-medium"><Money value={pos.totalPool} /></div></div>
@@ -140,12 +141,14 @@ function RecordTransfer({ a, b, onDone }: { a: string; b: string; onDone: () => 
   const [form, setForm] = useState({ from: a, amount: "", transferredAt: today(), medium: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const to = form.from === a ? b : a;
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.amount) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("settlement/transfers", "POST", {
         fromPartyId: form.from,
@@ -158,7 +161,8 @@ function RecordTransfer({ a, b, onDone }: { a: string; b: string; onDone: () => 
       setForm({ ...form, amount: "", medium: "", note: "" });
       onDone();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record transfer");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record transfer") ?? "");
     } finally {
       setBusy(false);
     }
@@ -167,17 +171,17 @@ function RecordTransfer({ a, b, onDone }: { a: string; b: string; onDone: () => 
     <Card className="mb-4">
       <p className="mb-2 text-sm font-semibold text-gray-700">Record a transfer</p>
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="From">
+        <Field label="From" error={fieldErrs.fromPartyId}>
           <Select value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })}>
             <option value={a}>Partner A</option>
             <option value={b}>Partner B</option>
           </Select>
         </Field>
-        <Field label="Amount (৳)"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
-        <Field label="Date"><DateInput value={form.transferredAt} onChange={(v) => setForm({ ...form, transferredAt: v })} /></Field>
-        <Field label="Medium"><Input value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })} placeholder="bkash / cash …" /></Field>
+        <Field label="Amount (৳)" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
+        <Field label="Date" error={fieldErrs.transferredAt}><DateInput value={form.transferredAt} onChange={(v) => setForm({ ...form, transferredAt: v })} /></Field>
+        <Field label="Medium" error={fieldErrs.medium}><Input value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })} placeholder="bkash / cash …" /></Field>
         <div className="sm:col-span-2">
-          <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+          <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
         </div>
         {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
         <div className="sm:col-span-2"><Button type="submit" variant="secondary" disabled={busy || !form.amount}>{busy ? "Saving…" : "Record transfer"}</Button></div>
@@ -219,12 +223,14 @@ function PlatformFee({ onDone }: { onDone: () => void }) {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!party || !workItemId) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     setMsg("");
     try {
       const r = await apiSend<{ amount: number }>("settlement/platform-fee", "POST", { partyId: party, workItemId });
@@ -235,7 +241,8 @@ function PlatformFee({ onDone }: { onDone: () => void }) {
       void r;
       onDone();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not apply platform fee");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not apply platform fee") ?? "");
     } finally {
       setBusy(false);
     }
@@ -244,15 +251,15 @@ function PlatformFee({ onDone }: { onDone: () => void }) {
     <Card className="mb-4">
       <p className="mb-2 text-sm font-semibold text-gray-700">Apply platform fee</p>
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Party"><EntityPicker key={`p${resetSeq}`} placeholder="Party charged…" search={searchParties} onPick={(i) => setParty(i?.id ?? null)} /></Field>
-        <Field label="Job">
+        <Field label="Party" error={fieldErrs.partyId}><EntityPicker key={`p${resetSeq}`} placeholder="Party charged…" search={searchParties} onPick={(i) => setParty(i?.id ?? null)} /></Field>
+        <Field label="Job" error={fieldErrs.workItemId}>
           <Select value={workItemId} onChange={(e) => setWorkItemId(e.target.value)}>
             <option value="">{jobs && jobs.length === 0 ? "No jobs yet" : "Select job…"}</option>
             {(jobs ?? []).map((j) => (<option key={j.id} value={j.id}>{j.title}</option>))}
           </Select>
         </Field>
         {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
-        {msg && <p className="sm:col-span-2 text-xs text-green-700">{msg}</p>}
+        <div className="sm:col-span-2" aria-live="polite">{msg && <p className="text-xs text-green-700">{msg}</p>}</div>
         <div className="sm:col-span-2"><Button type="submit" variant="secondary" disabled={busy || !party || !workItemId}>{busy ? "Applying…" : "Apply fee"}</Button></div>
       </form>
     </Card>

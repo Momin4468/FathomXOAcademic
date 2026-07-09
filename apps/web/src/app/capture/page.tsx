@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { uploadFile } from "@/lib/upload";
 import { can, type FileMeta, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -29,6 +30,7 @@ export default function CapturePage() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [result, setResult] = useState<CaptureResult | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [done, setDone] = useState(0);
@@ -36,13 +38,15 @@ export default function CapturePage() {
   async function run(body: Record<string, unknown>) {
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       const r = await apiSend<CaptureResult>("ai-capture", "POST", body);
       setResult(r);
       setProposals(r.proposals.filter((p) => p.status === "pending"));
       setDone(0);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not extract");
+      setFieldErrs(fieldErrorMap(e));
+      setErr(bannerMessage(e, "Could not extract") ?? "");
     } finally {
       setBusy(false);
     }
@@ -86,7 +90,7 @@ export default function CapturePage() {
       {allowed && (
         <>
           <Card className="mb-5">
-            <Field label="Paste text or a WhatsApp export">
+            <Field label="Paste text or a WhatsApp export" error={fieldErrs.text}>
               <Textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Paid 5000 to writer for ICT701 essay&#10;Received 12000 BDT from client&#10;New client: John Smith" className="min-h-[140px]" />
             </Field>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -127,18 +131,21 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
   const [fields, setFields] = useState<Record<string, unknown>>(proposal.proposedJson ?? {});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const set = (k: string, v: unknown) => setFields((f) => ({ ...f, [k]: v }));
   const str = (k: string) => (fields[k] == null ? "" : String(fields[k]));
 
   async function accept() {
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend(`ai-capture/proposals/${proposal.id}/edit`, "POST", { fields });
       await apiSend(`ai-capture/proposals/${proposal.id}/accept`, "POST");
       onResolved();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not accept");
+      setFieldErrs(fieldErrorMap(e));
+      setErr(bannerMessage(e, "Could not accept") ?? "");
       setBusy(false);
     }
   }
@@ -172,31 +179,31 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {proposal.targetType === "client" && (
             <>
-              <Field label="Name"><Input value={str("displayName")} onChange={(e) => set("displayName", e.target.value)} /></Field>
-              <Field label="University (optional)"><Input value={str("universityRaw")} onChange={(e) => set("universityRaw", e.target.value)} /></Field>
+              <Field label="Name" error={fieldErrs.displayName}><Input value={str("displayName")} onChange={(e) => set("displayName", e.target.value)} /></Field>
+              <Field label="University (optional)" error={fieldErrs.universityRaw}><Input value={str("universityRaw")} onChange={(e) => set("universityRaw", e.target.value)} /></Field>
             </>
           )}
           {proposal.targetType === "job" && (
             <>
-              <Field label="Title"><Input value={str("title")} onChange={(e) => set("title", e.target.value)} /></Field>
-              <Field label="Details"><Input value={str("details")} onChange={(e) => set("details", e.target.value)} /></Field>
+              <Field label="Title" error={fieldErrs.title}><Input value={str("title")} onChange={(e) => set("title", e.target.value)} /></Field>
+              <Field label="Details" error={fieldErrs.details}><Input value={str("details")} onChange={(e) => set("details", e.target.value)} /></Field>
             </>
           )}
           {proposal.targetType === "payment" && (
             <>
-              <Field label="Direction"><Select value={str("direction") || "in"} onChange={(e) => set("direction", e.target.value)}><option value="in">received (in)</option><option value="out">paid (out)</option></Select></Field>
-              <Field label="Amount (৳)"><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
-              <Field label="Date"><DateInput value={str("paidAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("paidAt", v)} /></Field>
-              <Field label="Note"><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>
+              <Field label="Direction" error={fieldErrs.direction}><Select value={str("direction") || "in"} onChange={(e) => set("direction", e.target.value)}><option value="in">received (in)</option><option value="out">paid (out)</option></Select></Field>
+              <Field label="Amount (৳)" error={fieldErrs.amount}><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
+              <Field label="Date" error={fieldErrs.paidAt}><DateInput value={str("paidAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("paidAt", v)} /></Field>
+              <Field label="Note" error={fieldErrs.note}><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>
             </>
           )}
           {proposal.targetType === "expense" && (
             <>
-              <Field label="Category"><Select value={str("category") || "other"} onChange={(e) => set("category", e.target.value)}>{["subscription", "salary", "promo", "loss", "event", "other"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-              <Field label="Amount (৳)"><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
-              <Field label="Date"><DateInput value={str("incurredAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("incurredAt", v)} /></Field>
-              <Field label="Cost bearer"><Select value={str("costBearer") || "momin"} onChange={(e) => set("costBearer", e.target.value)}>{["momin", "emon", "split", "writer"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-              <Field label="Note"><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>
+              <Field label="Category" error={fieldErrs.category}><Select value={str("category") || "other"} onChange={(e) => set("category", e.target.value)}>{["subscription", "salary", "promo", "loss", "event", "other"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+              <Field label="Amount (৳)" error={fieldErrs.amount}><MoneyInput value={str("amount")} onChange={(v) => set("amount", Number(v))} /></Field>
+              <Field label="Date" error={fieldErrs.incurredAt}><DateInput value={str("incurredAt") || new Date().toISOString().slice(0, 10)} onChange={(v) => set("incurredAt", v)} /></Field>
+              <Field label="Cost bearer" error={fieldErrs.costBearer}><Select value={str("costBearer") || "momin"} onChange={(e) => set("costBearer", e.target.value)}>{["momin", "emon", "split", "writer"].map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+              <Field label="Note" error={fieldErrs.note}><Input value={str("note")} onChange={(e) => set("note", e.target.value)} /></Field>
             </>
           )}
         </div>

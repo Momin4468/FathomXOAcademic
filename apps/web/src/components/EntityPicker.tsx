@@ -115,7 +115,7 @@ export function EntityPicker({
             <li key={i.id}>
               <button
                 type="button"
-                className={cx("flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50")}
+                className={cx("flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50")}
                 onClick={() => choose(i)}
               >
                 <span>{i.label}</span>
@@ -128,7 +128,7 @@ export function EntityPicker({
               <button
                 type="button"
                 disabled={busy}
-                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                className="flex min-h-[44px] w-full items-center px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                 onClick={async () => {
                   setBusy(true);
                   try {

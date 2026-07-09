@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import {
   can,
   type PartyRow,
@@ -57,19 +58,22 @@ function ItemRow({ item }: { item: VaultItem }) {
   const [secret, setSecret] = useState<VaultReveal | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function reveal(e: React.FormEvent) {
     e.preventDefault();
     if (!/^\d{6}$/.test(totp)) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       const r = await apiSend<VaultReveal>(`vault/items/${item.id}/reveal`, "POST", { totp });
       setSecret(r);
       setShowTotp(false);
       setTotp("");
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not reveal");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not reveal") ?? "");
     } finally {
       setBusy(false);
     }
@@ -96,7 +100,7 @@ function ItemRow({ item }: { item: VaultItem }) {
 
         {showTotp && !secret && (
           <form onSubmit={reveal} className="mt-3 flex items-end gap-2">
-            <Field label="6-digit 2FA code">
+            <Field label="6-digit 2FA code" error={fieldErrs.totp}>
               <Input inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))} placeholder="123456" />
             </Field>
             <Button type="submit" disabled={busy || !/^\d{6}$/.test(totp)}>{busy ? "…" : "Reveal"}</Button>
@@ -136,7 +140,7 @@ function SecretRow({ label, value }: { label: string; value?: string }) {
         <div className="text-xs text-gray-500">{label}</div>
         <div className="truncate font-mono">{value}</div>
       </div>
-      <button type="button" className="text-xs text-gray-500 hover:underline" onClick={copy}>
+      <button type="button" aria-label="Copy to clipboard" className="text-xs text-gray-500 hover:underline" onClick={copy}>
         {copied ? "copied" : "copy"}
       </button>
     </div>
@@ -150,11 +154,13 @@ function CreateItem({ onDone }: { onDone: () => void }) {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("vault/items", "POST", {
         name: form.name.trim(),
@@ -172,7 +178,8 @@ function CreateItem({ onDone }: { onDone: () => void }) {
       setOpen(false);
       onDone();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not create");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not create") ?? "");
     } finally {
       setBusy(false);
     }
@@ -186,15 +193,15 @@ function CreateItem({ onDone }: { onDone: () => void }) {
       {open && (
         <form onSubmit={submit} className="mt-3 space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="AcademyCX" /></Field>
-            <Field label="Type"><Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</Select></Field>
-            <Field label="URL"><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
-            <Field label="Client (optional)"><EntityPicker key={resetSeq} placeholder="Link a client…" search={searchParties} onPick={(i) => setClient(i?.id ?? null)} /></Field>
-            <Field label="Username"><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></Field>
-            <Field label="Password"><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+            <Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="AcademyCX" /></Field>
+            <Field label="Type" error={fieldErrs.type}><Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</Select></Field>
+            <Field label="URL" error={fieldErrs.url}><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
+            <Field label="Client (optional)" error={fieldErrs.clientPartyId}><EntityPicker key={resetSeq} placeholder="Link a client…" search={searchParties} onPick={(i) => setClient(i?.id ?? null)} /></Field>
+            <Field label="Username" error={fieldErrs.username}><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></Field>
+            <Field label="Password" error={fieldErrs.password}><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
           </div>
-          <Field label="2FA recovery"><Input value={form.totpRecovery} onChange={(e) => setForm({ ...form, totpRecovery: e.target.value })} /></Field>
-          <Field label="Notes"><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
+          <Field label="2FA recovery" error={fieldErrs.totpRecovery}><Input value={form.totpRecovery} onChange={(e) => setForm({ ...form, totpRecovery: e.target.value })} /></Field>
+          <Field label="Notes" error={fieldErrs.notes}><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
           {err && <ErrorNote message={err} />}
           <Button type="submit" disabled={busy || !form.name.trim()}>{busy ? "Saving…" : "Create credential"}</Button>
         </form>
@@ -226,9 +233,11 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
   const [grantee, setGrantee] = useState<string | null>(null);
   const [resetSeq, setResetSeq] = useState(0);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   async function grant() {
     if (!grantee) return;
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend(`vault/items/${item.id}/shares`, "POST", { partyId: grantee });
       setGrantee(null);
@@ -236,7 +245,8 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
       await mutate();
       onChanged();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not grant");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not grant") ?? "");
     }
   }
   async function revoke(shareId: string) {
@@ -266,7 +276,7 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
               <p className="text-xs text-gray-400">No active shares.</p>
             )}
             <div className="flex items-end gap-2">
-              <div className="flex-1"><Field label="Grant to"><EntityPicker key={resetSeq} placeholder="Search party…" search={searchParties} onPick={(i) => setGrantee(i?.id ?? null)} /></Field></div>
+              <div className="flex-1"><Field label="Grant to" error={fieldErrs.partyId}><EntityPicker key={resetSeq} placeholder="Search party…" search={searchParties} onPick={(i) => setGrantee(i?.id ?? null)} /></Field></div>
               <Button variant="secondary" disabled={!grantee} onClick={grant}>Grant</Button>
             </div>
             {err && <ErrorNote message={err} />}

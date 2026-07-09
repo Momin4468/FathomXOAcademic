@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { fileSrc } from "@/lib/upload";
 import { formatDate } from "@/lib/format";
 import { can, type CoverSheet, type FileMeta, type RefEntity, type WhoAmI } from "@/lib/types";
@@ -22,6 +23,7 @@ export default function CoverSheetsPage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ name: "", universityRefId: null as string | null, programmeRefId: null as string | null, notes: "" });
   const [file, setFile] = useState<FileMeta | null>(null);
 
@@ -29,6 +31,7 @@ export default function CoverSheetsPage() {
     e.preventDefault();
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("knowledge/cover-sheets", "POST", {
         name: form.name,
@@ -42,7 +45,8 @@ export default function CoverSheetsPage() {
       setFile(null);
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create cover sheet");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not create cover sheet") ?? "");
     } finally {
       setBusy(false);
     }
@@ -58,22 +62,22 @@ export default function CoverSheetsPage() {
       {open && canManage && (
         <Card className="mb-5">
           <form onSubmit={create} className="space-y-3">
-            <Field label="Name">
+            <Field label="Name" error={fieldErrs.name}>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="University">
+              <Field label="University" error={fieldErrs.universityRefId}>
                 <EntityPicker placeholder="Search university…" search={searchRef("university")} onPick={(i) => setForm((f) => ({ ...f, universityRefId: i?.id ?? null }))} />
               </Field>
-              <Field label="Programme / course">
+              <Field label="Programme / course" error={fieldErrs.programmeRefId}>
                 <EntityPicker placeholder="Search course…" search={searchRef("course")} onPick={(i) => setForm((f) => ({ ...f, programmeRefId: i?.id ?? null }))} />
               </Field>
             </div>
-            <Field label="Template file">
+            <Field label="Template file" error={fieldErrs.fileObjectId}>
               <FileUpload kind="cover_sheet" label={file ? "Replace file" : "Upload template"} onUploaded={setFile} />
               {file && <p className="mt-1 text-xs text-gray-600">📎 {file.filename ?? file.id}</p>}
             </Field>
-            <Field label="Notes">
+            <Field label="Notes" error={fieldErrs.notes}>
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
             {formError && <ErrorNote message={formError} />}

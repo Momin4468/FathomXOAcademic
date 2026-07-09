@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * UI_POLISH: a global keyboard-focus indicator (UI_AUDIT R-polish). Only the
+ * shared Input/Textarea/Select carry a focus ring today, so every raw <button>,
+ * link, sortable header, and role="button" was invisible to keyboard users. This
+ * scoped :focus-visible rule covers them in one place; form fields are excluded
+ * (they keep their own focus:ring, so no double outline). Mouse clicks don't
+ * trigger :focus-visible, so pointer users see no change.
+ */
+@layer base {
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid theme("colors.gray.900");
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}

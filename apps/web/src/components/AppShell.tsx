@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Menu } from "lucide-react";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
 import { Button, cx } from "./ui";
@@ -163,7 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Open menu"
               onClick={() => setDrawer(true)}
             >
-              <span aria-hidden>☰</span>
+              <Menu aria-hidden className="h-5 w-5" />
             </button>
             <Link href="/" className="text-sm font-semibold tracking-tight lg:hidden">Business OS</Link>
           </div>

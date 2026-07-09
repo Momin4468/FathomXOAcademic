@@ -40,7 +40,7 @@ export default function PfOverviewPage() {
           {data && <p className="text-xs text-gray-500">This {data.period.label}, in {base}</p>}
         </div>
         {data && !data.linked && (
-          <Link href="/personal-finance/connect" className="shrink-0 text-xs font-medium text-emerald-700 hover:underline">
+          <Link href="/personal-finance/connect" className="shrink-0 text-xs font-medium text-emerald-800 hover:underline">
             Connect business income →
           </Link>
         )}

@@ -24,7 +24,7 @@ export default function MyReferralsPage() {
       {data && (
         <>
           <Card className="mb-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Referral income</p>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Referral income</h2>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <div className="text-xs text-gray-500">earned</div>

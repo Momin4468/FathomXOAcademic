@@ -55,9 +55,9 @@ export default function MessagesPage() {
         <EmptyState title="No messages yet" hint="Send us a message and we’ll reply here." />
       )}
       {messages && messages.length > 0 && (
-        <div className="mb-4 max-h-[60vh] space-y-2 overflow-y-auto">
+        <ul className="mb-4 max-h-[60vh] space-y-2 overflow-y-auto">
           {messages.map((m) => (
-            <div key={m.id} className={cx("flex", m.sender === "client" ? "justify-end" : "justify-start")}>
+            <li key={m.id} className={cx("flex", m.sender === "client" ? "justify-end" : "justify-start")}>
               <div
                 className={cx(
                   "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
@@ -69,14 +69,14 @@ export default function MessagesPage() {
                   {formatDateTime(m.createdAt)}
                 </p>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
       <Card>
         <form onSubmit={send} className="flex gap-2">
-          <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message…" />
+          <Input aria-label="Write a message" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message…" />
           <Button type="submit" disabled={busy || !body.trim()}>Send</Button>
         </form>
         {err && <div className="mt-2"><ErrorNote message={err} /></div>}

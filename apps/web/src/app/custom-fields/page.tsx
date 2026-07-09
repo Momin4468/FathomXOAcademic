@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import {
   can,
   type CustomFieldDef,
@@ -89,12 +90,14 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!form.fieldName.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       const scope: Record<string, string> = {};
       if (client) scope.clientPartyId = client;
@@ -116,7 +119,8 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
       setResetSeq((n) => n + 1);
       onCreated();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not create field");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not create field") ?? "");
     } finally {
       setBusy(false);
     }
@@ -127,20 +131,20 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
       <p className="mb-2 text-sm font-semibold text-gray-700">Define a field on {TARGET_LABEL[target]}</p>
       <form onSubmit={add} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Field name"><Input placeholder="e.g. WhatsApp Reference" value={form.fieldName} onChange={(e) => setForm({ ...form, fieldName: e.target.value })} /></Field>
-          <Field label="Type">
+          <Field label="Field name" error={fieldErrs.fieldName}><Input placeholder="e.g. WhatsApp Reference" value={form.fieldName} onChange={(e) => setForm({ ...form, fieldName: e.target.value })} /></Field>
+          <Field label="Type" error={fieldErrs.fieldType}>
             <Select value={form.fieldType} onChange={(e) => setForm({ ...form, fieldType: e.target.value })}>
               {TYPES.map((t) => (<option key={t} value={t}>{TYPE_LABEL[t]}</option>))}
             </Select>
           </Field>
-          <Field label="Required">
+          <Field label="Required" error={fieldErrs.required}>
             <label className="flex h-[44px] items-center gap-2 text-sm text-gray-700">
               <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} /> required (hard at gate)
             </label>
           </Field>
         </div>
         {form.fieldType === "select" && (
-          <Field label="Options (comma-separated)"><Input placeholder="Low, Medium, High" value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} /></Field>
+          <Field label="Options (comma-separated)" error={fieldErrs.options}><Input placeholder="Low, Medium, High" value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} /></Field>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Scope: client (optional)"><EntityPicker key={`c${resetSeq}`} placeholder="All clients (global)…" search={searchParties} onPick={(i) => setClient(i?.id ?? null)} /></Field>

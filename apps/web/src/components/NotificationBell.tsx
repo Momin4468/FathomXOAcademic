@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
+import { Bell } from "lucide-react";
 import { apiSend, useApi } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import { Button, cx } from "./ui";
@@ -68,7 +69,7 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
         aria-expanded={open}
         className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-gray-600 hover:text-gray-900"
       >
-        <span aria-hidden className="text-lg leading-none">🔔</span>
+        <Bell aria-hidden className="h-5 w-5" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
             {unread > 99 ? "99+" : unread}
@@ -159,7 +160,7 @@ function BroadcastComposer({ onSent }: { onSent: () => Promise<void> }) {
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Title"
         maxLength={200}
-        className="w-full rounded border border-gray-200 px-2 py-1 text-sm focus:border-gray-400 focus:outline-none"
+        className="w-full rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
       />
       <textarea
         value={body}
@@ -167,7 +168,7 @@ function BroadcastComposer({ onSent }: { onSent: () => Promise<void> }) {
         placeholder="Message (optional)"
         rows={2}
         maxLength={4000}
-        className="w-full resize-none rounded border border-gray-200 px-2 py-1 text-sm focus:border-gray-400 focus:outline-none"
+        className="w-full resize-none rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
       />
       <div className="flex justify-end">
         <Button variant="secondary" className="px-2 py-1 text-xs" disabled={busy || !title.trim()} onClick={send}>

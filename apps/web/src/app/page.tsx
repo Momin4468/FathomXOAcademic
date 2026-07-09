@@ -47,7 +47,7 @@ export default function HomePage() {
       {owner && (
         <div className="mb-6 space-y-4">
           <Card>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Outstanding client dues</p>
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Outstanding client dues</h2>
             <div className="text-2xl font-semibold tabular-nums"><Money value={owner.outstandingDuesTotal} /></div>
             <p className="mt-1 text-xs text-gray-500">
               {owner.pendingClientCount} client{owner.pendingClientCount === 1 ? "" : "s"} owing · {owner.openLoopsTotal} open loop{owner.openLoopsTotal === 1 ? "" : "s"}
@@ -55,7 +55,7 @@ export default function HomePage() {
           </Card>
 
           <Card>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Business margin (derived)</p>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Business margin (derived)</h2>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div><div className="text-xs text-gray-500">revenue</div><div className="font-medium"><Money value={owner.orgMargin.revenue} /></div></div>
               <div><div className="text-xs text-gray-500">writer cost</div><div className="font-medium"><Money value={owner.orgMargin.writerCost} /></div></div>
@@ -64,7 +64,7 @@ export default function HomePage() {
           </Card>
 
           <Card>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Profit per writer</p>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Profit per writer</h2>
             {owner.profitPerWriter.length === 0 ? (
               <EmptyState title="No writer activity yet" />
             ) : (
@@ -83,7 +83,7 @@ export default function HomePage() {
           </Card>
 
           <Card>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Clients owing</p>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Clients owing</h2>
             {owner.duesByClient.length === 0 ? (
               <EmptyState title="No outstanding client dues" />
             ) : (
@@ -106,7 +106,7 @@ export default function HomePage() {
       {/* ── "My numbers" — the viewer's own position (any party-linked viewer) ── */}
       {dash?.balance && (
         <Card className="mb-6">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">My numbers</p>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">My numbers</h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <div><div className="text-xs text-gray-500">earned (outstanding)</div><div className="font-medium"><Money value={earnings?.outstanding} /></div></div>
             <div><div className="text-xs text-gray-500">earned (total)</div><div className="font-medium"><Money value={earnings?.owed} /></div></div>

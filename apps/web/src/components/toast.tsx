@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { X } from "lucide-react";
 import { cx } from "./ui";
 
 /**
@@ -61,9 +62,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => dismiss(t.id)}
                 aria-label="Dismiss"
-                className="shrink-0 text-xs opacity-60 hover:opacity-100"
+                className="shrink-0 opacity-60 hover:opacity-100"
               >
-                ✕
+                <X aria-hidden className="h-4 w-4" />
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import { can, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -72,6 +73,7 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
   const [pickerKey, setPickerKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +81,7 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
     if (!(amt > 0) || (!party && !newName.trim())) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("advances", "POST", {
         ...(party ? { counterpartyPartyId: party.id } : { counterpartyName: newName.trim() }),
@@ -96,7 +99,8 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
       setPickerKey((n) => n + 1);
       onSaved();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record the advance");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record the advance") ?? "");
     } finally {
       setBusy(false);
     }
@@ -104,30 +108,30 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record an advance / loan</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record an advance / loan</h2>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Counterparty (search)">
+        <Field label="Counterparty (search)" error={fieldErrs.counterpartyPartyId}>
           <EntityPicker key={pickerKey} placeholder="Writer, vendor, anyone…" search={searchParty} onPick={setParty} />
         </Field>
-        <Field label="…or a new name">
+        <Field label="…or a new name" error={fieldErrs.counterpartyName}>
           <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New person" disabled={!!party} />
         </Field>
-        <Field label="Direction">
+        <Field label="Direction" error={fieldErrs.direction}>
           <Select value={direction} onChange={(e) => setDirection(e.target.value as "given" | "taken")}>
             <option value="given">Given (they owe us)</option>
             <option value="taken">Taken (we owe them)</option>
           </Select>
         </Field>
-        <Field label="Principal (৳)">
+        <Field label="Principal (৳)" error={fieldErrs.principal}>
           <MoneyInput value={principal} onChange={(v) => setPrincipal(v)} />
         </Field>
-        <Field label="Started">
+        <Field label="Started" error={fieldErrs.startedOn}>
           <DateInput value={startedOn} onChange={setStartedOn} />
         </Field>
-        <Field label="Due (optional)">
+        <Field label="Due (optional)" error={fieldErrs.dueOn}>
           <DateInput value={dueOn} onChange={setDueOn} />
         </Field>
-        <Field label="Note (optional)">
+        <Field label="Note (optional)" error={fieldErrs.note}>
           <Input value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         <div className="flex items-end">
@@ -159,6 +163,7 @@ function AdvanceCard({
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
@@ -166,12 +171,14 @@ function AdvanceCard({
     if (!amt) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend(`advances/${advance.id}/events`, "POST", { kind, amount: amt, occurredOn });
       setAmount("");
       onChange();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record the event");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record the event") ?? "");
     } finally {
       setBusy(false);
     }
@@ -212,17 +219,17 @@ function AdvanceCard({
       </div>
       {open && canCreate && (
         <form onSubmit={addEvent} className="mt-2 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-2">
-          <Field label="Kind">
+          <Field label="Kind" error={fieldErrs.kind}>
             <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
               <option value="repayment">Repayment</option>
               <option value="disbursement">Disbursement</option>
               <option value="adjustment">Adjustment</option>
             </Select>
           </Field>
-          <Field label="Amount (৳)">
+          <Field label="Amount (৳)" error={fieldErrs.amount}>
             <MoneyInput value={amount} onChange={(v) => setAmount(v)} className="w-28" />
           </Field>
-          <Field label="Date">
+          <Field label="Date" error={fieldErrs.occurredOn}>
             <DateInput value={occurredOn} onChange={setOccurredOn} />
           </Field>
           <Button type="submit" variant="secondary" className="text-xs" disabled={busy || !Number(amount)}>

@@ -217,17 +217,17 @@ export function DataTable<T>({
               setPage(0);
             }}
             placeholder="Search…"
-            className="min-h-[38px] w-56 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+            className="min-h-[40px] w-full max-w-xs rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900 sm:w-56"
           />
         )}
         <span className="text-xs text-gray-500">{filtered.length} {filtered.length === 1 ? "row" : "rows"}</span>
         <div className="ml-auto flex items-center gap-1">
-          <button type="button" onClick={() => setDense((d) => !d)} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100" title="Density">
+          <button type="button" onClick={() => setDense((d) => !d)} className="rounded px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100" title="Density">
             {dense ? "Comfortable" : "Compact"}
           </button>
-          <button type="button" onClick={exportCsv} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">CSV</button>
-          <button type="button" onClick={exportExcel} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">Excel</button>
-          <button type="button" onClick={exportPdf} className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100">PDF</button>
+          <button type="button" onClick={exportCsv} className="rounded px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100">CSV</button>
+          <button type="button" onClick={exportExcel} className="rounded px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100">Excel</button>
+          <button type="button" onClick={exportPdf} className="rounded px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100">PDF</button>
         </div>
       </div>
 
@@ -236,7 +236,7 @@ export function DataTable<T>({
         <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
           <span className="font-medium">{selectedIds.length} selected</span>
           {bulkActions(selectedIds, clearSelection)}
-          <button type="button" onClick={clearSelection} className="ml-auto text-xs text-gray-500 hover:text-gray-900">Clear</button>
+          <button type="button" onClick={clearSelection} className="ml-auto rounded px-2.5 py-1.5 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-900">Clear</button>
         </div>
       )}
 
@@ -280,7 +280,7 @@ export function DataTable<T>({
                             setPage(0);
                           }}
                           placeholder="filter"
-                          className="min-h-[30px] w-full rounded border border-gray-200 px-2 text-xs outline-none focus:border-gray-400"
+                          className="min-h-[34px] w-full rounded border border-gray-200 px-2 text-xs outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                         />
                       )}
                       {c.filter === "select" && (
@@ -290,7 +290,7 @@ export function DataTable<T>({
                             setFilters((f) => ({ ...f, [c.key]: e.target.value }));
                             setPage(0);
                           }}
-                          className="min-h-[30px] w-full rounded border border-gray-200 bg-white px-1 text-xs outline-none focus:border-gray-400"
+                          className="min-h-[34px] w-full rounded border border-gray-200 bg-white px-1 text-xs outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
                         >
                           <option value="">all</option>
                           {(c.filterOptions ?? []).map((o) => (
@@ -357,9 +357,9 @@ export function DataTable<T>({
       {/* pagination */}
       {pageCount > 1 && (
         <div className="mt-2 flex items-center justify-end gap-2 text-xs text-gray-500">
-          <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} className="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-40">Prev</button>
+          <button type="button" disabled={safePage === 0} onClick={() => setPage(safePage - 1)} className="rounded px-3 py-1.5 hover:bg-gray-100 disabled:opacity-40">Prev</button>
           <span>Page {safePage + 1} of {pageCount}</span>
-          <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} className="rounded px-2 py-1 hover:bg-gray-100 disabled:opacity-40">Next</button>
+          <button type="button" disabled={safePage >= pageCount - 1} onClick={() => setPage(safePage + 1)} className="rounded px-3 py-1.5 hover:bg-gray-100 disabled:opacity-40">Next</button>
         </div>
       )}
     </div>

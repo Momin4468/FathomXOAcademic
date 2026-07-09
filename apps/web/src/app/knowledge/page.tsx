@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import { can, type FileMeta, type KnowledgeArticleRow, type RefEntity, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -33,6 +34,7 @@ export default function KnowledgePage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ type: "doc", title: "", body: "", universityRefId: null as string | null, programmeRefId: null as string | null });
   const [attachments, setAttachments] = useState<FileMeta[]>([]);
   const [linkUrl, setLinkUrl] = useState("");
@@ -52,6 +54,7 @@ export default function KnowledgePage() {
     e.preventDefault();
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("knowledge/articles", "POST", {
         type: form.type,
@@ -66,7 +69,8 @@ export default function KnowledgePage() {
       setAttachments([]);
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create article");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not create article") ?? "");
     } finally {
       setBusy(false);
     }
@@ -83,25 +87,25 @@ export default function KnowledgePage() {
         <Card className="mb-5">
           <form onSubmit={create} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Type">
+              <Field label="Type" error={fieldErrs.type}>
                 <Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
                   <option value="doc">doc</option>
                   <option value="prompt_pack">prompt pack</option>
                   <option value="blog">blog</option>
                 </Select>
               </Field>
-              <Field label="Title">
+              <Field label="Title" required error={fieldErrs.title}>
                 <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
               </Field>
             </div>
-            <Field label="Body">
+            <Field label="Body" error={fieldErrs.body}>
               <Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={8} />
             </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="University (optional)">
+              <Field label="University (optional)" error={fieldErrs.universityRefId}>
                 <EntityPicker placeholder="Search university…" search={searchRef("university")} onPick={(i) => setForm((f) => ({ ...f, universityRefId: i?.id ?? null }))} />
               </Field>
-              <Field label="Programme / course (optional)">
+              <Field label="Programme / course (optional)" error={fieldErrs.programmeRefId}>
                 <EntityPicker placeholder="Search course…" search={searchRef("course")} onPick={(i) => setForm((f) => ({ ...f, programmeRefId: i?.id ?? null }))} />
               </Field>
             </div>

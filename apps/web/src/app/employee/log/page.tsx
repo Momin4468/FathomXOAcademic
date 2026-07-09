@@ -80,7 +80,7 @@ function LogForm({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Log work</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Log work</h2>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="What did you do?">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Wrote chapter 2" />

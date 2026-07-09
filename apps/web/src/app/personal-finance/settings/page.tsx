@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { usePfApi, pfApiSend, pfRevalidate } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { PF_CURRENCIES, type PfPreferences } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { Button, Card, ErrorNote, Field, Select, Spinner, cx } from "@/components/ui";
@@ -17,6 +18,7 @@ export default function PfSettingsPage() {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [checkMsg, setCheckMsg] = useState("");
 
   async function checkNow() {
@@ -54,6 +56,7 @@ export default function PfSettingsPage() {
     if (!form) return;
     setBusy(true);
     setError("");
+    setFieldErrs({});
     try {
       await pfApiSend("preferences", "PATCH", {
         rollupPeriod: form.rollupPeriod,
@@ -72,7 +75,8 @@ export default function PfSettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1600);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e));
+      setError(bannerMessage(e, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -112,14 +116,14 @@ export default function PfSettingsPage() {
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-gray-700">Currencies</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Default currency" hint="Used for your totals & charts.">
+            <Field label="Default currency" hint="Used for your totals & charts." error={fieldErrs.defaultCurrency}>
               <Select value={form.baseCurrency} onChange={(e) => set("baseCurrency", e.target.value)}>
                 {Array.from(new Set([form.baseCurrency, ...PF_CURRENCIES])).map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Show in pickers" hint="Which currencies appear when adding money.">
+            <Field label="Show in pickers" hint="Which currencies appear when adding money." error={fieldErrs.activeCurrencies}>
               <div className="flex flex-wrap gap-2 pt-1">
                 {PF_CURRENCIES.map((c) => (
                   <button key={c} type="button" onClick={() => toggleCurrency(c)} className={cx("rounded-full border px-3 py-1 text-sm", form.activeCurrencies.includes(c) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-gray-200 text-gray-600")}>
@@ -134,7 +138,7 @@ export default function PfSettingsPage() {
         {/* Budgets */}
         <Card>
           <h2 className="mb-2 text-sm font-semibold text-gray-700">Budgets</h2>
-          <Field label="Default budget period">
+          <Field label="Default budget period" error={fieldErrs.defaultBudgetPeriod}>
             <Select value={form.defaultBudgetPeriod} onChange={(e) => set("defaultBudgetPeriod", e.target.value as "month" | "year")} className="max-w-[200px]">
               <option value="month">Monthly</option>
               <option value="year">Yearly</option>
@@ -164,7 +168,7 @@ export default function PfSettingsPage() {
           <Toggle label="Gentle anomaly alerts" desc="A friendly heads-up when a period or category runs above your recent average." on={form.anomalyEnabled} onChange={(v) => set("anomalyEnabled", v)} />
           {form.anomalyEnabled && (
             <>
-              <Field label="Sensitivity" hint="How far above your average before we mention it.">
+              <Field label="Sensitivity" hint="How far above your average before we mention it." error={fieldErrs.anomalyThresholdPct}>
                 <Select value={String(form.anomalyThresholdPct)} onChange={(e) => set("anomalyThresholdPct", Number(e.target.value))} className="max-w-[220px]">
                   {SENSITIVITY.map((s) => (
                     <option key={s.pct} value={s.pct}>{s.label}</option>
@@ -192,7 +196,7 @@ export default function PfSettingsPage() {
 
       {error && <div className="mt-4"><ErrorNote message={error} /></div>}
 
-      <div className="sticky bottom-0 mt-4 -mx-4 border-t border-gray-100 bg-white/90 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-0 mt-4 -mx-4 border-t border-gray-100 bg-white/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
         <Button className="w-full" disabled={busy} onClick={save}>
           {busy ? "Saving…" : saved ? "Saved ✓" : "Save settings"}
         </Button>

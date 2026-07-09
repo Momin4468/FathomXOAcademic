@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
@@ -16,6 +17,7 @@ export default function PfSubscriptionsPage() {
   const [form, setForm] = useState({ name: "", amount: "", currency: "BDT", nextDueDate: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
 
   const dirty = !!form.name || !!form.amount || !!form.nextDueDate || !!form.note;
@@ -26,6 +28,7 @@ export default function PfSubscriptionsPage() {
     if (!form.name.trim() || !form.amount) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend("subscriptions", "POST", {
         name: form.name.trim(),
@@ -38,7 +41,8 @@ export default function PfSubscriptionsPage() {
       setOpen(false);
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -70,18 +74,18 @@ export default function PfSubscriptionsPage() {
           <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add"}</Button>
         </div>
       </div>
-      {msg && <p className="mb-3 text-xs text-emerald-700">{msg}</p>}
+      <div aria-live="polite">{msg && <p className="mb-3 text-xs text-emerald-800">{msg}</p>}</div>
 
       {open && (
         <Card className="mb-5">
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Netflix" /></Field>
-              <Field label="Next due date" hint="Reminder fires 3 days before."><DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} /></Field>
-              <Field label="Amount"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
-              <Field label="Currency"><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+              <Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Netflix" /></Field>
+              <Field label="Next due date" hint="Reminder fires 3 days before." error={fieldErrs.nextDueDate}><DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} /></Field>
+              <Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
+              <Field label="Currency" error={fieldErrs.currency}><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
             </div>
-            <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
             {err && <ErrorNote message={err} />}
             <Button type="submit" disabled={busy || !form.name.trim() || !form.amount}>{busy ? "Saving…" : "Save subscription"}</Button>
           </form>
@@ -124,6 +128,7 @@ export default function PfSubscriptionsPage() {
               render: (s) => (
                 <button
                   type="button"
+                  aria-label="Archive subscription"
                   className="text-xs text-red-600 hover:underline"
                   onClick={(e) => {
                     e.stopPropagation();

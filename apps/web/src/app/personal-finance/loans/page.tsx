@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfLoan, type PfLoanEvent } from "@/lib/pf-types";
@@ -40,6 +41,7 @@ function AddLoan({ onDone, onDirtyChange }: { onDone: () => void; onDirtyChange:
   const [form, setForm] = useState({ direction: "given", counterpartyName: "", principal: "", currency: "BDT", startedOn: today(), dueOn: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const dirty = !!form.counterpartyName || !!form.principal || !!form.dueOn || !!form.note;
   useEffect(() => {
@@ -51,6 +53,7 @@ function AddLoan({ onDone, onDirtyChange }: { onDone: () => void; onDirtyChange:
     if (!form.counterpartyName.trim() || !form.principal) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend("loans", "POST", {
         direction: form.direction,
@@ -63,7 +66,8 @@ function AddLoan({ onDone, onDirtyChange }: { onDone: () => void; onDirtyChange:
       });
       onDone();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -72,19 +76,19 @@ function AddLoan({ onDone, onDirtyChange }: { onDone: () => void; onDirtyChange:
     <Card className="mb-5">
       <form onSubmit={submit} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Direction">
+          <Field label="Direction" error={fieldErrs.direction}>
             <Select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
               <option value="given">I lent (given)</option>
               <option value="taken">I borrowed (taken)</option>
             </Select>
           </Field>
-          <Field label="Counterparty"><Input value={form.counterpartyName} onChange={(e) => setForm({ ...form, counterpartyName: e.target.value })} placeholder="Name" /></Field>
-          <Field label="Principal"><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></Field>
-          <Field label="Currency"><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-          <Field label="Started"><DateInput value={form.startedOn} onChange={(v) => setForm({ ...form, startedOn: v })} /></Field>
-          <Field label="Due (optional)"><DateInput value={form.dueOn} onChange={(v) => setForm({ ...form, dueOn: v })} /></Field>
+          <Field label="Counterparty" error={fieldErrs.counterpartyName}><Input value={form.counterpartyName} onChange={(e) => setForm({ ...form, counterpartyName: e.target.value })} placeholder="Name" /></Field>
+          <Field label="Principal" error={fieldErrs.principal}><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></Field>
+          <Field label="Currency" error={fieldErrs.currency}><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+          <Field label="Started" error={fieldErrs.startedOn}><DateInput value={form.startedOn} onChange={(v) => setForm({ ...form, startedOn: v })} /></Field>
+          <Field label="Due (optional)" error={fieldErrs.dueOn}><DateInput value={form.dueOn} onChange={(v) => setForm({ ...form, dueOn: v })} /></Field>
         </div>
-        <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+        <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
         {err && <ErrorNote message={err} />}
         <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save loan"}</Button>
       </form>
@@ -99,18 +103,21 @@ function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
   const [form, setForm] = useState({ kind: "repayment", amount: "", occurredOn: today() });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function addEvent() {
     if (!form.amount) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend(`loans/${loan.id}/events`, "POST", { kind: form.kind, amount: Number(form.amount), occurredOn: form.occurredOn });
       setForm({ ...form, amount: "" });
       await mutate();
       onChanged();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not add event");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not add event") ?? "");
     } finally {
       setBusy(false);
     }
@@ -156,16 +163,16 @@ function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
                     <span><Badge tone="gray">{ev.kind}</Badge> <span className="ml-1 text-xs text-gray-500">{formatDate(ev.occurredOn)}</span></span>
                     <span className="flex items-center gap-3">
                       <span className="tabular-nums">{pfMoney(ev.amount, loan.currency)}</span>
-                      {!ev.reversesId && <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => reverse(ev.id)}>reverse</button>}
+                      {!ev.reversesId && <button type="button" aria-label="Reverse loan event" className="text-xs text-red-600 hover:underline" onClick={() => reverse(ev.id)}>reverse</button>}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="sm:w-40"><Field label="Type"><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="repayment">repayment</option><option value="disbursement">disbursement</option><option value="adjustment">adjustment</option></Select></Field></div>
-              <div className="flex-1"><Field label="Amount"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field></div>
-              <div className="sm:w-40"><Field label="Date"><DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} /></Field></div>
+              <div className="sm:w-40"><Field label="Type" error={fieldErrs.kind}><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="repayment">repayment</option><option value="disbursement">disbursement</option><option value="adjustment">adjustment</option></Select></Field></div>
+              <div className="flex-1"><Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field></div>
+              <div className="sm:w-40"><Field label="Date" error={fieldErrs.occurredOn}><DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} /></Field></div>
               <Button variant="secondary" disabled={busy || !form.amount} onClick={addEvent}>Add</Button>
             </div>
             {err && <ErrorNote message={err} />}

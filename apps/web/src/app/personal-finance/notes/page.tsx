@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Pin } from "lucide-react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { NOTE_COLOR_BG, type PfNote } from "@/lib/pf-types";
@@ -37,7 +38,7 @@ export default function PfNotesPage() {
       </div>
 
       <div className="mb-4 flex items-center gap-2">
-        <div className="flex-1"><Input placeholder="Search notes…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
+        <div className="flex-1"><Input aria-label="Search notes" placeholder="Search notes…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <Button variant={archived ? "primary" : "secondary"} className="shrink-0" onClick={() => setArchived((a) => !a)}>
           {archived ? "Archived" : "Active"}
         </Button>
@@ -69,7 +70,7 @@ function NoteCard({ note }: { note: PfNote }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-sm font-medium">{note.title?.trim() || "(untitled)"}</span>
-            {note.pinned && <span title="Pinned" className="shrink-0 text-amber-500">★</span>}
+            {note.pinned && <Pin aria-label="Pinned" className="h-4 w-4 shrink-0 fill-amber-400 text-amber-500" />}
           </div>
           {snippet && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{snippet}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-2">

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { clientApiSend } from "@/lib/client-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { ClientPortalShell } from "@/components/ClientPortalShell";
 import { Button, Card, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 
@@ -14,6 +15,7 @@ export default function NewRequestPage() {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [done, setDone] = useState(false);
   const [briefWarning, setBriefWarning] = useState("");
 
@@ -37,6 +39,7 @@ export default function NewRequestPage() {
     if (!title.trim()) return;
     setBusy(true);
     setError("");
+    setFieldErrs({});
     try {
       const created = await clientApiSend<{ id: string }>("requests", "POST", {
         title: title.trim(),
@@ -59,7 +62,8 @@ export default function NewRequestPage() {
       }
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not submit your request");
+      setFieldErrs(fieldErrorMap(err));
+      setError(bannerMessage(err, "Could not submit your request") ?? "");
       setBusy(false);
     }
   }
@@ -88,10 +92,10 @@ export default function NewRequestPage() {
           Tell us what you need. We’ll review it and get back to you with a quote — nothing is charged until you confirm.
         </p>
         <form onSubmit={submit} className="space-y-4">
-          <Field label="What do you need?">
+          <Field label="What do you need?" error={fieldErrs.title}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2000-word essay, ICT701" required />
           </Field>
-          <Field label="Details (optional)">
+          <Field label="Details (optional)" error={fieldErrs.details}>
             <Textarea value={details} onChange={(e) => setDetails(e.target.value)} rows={5} placeholder="Deadline, word count, instructions…" />
           </Field>
           <Field label="Attach a brief (optional)" hint="A document or image (max 10MB) — no video files.">

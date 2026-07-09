@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { pfMoney, type PfCategory, type PfTarget } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
@@ -19,6 +20,7 @@ export default function PfTargetsPage() {
   const [form, setForm] = useState({ kind: "budget_cap", categoryId: "", period: "month", periodStart: monthStart(), amount: "", note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const dirty = !!form.amount || !!form.categoryId || !!form.note;
   const { confirmClose } = useUnsavedGuard(dirty);
@@ -34,6 +36,7 @@ export default function PfTargetsPage() {
     if (!form.amount) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend("targets", "POST", {
         kind: form.kind,
@@ -47,7 +50,8 @@ export default function PfTargetsPage() {
       setOpen(false);
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -69,28 +73,28 @@ export default function PfTargetsPage() {
         <Card className="mb-5">
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Type">
+              <Field label="Type" error={fieldErrs.kind}>
                 <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, categoryId: "" })}>
                   <option value="budget_cap">Budget cap (expense)</option>
                   <option value="income_goal">Income goal</option>
                   <option value="savings_target">Savings target</option>
                 </Select>
               </Field>
-              <Field label="Period">
+              <Field label="Period" error={fieldErrs.period}>
                 <Select value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })}><option value="month">Monthly</option><option value="year">Yearly</option></Select>
               </Field>
               {form.kind !== "savings_target" && (
-                <Field label="Category (optional)">
+                <Field label="Category (optional)" error={fieldErrs.categoryId}>
                   <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
                     <option value="">All categories</option>
                     {relevantCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </Select>
                 </Field>
               )}
-              <Field label="Starts"><DateInput value={form.periodStart} onChange={(v) => setForm({ ...form, periodStart: v })} /></Field>
-              <Field label="Amount"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
+              <Field label="Starts" error={fieldErrs.periodStart}><DateInput value={form.periodStart} onChange={(v) => setForm({ ...form, periodStart: v })} /></Field>
+              <Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
             </div>
-            <Field label="Note"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
             {err && <ErrorNote message={err} />}
             <Button type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : "Save target"}</Button>
           </form>
@@ -156,6 +160,7 @@ export default function PfTargetsPage() {
               render: (t) => (
                 <button
                   type="button"
+                  aria-label="Archive target"
                   className="text-xs text-red-600 hover:underline"
                   onClick={(e) => {
                     e.stopPropagation();

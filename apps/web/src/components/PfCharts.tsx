@@ -38,7 +38,9 @@ export function Donut({ slices, size = 132, thickness = 18 }: { slices: { label:
             strokeDasharray={`${seg} ${c}`}
             transform={`rotate(${start * 360 - 90} ${cx} ${cx})`}
             strokeLinecap="butt"
-          />
+          >
+            <title>{`${s.label} · ${Math.round(frac * 100)}%`}</title>
+          </circle>
         );
         start += frac;
         return el;
@@ -64,8 +66,12 @@ export function IncomeExpenseBars({ data, height = 120 }: { data: { label: strin
           const x = i * slot + (slot - (barW * 2 + gap)) / 2;
           return (
             <g key={i}>
-              <rect x={x} y={y(d.income)} width={barW} height={chartH - y(d.income)} rx={2} fill="#059669" />
-              <rect x={x + barW + gap} y={y(d.expense)} width={barW} height={chartH - y(d.expense)} rx={2} fill="#f43f5e" />
+              <rect x={x} y={y(d.income)} width={barW} height={chartH - y(d.income)} rx={2} fill="#059669">
+                <title>{`${d.label} · income ${Math.round(d.income)}`}</title>
+              </rect>
+              <rect x={x + barW + gap} y={y(d.expense)} width={barW} height={chartH - y(d.expense)} rx={2} fill="#f43f5e">
+                <title>{`${d.label} · expense ${Math.round(d.expense)}`}</title>
+              </rect>
               <text x={i * slot + slot / 2} y={height - 4} textAnchor="middle" className="fill-gray-400" fontSize="9">
                 {d.label}
               </text>

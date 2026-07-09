@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { apiGet, apiSend } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import type { PartyRow, RefEntity, WorkItem } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -31,6 +32,7 @@ export default function NewJobPage() {
   const [sourcePartyId, setSourcePartyId] = useState<string | null>(null);
   const [doerPartyId, setDoerPartyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const dirty =
@@ -42,6 +44,7 @@ export default function NewJobPage() {
     if (!title.trim()) return;
     setBusy(true);
     setError("");
+    setFieldErrs({});
     try {
       const item = await apiSend<WorkItem>("work", "POST", {
         title: title.trim(),
@@ -53,7 +56,8 @@ export default function NewJobPage() {
       });
       router.replace(`/work/${item.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create job");
+      setFieldErrs(fieldErrorMap(err));
+      setError(bannerMessage(err, "Could not create job") ?? "");
       setBusy(false);
     }
   }
@@ -66,13 +70,13 @@ export default function NewJobPage() {
       </p>
       <Card>
         <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="Title" hint="Required. Everything else can wait.">
+          <Field label="Title" required hint="Required. Everything else can wait." error={fieldErrs.title}>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. ICT701 A3" required />
           </Field>
-          <Field label="Detail" hint="Optional — a quick note now (word count, deadline, instructions).">
+          <Field label="Detail" hint="Optional — a quick note now (word count, deadline, instructions)." error={fieldErrs.details}>
             <Textarea value={details} onChange={(e) => setDetails(e.target.value)} placeholder="e.g. 2000 words, due Fri, APA" />
           </Field>
-          <Field label="Course" hint="Pick the canonical course, or add a provisional one.">
+          <Field label="Course" hint="Pick the canonical course, or add a provisional one." error={fieldErrs.courseRefId}>
             <EntityPicker
               placeholder="Search course…"
               search={searchRef("course")}
@@ -80,7 +84,7 @@ export default function NewJobPage() {
               onPick={(i) => setCourseRefId(i?.id ?? null)}
             />
           </Field>
-          <Field label="Assignment type">
+          <Field label="Assignment type" error={fieldErrs.assignmentTypeRefId}>
             <EntityPicker
               placeholder="Search type (A1, CW1…)"
               search={searchRef("assignment_type")}
@@ -88,10 +92,10 @@ export default function NewJobPage() {
               onPick={(i) => setAssignmentTypeRefId(i?.id ?? null)}
             />
           </Field>
-          <Field label="Client (source)">
+          <Field label="Client (source)" error={fieldErrs.sourcePartyId}>
             <EntityPicker placeholder="Search client…" search={searchParty("client")} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
           </Field>
-          <Field label="Writer (doer)">
+          <Field label="Writer (doer)" error={fieldErrs.doerPartyId}>
             <EntityPicker placeholder="Search writer…" search={searchParty("writer")} onPick={(i) => setDoerPartyId(i?.id ?? null)} />
           </Field>
           {error && <ErrorNote message={error} />}

@@ -177,7 +177,7 @@ export default function JobDetailPage() {
             )}
             {data.margins.length > 0 && (
               <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your margin</p>
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your margin</h2>
                 <ul className="space-y-1 text-sm">
                   {data.margins.map((m) => (
                     <li key={m.partyId} className="flex items-center justify-between">

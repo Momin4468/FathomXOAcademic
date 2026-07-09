@@ -230,18 +230,24 @@ export function Field({
   label,
   error,
   hint,
+  required,
   children,
 }: {
   label: string;
   error?: string;
   hint?: string;
+  /** Show a red `*` after the label for a genuinely-required field. */
+  required?: boolean;
   children: ReactNode;
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-gray-700">{label}</span>
+      <span className="text-sm font-medium text-gray-700">
+        {label}
+        {required && <span className="ml-0.5 text-red-500" aria-hidden>*</span>}
+      </span>
       {children}
-      {hint && !error && <span className="block text-xs text-gray-400">{hint}</span>}
+      {hint && !error && <span className="block text-xs text-gray-500">{hint}</span>}
       {error && <span className="block text-xs text-red-600">{error}</span>}
     </label>
   );
@@ -285,13 +291,13 @@ export function StateBadge({ state }: { state: string }) {
 
 // ─── States ──────────────────────────────────────────────────────────────────
 export function Spinner({ label = "Loading…" }: { label?: string }) {
-  return <p className="py-8 text-center text-sm text-gray-400">{label}</p>;
+  return <p className="py-8 text-center text-sm text-gray-500">{label}</p>;
 }
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center">
       <p className="text-sm font-medium text-gray-600">{title}</p>
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
     </div>
   );
 }

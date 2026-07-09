@@ -23,7 +23,7 @@ export function CustomFields({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Custom fields</p>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Custom fields</h2>
       {fields.map((f) => {
         const label = `${f.fieldName}${f.required ? " *" : ""}`;
         const hint = f.missingRequired ? "required — incomplete" : undefined;

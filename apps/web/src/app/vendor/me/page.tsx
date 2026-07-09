@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
 import { Badge, Button, Card, ErrorNote, Field, Input, MoneyInput, Money, Spinner } from "@/components/ui";
@@ -32,7 +33,7 @@ export default function VendorMePage() {
       {data && (
         <>
           <Card className="mb-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your earnings</p>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your earnings</h2>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <div className="text-xs text-gray-500">earned</div>
@@ -102,6 +103,7 @@ function SubmitClaim({ onSaved }: { onSaved: () => void }) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -109,13 +111,15 @@ function SubmitClaim({ onSaved }: { onSaved: () => void }) {
     if (!(amt > 0)) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("vendor/claims", "POST", { amount: amt, note: note.trim() || undefined });
       setAmount("");
       setNote("");
       onSaved();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not submit");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not submit") ?? "");
     } finally {
       setBusy(false);
     }
@@ -123,12 +127,12 @@ function SubmitClaim({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Submit an invoice</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Submit an invoice</h2>
       <form onSubmit={submit} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Amount (৳)">
+        <Field label="Amount (৳)" error={fieldErrs.amount}>
           <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
         </Field>
-        <Field label="Note (optional)">
+        <Field label="Note (optional)" error={fieldErrs.note}>
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What it's for" />
         </Field>
         <div className="flex items-end">

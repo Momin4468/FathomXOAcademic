@@ -26,11 +26,11 @@ export default function MySharePage() {
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Card>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Total share to date</p>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Total share to date</h2>
               <p className="mt-1 text-2xl font-semibold"><Money value={data.total} /></p>
             </Card>
             <Card>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Standing dividend (aggregate)</p>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Standing dividend (aggregate)</h2>
               <p className="mt-1 text-2xl font-semibold"><Money value={data.dividendTotal} /></p>
               <p className="mt-1 text-xs text-gray-400">A net-profit dividend is shown as a total only.</p>
             </Card>

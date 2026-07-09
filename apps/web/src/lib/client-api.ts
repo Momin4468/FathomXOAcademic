@@ -1,6 +1,6 @@
 "use client";
 import useSWR, { type SWRConfiguration } from "swr";
-import { ApiError } from "./api";
+import { ApiError, extractFieldErrors } from "./api";
 
 /** Client-portal browser calls go through the /api/client BFF proxy. */
 const base = (path: string) => `/api/client/proxy/${path.replace(/^\//, "")}`;
@@ -13,7 +13,7 @@ async function parse(res: Response) {
       window.location.href = "/portal/login";
     }
     const msg = Array.isArray(data?.message) ? data.message.join(", ") : data?.message;
-    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`, extractFieldErrors(data));
   }
   return data;
 }

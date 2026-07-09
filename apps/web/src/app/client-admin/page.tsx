@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { can, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -58,6 +59,7 @@ function AutoProvision() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [result, setResult] = useState<{ loginId: string; initialPassword: string } | null>(null);
 
   async function run(e: React.FormEvent) {
@@ -65,6 +67,7 @@ function AutoProvision() {
     if (!studentId.trim() || !name.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     setResult(null);
     try {
       const res = await apiSend<{ loginId: string; initialPassword: string }>("client-portal/accounts/auto", "POST", {
@@ -75,7 +78,8 @@ function AutoProvision() {
       setStudentId("");
       setName("");
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not auto-provision");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not auto-provision") ?? "");
     } finally {
       setBusy(false);
     }
@@ -83,12 +87,12 @@ function AutoProvision() {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Auto-provision from student ID + name</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Auto-provision from student ID + name</h2>
       <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Student ID">
+        <Field label="Student ID" error={fieldErrs.studentId}>
           <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. ICT-701" />
         </Field>
-        <Field label="Name">
+        <Field label="Name" error={fieldErrs.name}>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
         </Field>
         <div className="flex items-end">
@@ -123,6 +127,7 @@ function Provision() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function provision(e: React.FormEvent) {
     e.preventDefault();
@@ -130,6 +135,7 @@ function Provision() {
     setBusy(true);
     setErr("");
     setMsg("");
+    setFieldErrs({});
     try {
       await apiSend("client-portal/accounts", "POST", { partyId, loginId: loginId.trim(), password });
       setMsg(`Login created for ${loginId.trim()}.`);
@@ -138,7 +144,8 @@ function Provision() {
       setPartyId(null);
       setResetSeq((n) => n + 1);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not provision login");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not provision login") ?? "");
     } finally {
       setBusy(false);
     }
@@ -146,15 +153,15 @@ function Provision() {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Give a client a portal login</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Give a client a portal login</h2>
       <form onSubmit={provision} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Client">
+        <Field label="Client" error={fieldErrs.partyId}>
           <EntityPicker key={resetSeq} placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
         </Field>
-        <Field label="Login ID (client/student id or email)">
+        <Field label="Login ID (client/student id or email)" error={fieldErrs.loginId}>
           <Input value={loginId} onChange={(e) => setLoginId(e.target.value)} />
         </Field>
-        <Field label="Temporary password">
+        <Field label="Temporary password" error={fieldErrs.password}>
           <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <div className="flex items-end">

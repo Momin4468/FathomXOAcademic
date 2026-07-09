@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatMoney } from "@/lib/format";
 import { can, type Expense, type WhoAmI } from "@/lib/types";
@@ -51,6 +52,7 @@ export default function ExpensesPage() {
   const [splitKey, setSplitKey] = useState(0); // remount the add-picker after each add
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [reminderMsg, setReminderMsg] = useState("");
 
   const canCreate = can(me?.permissions, "expenses:create");
@@ -81,6 +83,7 @@ export default function ExpensesPage() {
     }
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("expenses", "POST", {
         category: form.category,
@@ -103,7 +106,8 @@ export default function ExpensesPage() {
       setSplitRows([]);
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not save expense");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not save expense") ?? "");
     } finally {
       setBusy(false);
     }
@@ -125,13 +129,15 @@ export default function ExpensesPage() {
           {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add expense"}</Button>}
         </div>
       </div>
-      {reminderMsg && <p className="mb-3 text-xs text-green-700">{reminderMsg}</p>}
+      <div aria-live="polite">
+        {reminderMsg && <p className="mb-3 text-xs text-green-700">{reminderMsg}</p>}
+      </div>
 
       {open && canCreate && (
         <Card className="mb-5">
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Category">
+              <Field label="Category" error={fieldErrs.category}>
                 <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -140,10 +146,10 @@ export default function ExpensesPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Amount">
+              <Field label="Amount" error={fieldErrs.amount}>
                 <MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
-              <Field label="Cost bearer">
+              <Field label="Cost bearer" error={fieldErrs.costBearer}>
                 <Select value={form.costBearer} onChange={(e) => setForm({ ...form, costBearer: e.target.value })}>
                   {COST_BEARERS.map((c) => (
                     <option key={c} value={c}>
@@ -152,17 +158,17 @@ export default function ExpensesPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Incurred on">
+              <Field label="Incurred on" error={fieldErrs.incurredAt}>
                 <DateInput value={form.incurredAt} onChange={(v) => setForm({ ...form, incurredAt: v })} />
               </Field>
             </div>
             {form.costBearer === "party" && (
-              <Field label="Borne by" hint="The partner who bears this cost.">
+              <Field label="Borne by" hint="The partner who bears this cost." error={fieldErrs.bearerPartyId}>
                 <EntityPicker placeholder="Search partner…" search={searchPartner} onPick={setBearer} />
               </Field>
             )}
             {form.costBearer === "split" && (
-              <Field label="Split between" hint="Add each partner and their share.">
+              <Field label="Split between" hint="Add each partner and their share." error={fieldErrs.costBearerSplitJson}>
                 <div className="space-y-2">
                   {splitRows.map((r, i) => (
                     <div key={r.id} className="flex items-center gap-2">
@@ -198,23 +204,23 @@ export default function ExpensesPage() {
               </Field>
             )}
             {form.category === "promo" && (
-              <Field label="Campaign tag">
+              <Field label="Campaign tag" error={fieldErrs.campaignTag}>
                 <Input value={form.campaignTag} onChange={(e) => setForm({ ...form, campaignTag: e.target.value })} placeholder="e.g. JuneAds" />
               </Field>
             )}
             {form.category === "subscription" && (
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Next due date" hint="A reminder fires 3 days before.">
+                <Field label="Next due date" hint="A reminder fires 3 days before." error={fieldErrs.nextDueDate}>
                   <DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} />
                 </Field>
-                <Field label="Currency">
+                <Field label="Currency" error={fieldErrs.currency}>
                   <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                     {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
                   </Select>
                 </Field>
               </div>
             )}
-            <Field label="Note">
+            <Field label="Note" error={fieldErrs.note}>
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </Field>
             {formError && <ErrorNote message={formError} />}

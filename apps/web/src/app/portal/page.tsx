@@ -56,7 +56,7 @@ export default function PortalHome() {
 
       {summary && (
         <Card className="mb-5">
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-1 gap-2 text-center sm:grid-cols-3">
             <div>
               <p className="text-xs uppercase tracking-wide text-gray-400">Billed</p>
               <p className="mt-1 font-semibold"><Money value={summary.billed} /></p>

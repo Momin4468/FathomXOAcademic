@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import {
   can,
   type PartyRow,
@@ -64,6 +65,7 @@ export default function ResitPage() {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
 
   async function submit(e: React.FormEvent) {
@@ -71,6 +73,7 @@ export default function ResitPage() {
     if (!jobId || !origWriter) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     setMsg("");
     try {
       const body: Record<string, unknown> = {
@@ -109,7 +112,8 @@ export default function ResitPage() {
       setResetSeq((n) => n + 1);
       await refreshDetail();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record resit");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record resit") ?? "");
     } finally {
       setBusy(false);
     }
@@ -154,9 +158,9 @@ export default function ResitPage() {
           <Card>
             <p className="mb-2 text-sm font-semibold text-gray-700">Original writer</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Writer"><EntityPicker key={`ow${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setOrigWriter(i?.id ?? null)} /></Field>
-              <Field label="Paid by (partner)"><EntityPicker key={`of${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setOrigFrom(i?.id ?? null)} /></Field>
-              <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback"><MoneyInput value={reduction} onChange={(v) => setReduction(v)} /></Field>
+              <Field label="Writer" error={fieldErrs.originalWriterPartyId}><EntityPicker key={`ow${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setOrigWriter(i?.id ?? null)} /></Field>
+              <Field label="Paid by (partner)" error={fieldErrs.originalWriterFromPartyId}><EntityPicker key={`of${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setOrigFrom(i?.id ?? null)} /></Field>
+              <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback" error={fieldErrs.originalWriterReduction}><MoneyInput value={reduction} onChange={(v) => setReduction(v)} /></Field>
             </div>
           </Card>
 
@@ -188,8 +192,8 @@ export default function ResitPage() {
 
           <Card>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Rework cost (৳, optional)"><MoneyInput value={reworkCost} onChange={(v) => setReworkCost(v)} /></Field>
-              <Field label="Note"><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+              <Field label="Rework cost (৳, optional)" error={fieldErrs.reworkCost}><MoneyInput value={reworkCost} onChange={(v) => setReworkCost(v)} /></Field>
+              <Field label="Note" error={fieldErrs.note}><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
             </div>
           </Card>
 

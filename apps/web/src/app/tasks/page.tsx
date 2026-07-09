@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDateTime } from "@/lib/format";
 import type { Task } from "@/lib/types";
@@ -42,6 +43,7 @@ export default function TasksPage() {
   const [due, setDue] = useState({ date: "", time: "", tz: browserTz });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const dirty = !!title || !!(due.date || due.time);
   const { confirmClose } = useUnsavedGuard(dirty);
@@ -54,6 +56,7 @@ export default function TasksPage() {
     e.preventDefault();
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("tasks", "POST", {
         title: title.trim(),
@@ -64,7 +67,8 @@ export default function TasksPage() {
       setOpen(false);
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not create task");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not create task") ?? "");
     } finally {
       setBusy(false);
     }
@@ -83,7 +87,7 @@ export default function TasksPage() {
       {open && (
         <Card className="mb-5">
           <form onSubmit={submit} className="space-y-3">
-            <Field label="Title">
+            <Field label="Title" error={fieldErrs.title}>
               <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Submit ICT701 A3" required />
             </Field>
             <Field label="Deadline" hint="Date + time + the timezone it's due in (optional).">

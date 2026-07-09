@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import type { PfCategory } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { DataTable } from "@/components/DataTable";
@@ -13,18 +14,21 @@ export default function PfCategoriesPage() {
   const [form, setForm] = useState({ kind: "expense", name: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend("categories", "POST", { kind: form.kind, name: form.name.trim() });
       setForm({ ...form, name: "" });
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not add");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not add") ?? "");
     } finally {
       setBusy(false);
     }
@@ -43,8 +47,8 @@ export default function PfCategoriesPage() {
 
       <Card className="mb-5">
         <form onSubmit={add} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="sm:w-40"><Field label="Type"><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="income">income</option><option value="expense">expense</option></Select></Field></div>
-          <div className="flex-1"><Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Groceries" /></Field></div>
+          <div className="sm:w-40"><Field label="Type" error={fieldErrs.kind}><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="income">income</option><option value="expense">expense</option></Select></Field></div>
+          <div className="flex-1"><Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Groceries" /></Field></div>
           <Button type="submit" disabled={busy || !form.name.trim()}>{busy ? "Adding…" : "Add"}</Button>
         </form>
         {err && <div className="mt-2"><ErrorNote message={err} /></div>}
@@ -78,6 +82,7 @@ export default function PfCategoriesPage() {
               render: (c) => (
                 <button
                   type="button"
+                  aria-label="Archive category"
                   className="text-xs text-red-600 hover:underline"
                   onClick={(e) => {
                     e.stopPropagation();

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import {
   can,
@@ -101,12 +102,14 @@ function AddChannel({ onAdded }: { onAdded: () => void }) {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !medium.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("channels", "POST", {
         name: name.trim(),
@@ -119,7 +122,8 @@ function AddChannel({ onAdded }: { onAdded: () => void }) {
       setResetSeq((n) => n + 1);
       onAdded();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not add channel");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not add channel") ?? "");
     } finally {
       setBusy(false);
     }
@@ -127,15 +131,15 @@ function AddChannel({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a channel</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a channel</h2>
       <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Name">
+        <Field label="Name" error={fieldErrs.name}>
           <Input placeholder="e.g. Web" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="Medium">
+        <Field label="Medium" error={fieldErrs.medium}>
           <Input placeholder="e.g. web / facebook" value={medium} onChange={(e) => setMedium(e.target.value)} />
         </Field>
-        <Field label="Controller (blank = the business)">
+        <Field label="Controller (blank = the business)" error={fieldErrs.controllerPartyId}>
           <EntityPicker key={resetSeq} placeholder="Business (default)…" search={searchParties} onPick={(i) => setControllerPartyId(i?.id ?? null)} />
         </Field>
         <div className="flex items-end">
@@ -249,6 +253,7 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const isNetBasis = basis === "pct_of_net" || basis === "pct_after_writer";
   const showOpacityHint = isNetBasis && !sourcePartyId;
@@ -258,6 +263,7 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
     if (!toPartyId || !value) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("channels/profit-shares", "POST", {
         toPartyId,
@@ -272,7 +278,8 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
       setResetSeq((n) => n + 1);
       onAdded();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save share");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save share") ?? "");
     } finally {
       setBusy(false);
     }
@@ -280,12 +287,12 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a profit share</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a profit share</h2>
       <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Beneficiary">
+        <Field label="Beneficiary" error={fieldErrs.toPartyId}>
           <EntityPicker key={`b${resetSeq}`} placeholder="Search owner/investor…" search={searchParties} onPick={(i) => setToPartyId(i?.id ?? null)} />
         </Field>
-        <Field label="Basis (the formula)">
+        <Field label="Basis (the formula)" error={fieldErrs.basis}>
           <Select value={basis} onChange={(e) => setBasis(e.target.value)}>
             <option value="pct_after_writer">% after writer pay</option>
             <option value="pct_of_net">% of net profit</option>
@@ -293,15 +300,15 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
             <option value="fixed">fixed amount</option>
           </Select>
         </Field>
-        <Field label={basis === "fixed" ? "Amount (৳)" : "Percent (%)"}>
+        <Field label={basis === "fixed" ? "Amount (৳)" : "Percent (%)"} error={fieldErrs.value}>
           {basis === "fixed"
             ? <MoneyInput value={value} onChange={(v) => setValue(v)} />
             : <PercentInput value={value} onChange={(v) => setValue(v)} />}
         </Field>
-        <Field label="Scope to a channel (blank = standing dividend)">
+        <Field label="Scope to a channel (blank = standing dividend)" error={fieldErrs.sourcePartyId}>
           <EntityPicker key={`s${resetSeq}`} placeholder="All jobs (default)…" search={searchChannels} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
         </Field>
-        <Field label="Effective from">
+        <Field label="Effective from" error={fieldErrs.effectiveFrom}>
           <DateInput value={effectiveFrom} onChange={setEffectiveFrom} />
         </Field>
         <div className="sm:col-span-2">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { pfResetPassword } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
 
 function ResetForm() {
@@ -10,12 +11,14 @@ function ResetForm() {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setFieldErrs({});
     if (pw.length < 8) return setError("Password must be at least 8 characters.");
     if (pw !== pw2) return setError("Passwords don't match.");
     if (!token) return setError("This reset link is invalid or has expired. Please request a new one.");
@@ -24,7 +27,8 @@ function ResetForm() {
       await pfResetPassword(token, pw);
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not reset your password.");
+      setFieldErrs(fieldErrorMap(err));
+      setError(bannerMessage(err, "Could not reset your password.") ?? "");
       setBusy(false);
     }
   }
@@ -42,7 +46,7 @@ function ResetForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="New password" hint="At least 8 characters">
+      <Field label="New password" hint="At least 8 characters" error={fieldErrs.newPassword}>
         <Input type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} required />
       </Field>
       <Field label="Confirm new password">

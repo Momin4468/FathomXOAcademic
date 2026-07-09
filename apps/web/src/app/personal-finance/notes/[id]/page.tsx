@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { pfAttachmentDownloadUrl, pfUploadNoteFile } from "@/lib/pf-upload";
 import { formatDateTime } from "@/lib/format";
 import { NOTE_COLORS, NOTE_COLOR_BG, type PfNote, type PfNoteAttachment, type PfNoteItem } from "@/lib/pf-types";
@@ -40,6 +41,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
   const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   // Dirty = local edits differ from the loaded note (recomputed reactively).
   useEffect(() => {
@@ -69,6 +71,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
   async function save() {
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend(`notes/${note.id}`, "PATCH", {
         title: title.trim(),
@@ -83,7 +86,8 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
       setTimeout(() => setSaved(false), 1500);
       onChanged();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e));
+      setErr(bannerMessage(e, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -104,8 +108,8 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
       <Card className="flex gap-3">
         <div className={`w-1.5 shrink-0 rounded-full ${NOTE_COLOR_BG[color] ?? NOTE_COLOR_BG.default}`} />
         <div className="min-w-0 flex-1 space-y-3">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="text-base font-medium" />
-          <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write anything…" className="min-h-[140px]" />
+          <Input aria-label="Note title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="text-base font-medium" />
+          <Textarea aria-label="Note body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write anything…" className="min-h-[140px]" />
 
           {/* Checklist */}
           <div className="space-y-1.5">
@@ -147,10 +151,10 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
 
           {/* Meta row */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Remind me on" hint="An email reminder fires on this day.">
+            <Field label="Remind me on" hint="An email reminder fires on this day." error={fieldErrs.remindOn}>
               <DateInput value={remindOn} onChange={setRemindOn} />
             </Field>
-            <Field label="Colour">
+            <Field label="Colour" error={fieldErrs.color}>
               <div className="flex items-center gap-2 pt-1">
                 {NOTE_COLORS.map((c) => (
                   <button
@@ -175,7 +179,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
           {err && <ErrorNote message={err} />}
           <div className="flex items-center gap-3">
             <Button onClick={save} disabled={busy || !dirty}>{busy ? "Saving…" : dirty ? "Save" : "Saved"}</Button>
-            {saved && <span className="text-xs text-emerald-700">Saved</span>}
+            {saved && <span className="text-xs text-emerald-800">Saved</span>}
             <Button variant={note.archivedAt ? "ghost" : "danger"} className="ml-auto px-3 text-xs" onClick={archiveToggle}>
               {note.archivedAt ? "Restore" : "Archive"}
             </Button>
@@ -197,12 +201,14 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
   const [linkName, setLinkName] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function addLink(e: React.FormEvent) {
     e.preventDefault();
     if (!url.trim()) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend(`notes/${noteId}/attachments/link`, "POST", { url: url.trim(), filename: linkName.trim() || undefined });
       setUrl("");
@@ -210,7 +216,8 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
       setLinkOpen(false);
       onChanged();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not add link");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not add link") ?? "");
     } finally {
       setBusy(false);
     }
@@ -247,8 +254,8 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
 
       {linkOpen && (
         <form onSubmit={addLink} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="flex-1"><Field label="URL"><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></Field></div>
-          <div className="sm:w-48"><Field label="Label (optional)"><Input value={linkName} onChange={(e) => setLinkName(e.target.value)} /></Field></div>
+          <div className="flex-1"><Field label="URL" error={fieldErrs.url}><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></Field></div>
+          <div className="sm:w-48"><Field label="Label (optional)" error={fieldErrs.filename}><Input value={linkName} onChange={(e) => setLinkName(e.target.value)} /></Field></div>
           <Button type="submit" variant="secondary" disabled={busy || !url.trim()}>Add</Button>
         </form>
       )}

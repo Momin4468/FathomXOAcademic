@@ -93,7 +93,7 @@ function LogActions({ log, onChange }: { log: LogRow; onChange: () => void }) {
   return (
     <span className="flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
       <span className="flex items-center gap-2">
-        <Input value={workItemId} onChange={(e) => setWorkItemId(e.target.value)} placeholder="Job ID" className="w-40 text-xs" />
+        <Input value={workItemId} onChange={(e) => setWorkItemId(e.target.value)} placeholder="Job ID" className="w-full sm:w-40 text-xs" />
         <Button variant="secondary" className="px-2 py-1 text-xs" disabled={busy} onClick={() => act("convert")}>
           Convert
         </Button>

@@ -229,7 +229,7 @@ export default function PaymentDetailPage() {
                         {t.kind === "charge" && <Badge tone="amber">charge</Badge>}
                         {t.sub && <div className="mt-0.5 text-xs text-gray-500">{t.sub}</div>}
                       </div>
-                      <div className="w-32">
+                      <div className="w-24 shrink-0 sm:w-32">
                         <MoneyInput
                           placeholder="0"
                           value={t.amount}

@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
 import { DataTable } from "@/components/DataTable";
@@ -18,6 +19,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
   const [form, setForm] = useState({ categoryId: "", amount: "", currency: "BDT", convertedAmount: "", convertedCurrency: "BDT", occurredOn: today(), note: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   const dirty = !!form.amount || !!form.note || !!form.categoryId;
   const { confirmClose } = useUnsavedGuard(dirty);
@@ -35,6 +37,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
     if (!form.amount) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await pfApiSend(kind, "POST", {
         categoryId: form.categoryId || undefined,
@@ -49,7 +52,8 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
       setOpen(false);
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -74,7 +78,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
         <Card className="mb-5">
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Category">
+              <Field label="Category" error={fieldErrs.categoryId}>
                 <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
                   <option value="">{categories && categories.length === 0 ? "No categories yet" : "Uncategorised"}</option>
                   {(categories ?? []).map((c) => (
@@ -82,13 +86,13 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
                   ))}
                 </Select>
               </Field>
-              <Field label="Date">
+              <Field label="Date" error={fieldErrs.occurredOn}>
                 <DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} />
               </Field>
-              <Field label="Amount">
+              <Field label="Amount" required error={fieldErrs.amount}>
                 <MoneyInput currency={form.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
-              <Field label="Currency">
+              <Field label="Currency" error={fieldErrs.currency}>
                 <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                   {PF_CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
                 </Select>
@@ -96,17 +100,17 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
             </div>
             {form.currency !== "BDT" && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Converted amount (optional)" hint="No automatic conversion — record it if you want.">
+                <Field label="Converted amount (optional)" hint="No automatic conversion — record it if you want." error={fieldErrs.convertedAmount}>
                   <MoneyInput currency={form.convertedCurrency} value={form.convertedAmount} onChange={(v) => setForm({ ...form, convertedAmount: v })} />
                 </Field>
-                <Field label="Converted currency">
+                <Field label="Converted currency" error={fieldErrs.convertedCurrency}>
                   <Select value={form.convertedCurrency} onChange={(e) => setForm({ ...form, convertedCurrency: e.target.value })}>
                     {PF_CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
                   </Select>
                 </Field>
               </div>
             )}
-            <Field label="Note">
+            <Field label="Note" error={fieldErrs.note}>
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </Field>
             {err && <ErrorNote message={err} />}
@@ -165,6 +169,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
                 !x.reversesId && !reversedIds.has(x.id) && x.source !== "business_payout" ? (
                   <button
                     type="button"
+                    aria-label="Reverse entry"
                     className="text-xs text-red-600 hover:underline"
                     onClick={(e) => {
                       e.stopPropagation();

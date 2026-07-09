@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import type { PfProfile } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { Badge, Button, Card, ErrorNote, Field, Input } from "@/components/ui";
@@ -11,6 +12,7 @@ export default function PfConnectPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function connect(e: React.FormEvent) {
     e.preventDefault();
@@ -18,13 +20,15 @@ export default function PfConnectPage() {
     setBusy(true);
     setErr("");
     setMsg("");
+    setFieldErrs({});
     try {
       const r = await pfApiSend<{ linked: boolean; backfilled: number }>("link", "POST", { code: code.trim() });
       setMsg(`Connected! ${r.backfilled} past payout${r.backfilled === 1 ? "" : "s"} imported as income.`);
       setCode("");
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not connect");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not connect") ?? "");
     } finally {
       setBusy(false);
     }
@@ -52,13 +56,13 @@ export default function PfConnectPage() {
             one-time code, then paste it here.
           </p>
           <form onSubmit={connect} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <div className="flex-1"><Field label="Link code"><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste your one-time code" /></Field></div>
+            <div className="flex-1"><Field label="Link code" error={fieldErrs.code}><Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste your one-time code" /></Field></div>
             <Button type="submit" disabled={busy || !code.trim()}>{busy ? "Connecting…" : "Connect"}</Button>
           </form>
           {err && <div className="mt-2"><ErrorNote message={err} /></div>}
         </Card>
       )}
-      {msg && <p className="mt-3 text-sm text-emerald-700">{msg}</p>}
+      {msg && <p className="mt-3 text-sm text-emerald-800">{msg}</p>}
     </PfShell>
   );
 }

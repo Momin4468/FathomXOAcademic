@@ -4,13 +4,32 @@ import useSWR, { type SWRConfiguration } from "swr";
 /** All browser calls go through the BFF proxy; tokens stay server-side. */
 const base = (path: string) => `/api/proxy/${path.replace(/^\//, "")}`;
 
+/** A single per-field validation failure surfaced by the API's 400 response. */
+export interface FieldError {
+  field: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Structured per-field validation errors, when the API returned them. */
+    public fieldErrors?: FieldError[],
   ) {
     super(message);
   }
+}
+
+/** Pull the structured `fieldErrors` array out of a 400 body, if well-formed. */
+export function extractFieldErrors(data: unknown): FieldError[] | undefined {
+  const raw = (data as { fieldErrors?: unknown } | null)?.fieldErrors;
+  if (!Array.isArray(raw)) return undefined;
+  const parsed = raw.filter(
+    (e): e is FieldError =>
+      !!e && typeof e.field === "string" && typeof e.message === "string",
+  );
+  return parsed.length > 0 ? parsed : undefined;
 }
 
 async function parse(res: Response) {
@@ -21,7 +40,7 @@ async function parse(res: Response) {
       window.location.href = "/login";
     }
     const msg = Array.isArray(data?.message) ? data.message.join(", ") : data?.message;
-    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`);
+    throw new ApiError(res.status, msg ?? `Request failed (${res.status})`, extractFieldErrors(data));
   }
   return data;
 }

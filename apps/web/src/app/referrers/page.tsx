@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import {
   can,
@@ -102,7 +103,7 @@ function AddReferrer({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a referrer</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a referrer</h2>
       <form onSubmit={add} className="flex gap-2">
         <Input placeholder="Referrer name (e.g. Mujib)" value={name} onChange={(e) => setName(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={busy || !name.trim()}>Add</Button>
@@ -119,12 +120,14 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
   const [resetSeq, setResetSeq] = useState(0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
   async function addTerm(e: React.FormEvent) {
     e.preventDefault();
     if (!form.value) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend(`referrers/${referrer.id}/terms`, "POST", {
         basis: form.basis,
@@ -136,7 +139,8 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
       setResetSeq((n) => n + 1);
       await mutate();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save agreement");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save agreement") ?? "");
     } finally {
       setBusy(false);
     }
@@ -168,22 +172,22 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
       )}
 
       <form onSubmit={addTerm} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Basis">
+        <Field label="Basis" error={fieldErrs.basis}>
           <Select value={form.basis} onChange={(e) => setForm({ ...form, basis: e.target.value })}>
             <option value="revenue">% of revenue</option>
             <option value="margin">% of margin (post-writer)</option>
             <option value="fixed">fixed amount</option>
           </Select>
         </Field>
-        <Field label={form.basis === "fixed" ? "Amount (৳)" : "Percent (%)"}>
+        <Field label={form.basis === "fixed" ? "Amount (৳)" : "Percent (%)"} error={fieldErrs.value}>
           {form.basis === "fixed"
             ? <MoneyInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />
             : <PercentInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />}
         </Field>
-        <Field label="Effective from">
+        <Field label="Effective from" error={fieldErrs.effectiveFrom}>
           <DateInput value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} />
         </Field>
-        <Field label="Per-client override (optional)">
+        <Field label="Per-client override (optional)" error={fieldErrs.clientPartyId}>
           <EntityPicker key={resetSeq} placeholder="All clients (default)…" search={searchParties} onPick={(i) => setForm({ ...form, clientPartyId: i?.id ?? null })} />
         </Field>
         <div className="sm:col-span-2">
@@ -202,6 +206,7 @@ function SetClientReferrer() {
   const [resetSeq, setResetSeq] = useState(0);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   async function save(e: React.FormEvent) {
@@ -210,6 +215,7 @@ function SetClientReferrer() {
     setBusy(true);
     setErr("");
     setMsg("");
+    setFieldErrs({});
     try {
       await apiSend(`referrers/clients/${clientId}`, "PUT", { referrerId: referrerId ?? null });
       setMsg("Default referrer saved.");
@@ -217,7 +223,8 @@ function SetClientReferrer() {
       setReferrerId(null);
       setResetSeq((n) => n + 1);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not save");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not save") ?? "");
     } finally {
       setBusy(false);
     }
@@ -225,13 +232,13 @@ function SetClientReferrer() {
 
   return (
     <Card className="mt-5">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Client’s default referrer</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Client’s default referrer</h2>
       <p className="mb-3 text-xs text-gray-500">Each new job for this client suggests this referrer (one hop — never cascades).</p>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Client">
           <EntityPicker key={`c${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientId(i?.id ?? null)} />
         </Field>
-        <Field label="Referrer">
+        <Field label="Referrer" error={fieldErrs.referrerId}>
           <EntityPicker key={`r${resetSeq}`} placeholder="Search referrer…" search={searchReferrers} onPick={(i) => setReferrerId(i?.id ?? null)} />
         </Field>
         <div className="sm:col-span-2">
@@ -254,6 +261,7 @@ function AttachReferral() {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState("");
 
   async function preview() {
@@ -282,6 +290,7 @@ function AttachReferral() {
     setBusy(true);
     setErr("");
     setMsg("");
+    setFieldErrs({});
     try {
       await apiSend("referrers/attach", "POST", {
         workItemId,
@@ -295,7 +304,8 @@ function AttachReferral() {
       setAmount("");
       setResetSeq((n) => n + 1);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not attach referral");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not attach referral") ?? "");
     } finally {
       setBusy(false);
     }
@@ -306,7 +316,7 @@ function AttachReferral() {
       <p className="mb-2 text-sm font-semibold text-gray-700">Attach a referral to a job</p>
       <form onSubmit={attach} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Job">
+          <Field label="Job" error={fieldErrs.workItemId}>
             <Select value={workItemId} onChange={(e) => { setWorkItemId(e.target.value); setSuggestion(null); }} required>
               <option value="">Select job…</option>
               {(works ?? []).map((w) => (
@@ -314,7 +324,7 @@ function AttachReferral() {
               ))}
             </Select>
           </Field>
-          <Field label="Referrer (blank = the client’s default)">
+          <Field label="Referrer (blank = the client’s default)" error={fieldErrs.referrerId}>
             <EntityPicker key={resetSeq} placeholder="Search referrer…" search={searchReferrers} onPick={(i) => setReferrerId(i?.id ?? null)} />
           </Field>
         </div>
@@ -350,7 +360,7 @@ function AttachReferral() {
           </div>
         )}
 
-        <Field label="Amount (৳) — override or enter manually">
+        <Field label="Amount (৳) — override or enter manually" error={fieldErrs.amount}>
           <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
         </Field>
 

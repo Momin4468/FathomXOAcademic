@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { can, type PartyRow, type Payment, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
@@ -28,6 +29,7 @@ export default function PaymentsPage() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     direction: "in",
     counterpartyPartyId: null as string | null,
@@ -45,11 +47,13 @@ export default function PaymentsPage() {
     e.preventDefault();
     const amount = Number(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setFormError("Enter a valid amount");
+      setFormError("");
+      setFieldErrs({ amount: "Enter a valid amount" });
       return;
     }
     setBusy(true);
     setFormError("");
+    setFieldErrs({});
     try {
       await apiSend("payments", "POST", {
         direction: form.direction,
@@ -64,7 +68,8 @@ export default function PaymentsPage() {
       setForm({ ...form, amount: "", trxId: "", note: "", counterpartyPartyId: null });
       await mutate();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Could not record payment");
+      setFieldErrs(fieldErrorMap(err));
+      setFormError(bannerMessage(err, "Could not record payment") ?? "");
     } finally {
       setBusy(false);
     }
@@ -81,24 +86,24 @@ export default function PaymentsPage() {
         <Card className="mb-5">
           <form onSubmit={record} className="space-y-3">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Direction" hint="in = money received · out = money paid out">
+              <Field label="Direction" hint="in = money received · out = money paid out" error={fieldErrs.direction}>
                 <Select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
                   <option value="in">in (received)</option>
                   <option value="out">out (paid)</option>
                 </Select>
               </Field>
-              <Field label="Amount">
+              <Field label="Amount" required error={fieldErrs.amount}>
                 <MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
               </Field>
             </div>
-            <Field label="Counterparty" hint="The client (in) or writer (out) on the other side.">
+            <Field label="Counterparty" hint="The client (in) or writer (out) on the other side." error={fieldErrs.counterpartyPartyId}>
               <EntityPicker placeholder="Search party…" search={searchParties} onPick={(i) => setForm({ ...form, counterpartyPartyId: i?.id ?? null })} />
             </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Paid on">
+              <Field label="Paid on" error={fieldErrs.paidAt}>
                 <DateInput value={form.paidAt} onChange={(v) => setForm({ ...form, paidAt: v })} />
               </Field>
-              <Field label="Medium">
+              <Field label="Medium" error={fieldErrs.medium}>
                 <Select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}>
                   {MEDIUMS.map((m) => (
                     <option key={m} value={m}>
@@ -107,11 +112,11 @@ export default function PaymentsPage() {
                   ))}
                 </Select>
               </Field>
-              <Field label="Transaction id">
+              <Field label="Transaction id" error={fieldErrs.trxId}>
                 <Input value={form.trxId} onChange={(e) => setForm({ ...form, trxId: e.target.value })} />
               </Field>
             </div>
-            <Field label="Note">
+            <Field label="Note" error={fieldErrs.note}>
               <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
             </Field>
             {formError && <ErrorNote message={formError} />}

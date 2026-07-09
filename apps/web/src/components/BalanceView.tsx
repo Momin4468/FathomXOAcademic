@@ -37,7 +37,7 @@ export function BalanceView({
       <Card>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Net position</p>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Net position</h2>
             <p className="mt-1 text-xl font-semibold tabular-nums">
               <Money value={balance.net} />
             </p>
@@ -48,7 +48,7 @@ export function BalanceView({
 
       {/* Earnings */}
       <Card>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Earnings (business → party)</p>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Earnings (business → party)</h2>
         <dl className="grid grid-cols-3 gap-2 text-sm">
           <div>
             <dt className="text-xs text-gray-500">owed</dt>
@@ -68,7 +68,7 @@ export function BalanceView({
       {/* Charges (dues) */}
       <Card>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Charges (party → business dues)</p>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Charges (party → business dues)</h2>
           <span className="text-sm font-medium">
             outstanding <Money value={balance.charges.outstanding} />
           </span>

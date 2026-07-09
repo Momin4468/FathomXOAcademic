@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { Sparkles } from "lucide-react";
 import { pfApiSend, pfRevalidate, pfAiQuickAdd, usePfApi } from "@/lib/pf-api";
 import type { PfCategory, PfFrequentCategory, PfPreferences } from "@/lib/pf-types";
 import { PF_CURRENCIES } from "@/lib/pf-types";
@@ -172,7 +173,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             className="w-full bg-transparent text-4xl font-semibold tabular-nums outline-none placeholder:text-gray-300"
           />
           {activeCurrencies.length > 1 && (
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm">
+            <select aria-label="Currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm">
               {activeCurrencies.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -219,7 +220,7 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
             {occurredOn === today() ? "Today" : occurredOn} ▾
           </button>
           {showDate && (
-            <input type="date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-1 text-xs" />
+            <input type="date" aria-label="Date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-1 text-xs" />
           )}
           {!showNote && (
             <button type="button" onClick={() => setShowNote(true)} className="hover:text-gray-800">
@@ -241,8 +242,8 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
               placeholder="or type: spent 500 on groceries"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
             />
-            <Button variant="secondary" className="shrink-0 px-3" disabled={aiBusy || !aiText.trim()} onClick={runAi}>
-              {aiBusy ? "…" : "✨"}
+            <Button variant="secondary" aria-label="Generate with AI" className="shrink-0 px-3" disabled={aiBusy || !aiText.trim()} onClick={runAi}>
+              {aiBusy ? "…" : <Sparkles aria-hidden className="h-4 w-4" />}
             </Button>
           </div>
         )}

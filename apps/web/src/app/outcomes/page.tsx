@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { formatDate } from "@/lib/format";
 import {
   can,
@@ -89,9 +90,9 @@ function ReputationCard({ defaultPartyId, lockSelf }: { defaultPartyId: string |
   return (
     <Card className="mb-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Reputation</p>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Reputation</h2>
         {!lockSelf && (
-          <div className="w-56"><EntityPicker placeholder="Pick a writer…" search={searchWriters} onPick={(i) => setPartyId(i?.id ?? defaultPartyId)} /></div>
+          <div className="w-full sm:w-56"><EntityPicker placeholder="Pick a writer…" search={searchWriters} onPick={(i) => setPartyId(i?.id ?? defaultPartyId)} /></div>
         )}
       </div>
       {!card ? (
@@ -133,11 +134,13 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.workItemId) return;
     setBusy(true);
     setErr("");
+    setFieldErrs({});
     try {
       await apiSend("outcomes", "POST", {
         workItemId: form.workItemId,
@@ -157,7 +160,8 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
       setForm({ ...form, workItemId: "", grade: "", markerFeedback: "", reworkCost: "" });
       onDone();
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Could not record outcome");
+      setFieldErrs(fieldErrorMap(e2));
+      setErr(bannerMessage(e2, "Could not record outcome") ?? "");
     } finally {
       setBusy(false);
     }
@@ -170,39 +174,39 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
       </div>
       {open && (
         <form onSubmit={submit} className="mt-3 space-y-3">
-          <Field label="Job">
+          <Field label="Job" error={fieldErrs.workItemId}>
             <Select value={form.workItemId} onChange={(e) => setForm({ ...form, workItemId: e.target.value })}>
               <option value="">{jobs && jobs.length === 0 ? "No jobs yet" : "Select job…"}</option>
               {(jobs ?? []).map((j) => (<option key={j.id} value={j.id}>{j.title}</option>))}
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Field label="On time?">
+            <Field label="On time?" error={fieldErrs.onTime}>
               <Select value={form.onTime} onChange={(e) => setForm({ ...form, onTime: e.target.value })}>
                 <option value="">—</option><option value="yes">yes</option><option value="no">no</option>
               </Select>
             </Field>
-            <Field label="Days late"><Input type="number" min="0" value={form.daysLate} onChange={(e) => setForm({ ...form, daysLate: e.target.value })} /></Field>
-            <Field label="Revisions"><Input type="number" min="0" value={form.revisionCount} onChange={(e) => setForm({ ...form, revisionCount: e.target.value })} /></Field>
-            <Field label="Revision fault">
+            <Field label="Days late" error={fieldErrs.daysLate}><Input type="number" min="0" value={form.daysLate} onChange={(e) => setForm({ ...form, daysLate: e.target.value })} /></Field>
+            <Field label="Revisions" error={fieldErrs.revisionCount}><Input type="number" min="0" value={form.revisionCount} onChange={(e) => setForm({ ...form, revisionCount: e.target.value })} /></Field>
+            <Field label="Revision fault" error={fieldErrs.revisionFault}>
               <Select value={form.revisionFault} onChange={(e) => setForm({ ...form, revisionFault: e.target.value })}>
                 {FAULTS.map((f) => <option key={f} value={f}>{f || "—"}</option>)}
               </Select>
             </Field>
-            <Field label="Grade"><Input value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></Field>
-            <Field label="AI score"><Input type="number" min="0" max="100" value={form.aiScore} onChange={(e) => setForm({ ...form, aiScore: e.target.value })} /></Field>
-            <Field label="Satisfaction">
+            <Field label="Grade" error={fieldErrs.grade}><Input value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></Field>
+            <Field label="AI score" error={fieldErrs.aiScore}><Input type="number" min="0" max="100" value={form.aiScore} onChange={(e) => setForm({ ...form, aiScore: e.target.value })} /></Field>
+            <Field label="Satisfaction" error={fieldErrs.satisfaction}>
               <Select value={form.satisfaction} onChange={(e) => setForm({ ...form, satisfaction: e.target.value })}>
                 {SATISFACTION.map((s) => <option key={s} value={s}>{s || "—"}</option>)}
               </Select>
             </Field>
-            <Field label="Rework cost (৳)"><MoneyInput value={form.reworkCost} onChange={(v) => setForm({ ...form, reworkCost: v })} /></Field>
+            <Field label="Rework cost (৳)" error={fieldErrs.reworkCost}><MoneyInput value={form.reworkCost} onChange={(v) => setForm({ ...form, reworkCost: v })} /></Field>
           </div>
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.complaint} onChange={(e) => setForm({ ...form, complaint: e.target.checked })} /> complaint</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={form.failed} onChange={(e) => setForm({ ...form, failed: e.target.checked })} /> failed</label>
           </div>
-          <Field label="Marker feedback"><Input value={form.markerFeedback} onChange={(e) => setForm({ ...form, markerFeedback: e.target.value })} /></Field>
+          <Field label="Marker feedback" error={fieldErrs.markerFeedback}><Input value={form.markerFeedback} onChange={(e) => setForm({ ...form, markerFeedback: e.target.value })} /></Field>
           {err && <ErrorNote message={err} />}
           <Button type="submit" disabled={busy || !form.workItemId}>{busy ? "Saving…" : "Record outcome"}</Button>
         </form>

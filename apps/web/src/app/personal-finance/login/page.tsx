@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { pfLogin } from "@/lib/pf-api";
+import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
 
 export default function PfLoginPage() {
@@ -12,19 +13,22 @@ export default function PfLoginPage() {
   const [totp, setTotp] = useState("");
   const [needsTotp, setNeedsTotp] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
+    setFieldErrs({});
     try {
       await pfLogin(email, password, totp || undefined);
       router.replace("/personal-finance");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Login failed";
       if (/totp|2fa|two.?factor/i.test(msg) && !needsTotp) setNeedsTotp(true);
-      setError(msg);
+      setFieldErrs(fieldErrorMap(err));
+      setError(bannerMessage(err, "Login failed") ?? "");
       setBusy(false);
     }
   }
@@ -35,15 +39,15 @@ export default function PfLoginPage() {
       <p className="mt-1 text-sm text-gray-500">Your private money — only you can see it.</p>
       <Card className="mt-6">
         <form onSubmit={onSubmit} className="space-y-4">
-          <Field label="Email">
+          <Field label="Email" error={fieldErrs.email}>
             <Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
-          <Field label="Password">
+          <Field label="Password" error={fieldErrs.password}>
             <Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </Field>
           {needsTotp && (
-            <Field label="2FA code" hint="From your authenticator app">
-              <Input inputMode="numeric" value={totp} onChange={(e) => setTotp(e.target.value)} />
+            <Field label="2FA code" hint="From your authenticator app" error={fieldErrs.totp}>
+              <Input inputMode="numeric" autoComplete="one-time-code" value={totp} onChange={(e) => setTotp(e.target.value)} />
             </Field>
           )}
           {error && <ErrorNote message={error} />}

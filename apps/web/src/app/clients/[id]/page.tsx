@@ -58,7 +58,7 @@ export default function ClientDetailPage() {
           {/* Custom fields */}
           {party.customFields.length > 0 && (
             <Card>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Custom fields</p>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Custom fields</h2>
               <dl className="grid grid-cols-2 gap-2 text-sm">
                 {party.customFields.map((f) => (
                   <div key={f.id}>
