@@ -4,6 +4,7 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfLoan, type PfLoanEvent } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -83,6 +84,7 @@ function AddLoan({ onDone }: { onDone: () => void }) {
 }
 
 function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const { data: events, mutate } = usePfApi<PfLoanEvent[]>(open ? `loans/${loan.id}/events` : null);
   const [form, setForm] = useState({ kind: "repayment", amount: "", occurredOn: today() });
@@ -105,7 +107,7 @@ function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
     }
   }
   async function reverse(eventId: string) {
-    if (!window.confirm("Reverse this event? (append-only — a correcting entry is recorded)")) return;
+    if (!(await confirm({ title: "Reverse this event?", body: "Append-only — a correcting entry is recorded.", danger: true, confirmLabel: "Reverse" }))) return;
     try {
       await pfApiSend(`loans/events/${eventId}/reverse`, "POST");
       await mutate();

@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/format";
 import { can, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
 
 /**
@@ -151,6 +152,7 @@ function AdvanceCard({
   canApprove: boolean;
   onChange: () => void;
 }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"repayment" | "disbursement" | "adjustment">("repayment");
   const [amount, setAmount] = useState("");
@@ -175,7 +177,7 @@ function AdvanceCard({
     }
   }
   async function archive() {
-    if (!confirm("Archive this advance?")) return;
+    if (!(await confirm({ title: "Archive this advance?", danger: true, confirmLabel: "Archive" }))) return;
     await apiSend(`advances/${advance.id}/archive`, "POST");
     onChange();
   }

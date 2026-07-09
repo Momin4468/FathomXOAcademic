@@ -6,6 +6,7 @@ import { can, type Balance, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { BalanceView } from "@/components/BalanceView";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
+import { useConfirm } from "@/components/confirm";
 import { Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"];
@@ -16,6 +17,7 @@ const searchParties = async (q: string): Promise<PickItem[]> => {
 };
 
 export default function BalancePage() {
+  const confirm = useConfirm();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const myPartyId = me?.principal.partyId ?? null;
   const isAdmin = can(me?.permissions, "billing:view");
@@ -61,7 +63,13 @@ export default function BalancePage() {
   }
 
   async function reverseCharge(originalId: string) {
-    const reason = window.prompt("Reason for reversing this charge? (optional)") ?? undefined;
+    const reason = await confirm({
+      title: "Reverse this charge?",
+      danger: true,
+      confirmLabel: "Reverse",
+      reasonField: { label: "Reason (optional)", placeholder: "why…" },
+    });
+    if (reason === false) return;
     setBusy(true);
     setActionError("");
     try {

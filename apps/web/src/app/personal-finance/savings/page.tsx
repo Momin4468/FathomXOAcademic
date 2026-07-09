@@ -4,6 +4,7 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSaving, type PfSavingEvent } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -65,6 +66,7 @@ function AddSaving({ onDone }: { onDone: () => void }) {
 }
 
 function SavingRow({ saving, onChanged }: { saving: PfSaving; onChanged: () => void }) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const { data: events, mutate } = usePfApi<PfSavingEvent[]>(open ? `savings/${saving.id}/events` : null);
   const [form, setForm] = useState({ kind: "deposit", amount: "", occurredOn: today() });
@@ -88,7 +90,7 @@ function SavingRow({ saving, onChanged }: { saving: PfSaving; onChanged: () => v
     }
   }
   async function reverse(eventId: string) {
-    if (!window.confirm("Reverse this movement? (append-only — a correcting entry is recorded)")) return;
+    if (!(await confirm({ title: "Reverse this movement?", body: "Append-only — a correcting entry is recorded.", danger: true, confirmLabel: "Reverse" }))) return;
     try {
       await pfApiSend(`savings/events/${eventId}/reverse`, "POST");
       await mutate();

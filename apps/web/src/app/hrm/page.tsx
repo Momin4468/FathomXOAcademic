@@ -3,6 +3,7 @@ import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, ErrorNote, Input, Spinner } from "@/components/ui";
 
 /**
@@ -70,11 +71,13 @@ export default function HrmPage() {
 }
 
 function LogActions({ log, onChange }: { log: LogRow; onChange: () => void }) {
+  const confirm = useConfirm();
   const [workItemId, setWorkItemId] = useState(log.workItemId ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   async function act(kind: "convert" | "reject") {
+    if (!(await confirm({ title: kind === "convert" ? "Convert this log onto a job?" : "Reject this log?", danger: kind === "reject", confirmLabel: kind === "convert" ? "Convert" : "Reject" }))) return;
     setBusy(true);
     setErr("");
     try {

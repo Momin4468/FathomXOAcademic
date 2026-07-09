@@ -4,9 +4,11 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import type { PfCategory } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
 
 export default function PfCategoriesPage() {
+  const confirm = useConfirm();
   const { data, error, isLoading, mutate } = usePfApi<PfCategory[]>("categories");
   const [form, setForm] = useState({ kind: "expense", name: "" });
   const [busy, setBusy] = useState(false);
@@ -29,6 +31,7 @@ export default function PfCategoriesPage() {
   }
 
   async function archive(id: string) {
+    if (!(await confirm({ title: "Archive this category?", danger: true, confirmLabel: "Archive" }))) return;
     await pfApiSend(`categories/${id}/archive`, "POST");
     await mutate();
   }

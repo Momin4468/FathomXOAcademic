@@ -8,6 +8,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Money, MoneyInput, Spinner } from "@/components/ui";
 
 /** A candidate the payment can be allocated to, with the amount entered so far. */
@@ -23,6 +24,7 @@ interface Target {
 
 export default function PaymentDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const confirm = useConfirm();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const { data, error, isLoading, mutate } = useApi<PaymentDetail>(`payments/${id}`);
   const payment = data?.payment;
@@ -143,7 +145,13 @@ export default function PaymentDetailPage() {
   }
 
   async function reverse() {
-    const reason = window.prompt("Reason for reversing this payment? (optional)") ?? undefined;
+    const reason = await confirm({
+      title: "Reverse this payment?",
+      danger: true,
+      confirmLabel: "Reverse",
+      reasonField: { label: "Reason (optional)", placeholder: "why…" },
+    });
+    if (reason === false) return;
     setBusy(true);
     setActionError("");
     try {

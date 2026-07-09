@@ -8,6 +8,7 @@ import { pfAttachmentDownloadUrl, pfUploadNoteFile } from "@/lib/pf-upload";
 import { formatDateTime } from "@/lib/format";
 import { NOTE_COLORS, NOTE_COLOR_BG, type PfNote, type PfNoteAttachment, type PfNoteItem } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, Spinner, Textarea, cx } from "@/components/ui";
 
 export default function PfNoteEditorPage() {
@@ -26,6 +27,7 @@ export default function PfNoteEditorPage() {
 }
 
 function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [title, setTitle] = useState(note.title ?? "");
   const [body, setBody] = useState(note.body ?? "");
@@ -91,7 +93,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
       await pfApiSend(`notes/${note.id}/restore`, "POST");
       onChanged();
     } else {
-      if (!window.confirm("Archive this note? You can restore it from the Archived view.")) return;
+      if (!(await confirm({ title: "Archive this note?", body: "You can restore it from the Archived view.", danger: true, confirmLabel: "Archive" }))) return;
       await pfApiSend(`notes/${note.id}/archive`, "POST");
       router.push("/personal-finance/notes");
     }
@@ -188,6 +190,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
 }
 
 function Attachments({ noteId, attachments, onChanged }: { noteId: string; attachments: PfNoteAttachment[]; onChanged: () => void }) {
+  const confirm = useConfirm();
   const fileRef = useRef<HTMLInputElement>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [url, setUrl] = useState("");
@@ -226,7 +229,7 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
     }
   }
   async function remove(id: string) {
-    if (!window.confirm("Remove this attachment?")) return;
+    if (!(await confirm({ title: "Remove this attachment?", danger: true, confirmLabel: "Remove" }))) return;
     await pfApiSend(`attachments/${id}`, "DELETE");
     onChanged();
   }

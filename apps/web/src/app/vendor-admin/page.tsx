@@ -2,6 +2,7 @@
 import { apiSend, useApi } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, ErrorNote, Money, Spinner } from "@/components/ui";
 
 /**
@@ -20,9 +21,11 @@ interface ClaimRow {
 }
 
 export default function VendorAdminPage() {
+  const confirm = useConfirm();
   const { data, error, isLoading, mutate } = useApi<ClaimRow[]>("vendor-admin/claims");
 
   async function decide(id: string, status: "approved" | "rejected") {
+    if (!(await confirm({ title: status === "approved" ? "Approve this claim?" : "Reject this claim?", danger: status === "rejected", confirmLabel: status === "approved" ? "Approve" : "Reject" }))) return;
     await apiSend(`vendor-admin/claims/${id}/decide`, "POST", { status });
     await mutate();
   }

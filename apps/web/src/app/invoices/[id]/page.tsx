@@ -7,10 +7,12 @@ import { formatDate } from "@/lib/format";
 import { can, type Invoice, type InvoiceDetail, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, EmptyState, ErrorNote, Money, Select, Spinner, StateBadge } from "@/components/ui";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const confirm = useConfirm();
   const router = useRouter();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const { data, error, isLoading, mutate } = useApi<InvoiceDetail>(`invoices/${encodeURIComponent(id)}`);
@@ -25,6 +27,7 @@ export default function InvoiceDetailPage() {
   const { data: siblings } = useApi<Invoice[]>(inv ? `invoices?clientPartyId=${encodeURIComponent(inv.clientPartyId)}` : null);
 
   async function supersede() {
+    if (!(await confirm({ title: "Create a final invoice from this estimate?", danger: true, confirmLabel: "Create final" }))) return;
     setBusy(true);
     setActionError("");
     try {
@@ -37,6 +40,7 @@ export default function InvoiceDetailPage() {
   }
 
   async function moveLine(invoiceLineId: string, targetInvoiceId: string) {
+    if (!(await confirm({ title: "Move this line to another invoice?", danger: true, confirmLabel: "Move" }))) return;
     setBusy(true);
     setActionError("");
     try {

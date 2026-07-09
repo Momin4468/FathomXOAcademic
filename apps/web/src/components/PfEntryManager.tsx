@@ -3,12 +3,14 @@ import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 /** Shared income/expense manager (§11): list + capture-first add + reverse. */
 export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
+  const confirm = useConfirm();
   const { data: categories } = usePfApi<PfCategory[]>(`categories?kind=${kind}`);
   const { data: entries, error, isLoading, mutate } = usePfApi<PfEntry[]>(kind);
   const [open, setOpen] = useState(false);
@@ -50,7 +52,7 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
   }
 
   async function reverse(id: string) {
-    if (!window.confirm("Reverse this entry? (append-only — a correcting entry is recorded)")) return;
+    if (!(await confirm({ title: "Reverse this entry?", body: "Append-only — a correcting entry is recorded.", danger: true, confirmLabel: "Reverse" }))) return;
     await pfApiSend(`${kind}/${id}/reverse`, "POST");
     await mutate();
   }

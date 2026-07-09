@@ -6,6 +6,7 @@ import { apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, EmptyState, ErrorNote, Money, Spinner, StateBadge } from "@/components/ui";
 
 const NEXT_STATE: Record<string, string | undefined> = {
@@ -23,6 +24,7 @@ function PartyName({ id }: { id: string | null }) {
 
 export default function JobDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const confirm = useConfirm();
   const { data, error, isLoading, mutate } = useApi<WorkDetail>(`work/${id}`);
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const { data: course } = useApi<RefEntity>(data?.item.courseRefId ? `reference/${data.item.courseRefId}` : null, {
@@ -40,6 +42,7 @@ export default function JobDetailPage() {
   const mayTransition = next && (next === "confirmed" ? canConfirm : canEdit);
 
   async function billLine(workLineId: string) {
+    if (!(await confirm({ title: "Bill this line to the client's invoice?", danger: true, confirmLabel: "Bill" }))) return;
     setBusy(true);
     setActionError("");
     setBilledInvoiceId(null);
@@ -55,6 +58,7 @@ export default function JobDetailPage() {
   }
 
   async function transition(toState: string) {
+    if (toState === "confirmed" && !(await confirm({ title: "Confirm this job?", body: "Confirming locks it in for delivery.", confirmLabel: "Confirm" }))) return;
     setBusy(true);
     setActionError("");
     try {

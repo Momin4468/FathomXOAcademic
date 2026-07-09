@@ -13,6 +13,7 @@ import { AppShell } from "@/components/AppShell";
 import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -185,9 +186,16 @@ function RecordTransfer({ a, b, onDone }: { a: string; b: string; onDone: () => 
 }
 
 function ReverseTransfer({ id, onDone }: { id: string; onDone: () => void }) {
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   async function run() {
-    const reason = window.prompt("Reason for reversing this transfer? (optional)") ?? undefined;
+    const reason = await confirm({
+      title: "Reverse this transfer?",
+      danger: true,
+      confirmLabel: "Reverse",
+      reasonField: { label: "Reason (optional)", placeholder: "why…" },
+    });
+    if (reason === false) return;
     setBusy(true);
     try {
       await apiSend("settlement/transfers/reverse", "POST", { originalId: id, reason });

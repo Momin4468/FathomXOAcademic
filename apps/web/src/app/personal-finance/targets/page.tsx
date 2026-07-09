@@ -4,12 +4,14 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { pfMoney, type PfCategory, type PfTarget } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const monthStart = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10); };
 const KIND_LABEL: Record<string, string> = { budget_cap: "Budget cap", income_goal: "Income goal", savings_target: "Savings target" };
 
 export default function PfTargetsPage() {
+  const confirm = useConfirm();
   const { data, error, isLoading, mutate } = usePfApi<PfTarget[]>("targets");
   const { data: categories } = usePfApi<PfCategory[]>("categories");
   const [open, setOpen] = useState(false);
@@ -47,6 +49,7 @@ export default function PfTargetsPage() {
     }
   }
   async function archive(id: string) {
+    if (!(await confirm({ title: "Archive this target?", danger: true, confirmLabel: "Archive" }))) return;
     await pfApiSend(`targets/${id}/archive`, "POST");
     await mutate();
   }

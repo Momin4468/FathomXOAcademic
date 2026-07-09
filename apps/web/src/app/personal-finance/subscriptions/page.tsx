@@ -5,9 +5,11 @@ import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { DataTable } from "@/components/DataTable";
+import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 export default function PfSubscriptionsPage() {
+  const confirm = useConfirm();
   const { data, error, isLoading, mutate } = usePfApi<PfSubscription[]>("subscriptions");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", amount: "", currency: "BDT", nextDueDate: "", note: "" });
@@ -38,6 +40,7 @@ export default function PfSubscriptionsPage() {
     }
   }
   async function archive(id: string) {
+    if (!(await confirm({ title: "Archive this subscription?", danger: true, confirmLabel: "Archive" }))) return;
     await pfApiSend(`subscriptions/${id}/archive`, "POST");
     await mutate();
   }
