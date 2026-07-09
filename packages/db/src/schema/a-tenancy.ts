@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 import { citext } from "./_shared.js";
@@ -66,34 +67,45 @@ export const role = pgTable("role", {
     .notNull()
     .references(() => org.id),
   name: text("name").notNull(),
+  description: text("description"), // human note shown in the Roles admin (0045)
   isSystem: boolean("is_system").notNull().default(false),
 });
 
 /** SCHEMA A — role × module × action × scope. The permission engine reads these. */
-export const permission = pgTable("permission", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => org.id),
-  roleId: uuid("role_id")
-    .notNull()
-    .references(() => role.id),
-  module: text("module").notNull(),
-  action: text("action").notNull(), // view | create | edit | approve
-  scopeJson: jsonb("scope_json").notNull().default({}),
-});
+export const permission = pgTable(
+  "permission",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => org.id),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => role.id),
+    module: text("module").notNull(),
+    action: text("action").notNull(), // view | create | edit | approve | delete | export
+    scopeJson: jsonb("scope_json").notNull().default({}),
+  },
+  // Idempotent grant/revoke: one row per (org, role, module, action) (0045).
+  (t) => ({ uniq: unique("permission_role_module_action_uniq").on(t.orgId, t.roleId, t.module, t.action) }),
+);
 
 /** SCHEMA A — a user's roles (multi-hat; may be scoped). */
-export const userRole = pgTable("user_role", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => org.id),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => userAccount.id),
-  roleId: uuid("role_id")
-    .notNull()
-    .references(() => role.id),
-  scopeJson: jsonb("scope_json").default({}),
-});
+export const userRole = pgTable(
+  "user_role",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => org.id),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => userAccount.id),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => role.id),
+    scopeJson: jsonb("scope_json").default({}),
+  },
+  // A user holds a given role at most once (0045).
+  (t) => ({ uniq: unique("user_role_user_role_uniq").on(t.orgId, t.userId, t.roleId) }),
+);

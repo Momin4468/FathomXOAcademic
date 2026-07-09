@@ -9,17 +9,13 @@
 
 ---
 
-## 🔨 In review (uncommitted) — UI polish pass + per-field validation (2 phases)
-Everything below is **UNCOMMITTED for review**, per convention. Verified end-to-end: **web build clean** (Phase A and Phase B), **web unit tests 25/25**, **API build clean**, **API validation unit 4/4**, **auth-http 15/15**, plus a **runtime 400 proof** (invalid login returns `message[]` + `fieldErrors[]`).
+## 🔨 In review (uncommitted) — RBAC admin layer (roles/permissions management)
+The write side of the roles-as-data engine (`PermissionService` was read-only). All gated to the `platform` module (SuperAdmin-only) and audited. See DECISIONS 2026-07-09 for the three decisions (SuperAdmin-only + no-self-escalation · built-in name/delete locked but perms editable, System SuperAdmin fully immutable · strict grid driven by a runtime `DiscoveryService` catalog).
+- **Backend (`apps/api/src/modules/platform/`):** `roles.controller.ts` + `roles.service.ts` (role CRUD, permission toggle, `GET /platform/users`; guards for is_system/System-SuperAdmin/strict-grant/no-self-escalation), `permission-catalog.service.ts` (enforced module×action set derived from `@RequirePermission` metadata). Assign/unassign reuse the existing `admin.controller.ts` endpoints. Migration **0045** (`role.description` + unique indexes; registered in `migrate.ts`); `PERMISSION_ACTIONS` extended with `delete`/`export` (grantable-but-inert until an endpoint enforces them).
+- **Web:** `/roles` (list + create) and `/roles/[id]` (details + `PermissionGrid` module×action matrix + assigned-users + delete), nav entry gated `platform:view`. Reuses DataTable/Field/ConfirmDialog + the `fieldErrorMap`/`bannerMessage` pattern.
+- **Verified:** API typecheck + build clean; `roles-http.test.ts` **8/8** (gate, catalog truthfulness, denial, is_system protections, no-self-escalation, cross-org isolation); web build clean; web unit 25/25. Migration 0045 applied to the Supabase DB the suite runs against (additive/safe). **Left UNCOMMITTED for review.**
 
-**Phase A — closed the remaining `docs/UI_POLISH_AUDIT.md` [Review] items** (the audit header now carries a "closed" summary; see DECISIONS 2026-07-09):
-- A1 responsive fixed widths (outcomes/hrm/payments-alloc/DataTable search; checks were already responsive) · A2 portal money grid `grid-cols-1 sm:grid-cols-3` · A3 DataTable dense-chrome bumped to a considered ~32–40px (not a blind 44px) · A4 EntityPicker items `min-h-[44px]` · A5 emerald contrast (700 kept on white — passes AA; small emerald text on the tinted PF bg → 800) · A6 PfCharts per-slice `<title>` + `<320px` verified + PF settings safe-area-inset · A7 5 emoji→lucide-react (Bell/Menu/X/Sparkles/Pin, aria preserved) · A8 card-label `<p>`→`<h2>` ×25 (portal datum labels / nav-group / bell composer skipped).
-
-**Phase B — per-field validation error display (additive, all three auth planes):**
-- **Backend:** custom `ValidationPipe.exceptionFactory` (`apps/api/src/main.ts`) + tested `flattenValidationErrors` (`common/validation-field-errors.ts`) → 400 body now carries `fieldErrors:{field,message}[]` **alongside** the unchanged `message:string[]` (dotted paths for nested DTOs; one entry per field).
-- **Client:** shared `ApiError` (`lib/api.ts`, used by pf-api + client-api) gained `fieldErrors`, populated via `extractFieldErrors()` in all 3 `parse()`s; new pure helper `lib/field-errors.ts` (`fieldErrorMap` / `hasFieldErrors` / `bannerMessage`).
-- **Forms:** swept **36 submit-form components** — each attaches `error={fieldErrs.KEY}` per body-bound `<Field>` and keeps `<ErrorNote>` as the non-field fallback. NOT wired (by design): read-hook error banners, raw non-`<Field>` inputs, and Fields bound to nested/compound body objects.
-- **Tests:** `validation-field-errors.test.ts` (API 4/4) + `field-errors.test.ts` (web 7/7) prove a multi-field failure surfaces each message at its own field.
+> **Previously in review, now COMMITTED** (by the user, `c702172` + `7d8686e`): the UI polish pass (closed all `docs/UI_POLISH_AUDIT.md` [Review] items A1–A8) and per-field validation error display (structured `fieldErrors` end-to-end across 36 forms, all three auth planes) + the `flattenValidationErrors` throw-hardening. See DECISIONS 2026-07-09.
 
 ---
 

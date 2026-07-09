@@ -46,6 +46,7 @@ const SCHEMA_MIGRATIONS = [
   "0042_advance_ledger.sql",
   "0043_vendor_claim.sql",
   "0044_producer_work_log.sql",
+  "0045_rbac_admin.sql",
 ];
 
 async function main() {

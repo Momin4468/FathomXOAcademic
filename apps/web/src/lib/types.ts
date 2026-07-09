@@ -16,6 +16,45 @@ export interface WhoAmI {
   permissions: string[]; // "module:action"
 }
 
+// ─── RBAC admin (roles / permissions) ────────────────────────────────────────
+export type PermAction = "view" | "create" | "edit" | "approve" | "delete" | "export";
+
+export interface RoleRow {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissionCount: number;
+  assignmentCount: number;
+}
+
+export interface RoleDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: { module: string; action: string }[];
+  assignments: { userId: string; email: string; displayName: string | null }[];
+}
+
+export interface CatalogModule {
+  key: string;
+  label: string;
+  enforced: Record<PermAction, boolean>;
+}
+
+export interface PermissionCatalog {
+  actions: PermAction[];
+  modules: CatalogModule[];
+}
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  displayName: string | null;
+  roleNames: string[];
+}
+
 export interface WorkListRow {
   id: string;
   title: string;

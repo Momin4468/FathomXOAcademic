@@ -73,6 +73,7 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
       { href: "/client-admin", label: "Client portal", perm: "client_portal:view" },
       { href: "/vendor-admin", label: "Vendor claims", perm: "vendor:approve" },
       { href: "/hrm", label: "Work logs", perm: "hrm:approve" },
+      { href: "/roles", label: "Roles", perm: "platform:view" }, // SuperAdmin-only (Admins lack platform)
     ],
   },
 ];

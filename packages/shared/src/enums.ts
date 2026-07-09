@@ -36,8 +36,15 @@ export type ClientAccountStatus = (typeof CLIENT_ACCOUNT_STATUSES)[number];
 export const CLIENT_MESSAGE_SENDERS = ["client", "admin"] as const;
 export type ClientMessageSender = (typeof CLIENT_MESSAGE_SENDERS)[number];
 
-/** permission.action — module × action × scope (SCHEMA A, spec §4.3). */
-export const PERMISSION_ACTIONS = ["view", "create", "edit", "approve"] as const;
+/**
+ * permission.action — module × action × scope (SCHEMA A, spec §4.3). Stored as a
+ * free-text column (no DB enum), so this tuple is the boundary-validation list.
+ * `delete`/`export` are grantable columns in the RBAC admin grid; no endpoint
+ * enforces them yet, so a grant is inert until an endpoint adopts
+ * `@RequirePermission(x, "delete"|"export")` (the permission catalog then marks
+ * that cell enforced automatically).
+ */
+export const PERMISSION_ACTIONS = ["view", "create", "edit", "approve", "delete", "export"] as const;
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
 /** ref_entity.kind — canonical reference data (SCHEMA B, spec §7). */
