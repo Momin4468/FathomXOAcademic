@@ -4,12 +4,12 @@ import { apiSend, useApi } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { Task } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { DataTable } from "@/components/DataTable";
 import {
   Badge,
   Button,
   Card,
   DateTimeTzInput,
-  EmptyState,
   ErrorNote,
   Field,
   Input,
@@ -32,30 +32,7 @@ function timeLeft(t: Task): string {
   return t.urgency.overdue ? `${humanizeMs(t.urgency.msLeft)} overdue` : `in ${humanizeMs(t.urgency.msLeft)}`;
 }
 
-const BUCKET_LABEL: Record<string, string> = { overdue: "Overdue", soon: "Due soon", later: "Later", none: "No deadline" };
 const BUCKET_TONE: Record<string, string> = { overdue: "red", soon: "amber", later: "gray", none: "gray" };
-
-function TaskCard({ t, onComplete }: { t: Task; onComplete: (id: string) => void }) {
-  return (
-    <Card className="flex items-center justify-between gap-3 py-3">
-      <div className="text-sm">
-        <span className="font-medium">{t.title}</span>
-        {t.dueAt && (
-          <div className="mt-0.5 text-xs text-gray-500">
-            {/* The due moment in the VIEWER's zone; show the original zone only if it differs. */}
-            {formatDateTime(t.dueAt, browserTz)} your time
-            {t.dueTz && t.dueTz !== browserTz ? ` · set for ${tzLabel(t.dueTz)}` : ""} · {timeLeft(t)}
-          </div>
-        )}
-      </div>
-      {t.state !== "done" && (
-        <Button variant="secondary" className="px-3 text-xs" onClick={() => onComplete(t.id)}>
-          Done
-        </Button>
-      )}
-    </Card>
-  );
-}
 
 export default function TasksPage() {
   const { data, error, isLoading, mutate } = useApi<Task[]>("tasks");
@@ -89,14 +66,6 @@ export default function TasksPage() {
     }
   }
 
-  const tasks = data ?? [];
-  const openTasks = tasks.filter((t) => t.state === "open");
-  const done = tasks.filter((t) => t.state === "done");
-  const buckets = (["overdue", "soon", "later", "none"] as const).map((b) => ({
-    bucket: b,
-    items: openTasks.filter((t) => t.urgency.bucket === b),
-  }));
-
   return (
     <AppShell>
       <div className="mb-5 flex items-center justify-between">
@@ -126,32 +95,73 @@ export default function TasksPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && tasks.length === 0 && <EmptyState title="No tasks" hint="Add one to start your queue." />}
-
-      <div className="space-y-6">
-        {buckets.map(
-          ({ bucket, items }) =>
-            items.length > 0 && (
-              <section key={bucket} className="space-y-2">
-                <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <Badge tone={BUCKET_TONE[bucket]}>{BUCKET_LABEL[bucket]}</Badge>
-                  <span className="text-xs font-normal text-gray-400">{items.length}</span>
-                </h2>
-                {items.map((t) => (
-                  <TaskCard key={t.id} t={t} onComplete={complete} />
-                ))}
-              </section>
-            ),
-        )}
-        {done.length > 0 && (
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-400">Done</h2>
-            {done.map((t) => (
-              <TaskCard key={t.id} t={t} onComplete={complete} />
-            ))}
-          </section>
-        )}
-      </div>
+      {data && (
+        <DataTable<Task>
+          tableId="tasks"
+          exportName="tasks"
+          rows={data}
+          getRowId={(t) => t.id}
+          emptyTitle="No tasks"
+          emptyHint="Add one to start your queue."
+          columns={[
+            { key: "title", header: "Title", sortable: true, value: (t) => t.title },
+            {
+              key: "dueAt",
+              header: "Due",
+              sortable: true,
+              render: (t) =>
+                t.dueAt ? (
+                  <span className="text-xs text-gray-500">
+                    {/* The due moment in the VIEWER's zone; show the original zone only if it differs. */}
+                    {formatDateTime(t.dueAt, browserTz)}
+                    {t.dueTz && t.dueTz !== browserTz ? ` · ${tzLabel(t.dueTz)}` : ""} · {timeLeft(t)}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">no due date</span>
+                ),
+              value: (t) => t.dueAt ?? "",
+            },
+            {
+              key: "urgency",
+              header: "Urgency",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["overdue", "soon", "later", "none"],
+              render: (t) => <Badge tone={BUCKET_TONE[t.urgency.bucket]}>{t.urgency.bucket}</Badge>,
+              value: (t) => t.urgency.bucket,
+            },
+            {
+              key: "state",
+              header: "Status",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["open", "done"],
+              format: "badge",
+              value: (t) => t.state,
+            },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (t) =>
+                t.state !== "done" ? (
+                  <Button
+                    variant="secondary"
+                    className="px-3 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      complete(t.id);
+                    }}
+                  >
+                    Done
+                  </Button>
+                ) : null,
+            },
+          ]}
+        />
+      )}
     </AppShell>
   );
 }

@@ -1,19 +1,21 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, Card, ErrorNote, Field, Input, MoneyInput, Money, Spinner } from "@/components/ui";
 
 /**
  * The vendor self-view (audit item 13). Shows ONLY this vendor's own slice —
  * their handoff earnings + balance (chain/client price redacted by RLS) — plus a
  * "submit an invoice" form and the status of their submitted claims.
  */
+type VendorHandoff = { id: string; workItemId: string; amount: string; createdAt: string };
+type VendorClaim = { id: string; amount: string; note: string | null; status: string; createdAt: string };
 interface VendorMe {
   balance: { earnings: { owed: number; paid: number; outstanding: number } };
-  handoffs: Array<{ id: string; workItemId: string; amount: string; createdAt: string }>;
-  claims: Array<{ id: string; amount: string; note: string | null; status: string; createdAt: string }>;
+  handoffs: VendorHandoff[];
+  claims: VendorClaim[];
 }
 
 export default function VendorMePage() {
@@ -50,36 +52,45 @@ export default function VendorMePage() {
           <SubmitClaim onSaved={mutate} />
 
           <h2 className="mb-2 text-sm font-semibold text-gray-700">Submitted invoices</h2>
-          {data.claims.length === 0 ? (
-            <EmptyState title="No invoices submitted" hint="Submit one above; an admin will review it." />
-          ) : (
-            <ul className="mb-6 divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-              {data.claims.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <div>
-                    <span className="font-medium tabular-nums"><Money value={c.amount} /></span>
-                    {c.note && <span className="ml-2 text-xs text-gray-500">{c.note}</span>}
-                    <div className="mt-0.5 text-xs text-gray-400">{formatDate(c.createdAt)}</div>
-                  </div>
-                  <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="mb-6">
+            <DataTable<VendorClaim>
+              tableId="vendor-me-claims"
+              exportName="my-claims"
+              rows={data.claims}
+              getRowId={(c) => c.id}
+              emptyTitle="No invoices submitted"
+              emptyHint="Submit one above; an admin will review it."
+              columns={[
+                { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (c) => (c.amount == null ? "" : Number(c.amount)) },
+                { key: "note", header: "Note", filter: "text", value: (c) => c.note ?? "" },
+                { key: "createdAt", header: "Date", sortable: true, format: "date", value: (c) => c.createdAt },
+                {
+                  key: "status",
+                  header: "Status",
+                  align: "center",
+                  sortable: true,
+                  filter: "select",
+                  filterOptions: ["proposed", "approved", "rejected"],
+                  render: (c) => <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge>,
+                  value: (c) => c.status,
+                },
+              ]}
+            />
+          </div>
 
           <h2 className="mb-2 text-sm font-semibold text-gray-700">Your handoffs (paid via the ledger)</h2>
-          {data.handoffs.length === 0 ? (
-            <EmptyState title="No handoffs yet" hint="Jobs paid to you will appear here." />
-          ) : (
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-              {data.handoffs.map((h) => (
-                <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                  <span className="text-xs text-gray-500">{formatDate(h.createdAt)}</span>
-                  <span className="font-medium tabular-nums"><Money value={h.amount} /></span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <DataTable<VendorHandoff>
+            tableId="vendor-me-handoffs"
+            exportName="my-handoffs"
+            rows={data.handoffs}
+            getRowId={(h) => h.id}
+            emptyTitle="No handoffs yet"
+            emptyHint="Jobs paid to you will appear here."
+            columns={[
+              { key: "createdAt", header: "Date", sortable: true, format: "date", value: (h) => h.createdAt },
+              { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (h) => (h.amount == null ? "" : Number(h.amount)) },
+            ]}
+          />
         </>
       )}
     </AppShell>

@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { can, type Invoice, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Select, Spinner, StateBadge } from "@/components/ui";
+import { Badge, Button, Card, ErrorNote, Field, Select, Spinner } from "@/components/ui";
 
 const STATUSES = ["", "open", "sent", "partial", "paid", "void"];
 
@@ -17,6 +17,7 @@ const searchClients = async (q: string): Promise<PickItem[]> => {
 };
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const [clientFilter, setClientFilter] = useState<string | null>(null);
   const [status, setStatus] = useState("");
@@ -96,27 +97,45 @@ export default function InvoicesPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No invoices" hint="Bill a job line to start a client's invoice." />}
-      {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {data.map((inv) => (
-            <li key={inv.id}>
-              <Link href={`/invoices/${inv.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
-                <div className="text-sm">
-                  <span className="font-medium">
-                    <PartyName id={inv.clientPartyId} />
-                  </span>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
-                    {formatDate(inv.createdAt)}
-                    {inv.isEstimate && <Badge tone="amber">estimate</Badge>}
-                    {inv.supersedesInvoiceId && <Badge tone="gray">final</Badge>}
-                  </div>
-                </div>
-                <StateBadge state={inv.status} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {data && (
+        <DataTable<Invoice>
+          tableId="invoices"
+          exportName="invoices"
+          rows={data}
+          getRowId={(inv) => inv.id}
+          onRowClick={(inv) => router.push(`/invoices/${inv.id}`)}
+          emptyTitle="No invoices"
+          emptyHint="Bill a job line to start a client's invoice."
+          columns={[
+            {
+              key: "client",
+              header: "Client",
+              render: (inv) => <PartyName id={inv.clientPartyId} />,
+              value: (inv) => inv.clientPartyId ?? "",
+            },
+            {
+              key: "status",
+              header: "Status",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["open", "sent", "partial", "paid", "void"],
+              format: "badge",
+              value: (inv) => inv.status,
+            },
+            {
+              key: "estimate",
+              header: "Estimate",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["estimate", "final"],
+              render: (inv) => (inv.isEstimate ? <Badge tone="amber">estimate</Badge> : inv.supersedesInvoiceId ? <Badge tone="gray">final</Badge> : <span className="text-gray-400">—</span>),
+              value: (inv) => (inv.isEstimate ? "estimate" : inv.supersedesInvoiceId ? "final" : ""),
+            },
+            { key: "createdAt", header: "Date", sortable: true, format: "date", value: (inv) => inv.createdAt },
+          ]}
+        />
       )}
     </AppShell>
   );

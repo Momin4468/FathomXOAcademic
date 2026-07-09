@@ -1,10 +1,10 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
-import { formatDate } from "@/lib/format";
 import { pfMoney, type PfCategory, type PfTarget } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const monthStart = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10); };
 const KIND_LABEL: Record<string, string> = { budget_cap: "Budget cap", income_goal: "Income goal", savings_target: "Savings target" };
@@ -92,35 +92,75 @@ export default function PfTargetsPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No targets yet" hint="Set a budget cap, an income goal, or a savings target." />}
-      {data && data.length > 0 && (
-        <ul className="space-y-3">
-          {data.map((t) => {
-            const amount = Number(t.amount);
-            const current = Number(t.current);
-            const pct = amount > 0 ? Math.min(100, Math.round((current / amount) * 100)) : 0;
-            const over = t.kind === "budget_cap" && current > amount;
-            return (
-              <li key={t.id}>
-                <Card>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium">
-                      {KIND_LABEL[t.kind]} <Badge tone="gray">{t.period === "year" ? "yearly" : "monthly"}</Badge>
-                    </span>
-                    <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => archive(t.id)}>archive</button>
+      {data && (
+        <DataTable<PfTarget>
+          tableId="pf-targets"
+          exportName="targets"
+          rows={data}
+          getRowId={(t) => t.id}
+          emptyTitle="No targets yet"
+          emptyHint="Set a budget cap, an income goal, or a savings target."
+          columns={[
+            {
+              key: "kind",
+              header: "Type",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["budget_cap", "income_goal", "savings_target"],
+              render: (t) => KIND_LABEL[t.kind],
+              value: (t) => t.kind,
+            },
+            {
+              key: "period",
+              header: "Period",
+              align: "center",
+              sortable: true,
+              render: (t) => <Badge tone="gray">{t.period === "year" ? "yearly" : "monthly"}</Badge>,
+              value: (t) => t.period,
+            },
+            { key: "amount", header: "Amount", align: "right", sortable: true, render: (t) => pfMoney(t.amount, t.currency), value: (t) => (t.amount == null ? "" : Number(t.amount)) },
+            { key: "current", header: "Current", align: "right", sortable: true, render: (t) => pfMoney(t.current, t.currency), value: (t) => (t.current == null ? "" : Number(t.current)) },
+            {
+              key: "progress",
+              header: "Progress",
+              render: (t) => {
+                const amount = Number(t.amount);
+                const current = Number(t.current);
+                const pct = amount > 0 ? Math.min(100, Math.round((current / amount) * 100)) : 0;
+                const over = t.kind === "budget_cap" && current > amount;
+                return (
+                  <div className="min-w-[8rem]">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                      <div className={`h-full rounded-full ${over ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">{over ? "over!" : `${pct}%`}</div>
                   </div>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                    <div className={`h-full rounded-full ${over ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
-                    <span>{pfMoney(t.current, t.currency)} of {pfMoney(t.amount, t.currency)} {over ? "· over!" : `· ${pct}%`}</span>
-                    <span>from {formatDate(t.periodStart)}</span>
-                  </div>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+                );
+              },
+              value: (t) => {
+                const amount = Number(t.amount);
+                return amount > 0 ? Math.round((Number(t.current) / amount) * 100) : 0;
+              },
+            },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (t) => (
+                <button
+                  type="button"
+                  className="text-xs text-red-600 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    archive(t.id);
+                  }}
+                >
+                  archive
+                </button>
+              ),
+            },
+          ]}
+        />
       )}
     </PfShell>
   );

@@ -4,7 +4,8 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 export default function PfSubscriptionsPage() {
   const { data, error, isLoading, mutate } = usePfApi<PfSubscription[]>("subscriptions");
@@ -82,23 +83,52 @@ export default function PfSubscriptionsPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No subscriptions yet" />}
-      {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {data.map((s) => (
-            <li key={s.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-              <div>
-                <span className="font-medium">{s.name}</span>
-                {s.nextDueDate ? <span className="ml-2"><Badge tone="amber">due {formatDate(s.nextDueDate)}</Badge></span> : null}
-                {s.note ? <div className="mt-0.5 text-xs text-gray-500">{s.note}</div> : null}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="tabular-nums">{pfMoney(s.amount, s.currency)}</span>
-                <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => archive(s.id)}>archive</button>
-              </div>
-            </li>
-          ))}
-        </ul>
+      {data && (
+        <DataTable<PfSubscription>
+          tableId="pf-subscriptions"
+          exportName="subscriptions"
+          rows={data}
+          getRowId={(s) => s.id}
+          emptyTitle="No subscriptions yet"
+          columns={[
+            { key: "name", header: "Name", sortable: true, value: (s) => s.name },
+            {
+              key: "amount",
+              header: "Amount",
+              align: "right",
+              sortable: true,
+              total: true,
+              // Per-row currency: render with pfMoney; numeric value drives sort/total.
+              render: (s) => <span className="tabular-nums">{pfMoney(s.amount, s.currency)}</span>,
+              value: (s) => (s.amount == null ? "" : Number(s.amount)),
+            },
+            {
+              key: "nextDueDate",
+              header: "Next due",
+              sortable: true,
+              render: (s) => (s.nextDueDate ? <Badge tone="amber">{formatDate(s.nextDueDate)}</Badge> : <span className="text-gray-400">—</span>),
+              value: (s) => s.nextDueDate ?? "",
+            },
+            { key: "note", header: "Note", filter: "text", value: (s) => s.note ?? "" },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (s) => (
+                <button
+                  type="button"
+                  className="text-xs text-red-600 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    archive(s.id);
+                  }}
+                >
+                  archive
+                </button>
+              ),
+            },
+          ]}
+        />
       )}
     </PfShell>
   );

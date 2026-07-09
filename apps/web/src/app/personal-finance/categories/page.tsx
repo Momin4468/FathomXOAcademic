@@ -3,7 +3,8 @@ import { useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import type { PfCategory } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, Card, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
 
 export default function PfCategoriesPage() {
   const { data, error, isLoading, mutate } = usePfApi<PfCategory[]>("categories");
@@ -32,9 +33,6 @@ export default function PfCategoriesPage() {
     await mutate();
   }
 
-  const income = (data ?? []).filter((c) => c.kind === "income");
-  const expense = (data ?? []).filter((c) => c.kind === "expense");
-
   return (
     <PfShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Categories</h1>
@@ -51,33 +49,45 @@ export default function PfCategoriesPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No categories yet" />}
-      {data && data.length > 0 && (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <CategoryList title="Income" tone="green" items={income} onArchive={archive} />
-          <CategoryList title="Expense" tone="gray" items={expense} onArchive={archive} />
-        </div>
+      {data && (
+        <DataTable<PfCategory>
+          tableId="pf-categories"
+          exportName="categories"
+          rows={data}
+          getRowId={(c) => c.id}
+          emptyTitle="No categories yet"
+          columns={[
+            { key: "name", header: "Name", sortable: true, value: (c) => c.name },
+            {
+              key: "kind",
+              header: "Type",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["income", "expense"],
+              render: (c) => <Badge tone={c.kind === "income" ? "green" : "gray"}>{c.kind}</Badge>,
+              value: (c) => c.kind,
+            },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (c) => (
+                <button
+                  type="button"
+                  className="text-xs text-red-600 hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    archive(c.id);
+                  }}
+                >
+                  archive
+                </button>
+              ),
+            },
+          ]}
+        />
       )}
     </PfShell>
-  );
-}
-
-function CategoryList({ title, tone, items, onArchive }: { title: string; tone: string; items: PfCategory[]; onArchive: (id: string) => void }) {
-  return (
-    <section>
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">{title} <Badge tone={tone}>{items.length}</Badge></h2>
-      {items.length === 0 ? (
-        <p className="text-xs text-gray-400">None yet.</p>
-      ) : (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {items.map((c) => (
-            <li key={c.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-              <span>{c.name}</span>
-              <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => onArchive(c.id)}>archive</button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }

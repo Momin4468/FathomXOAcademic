@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { can, type PartyRow, type Payment, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Money, MoneyInput, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const MEDIUMS = ["", "DBBL", "Bank", "bkash", "Nagad", "Sonali", "cash"];
 
@@ -17,6 +17,7 @@ const searchParties = async (q: string): Promise<PickItem[]> => {
 };
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const [filter, setFilter] = useState<string | null>(null);
   const path = `payments${filter ? `?counterpartyPartyId=${encodeURIComponent(filter)}` : ""}`;
@@ -125,34 +126,43 @@ export default function PaymentsPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No payments" hint="Record a client collection or a writer payout." />}
-      {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {data.map((p) => {
-            const reversal = !!p.reversesPaymentId;
-            return (
-              <li key={p.id}>
-                <Link href={`/payments/${p.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
-                  <div className="text-sm">
-                    <span className="inline-flex items-center gap-2">
-                      <Badge tone={p.direction === "in" ? "green" : "blue"}>{p.direction}</Badge>
-                      {p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span className="text-gray-400">no counterparty</span>}
-                      {reversal && <Badge tone="red">reversal</Badge>}
-                    </span>
-                    <div className="mt-0.5 text-xs text-gray-500">
-                      {formatDate(p.paidAt)}
-                      {p.medium ? ` · ${p.medium}` : ""}
-                      {p.trxId ? ` · ${p.trxId}` : ""}
-                    </div>
-                  </div>
-                  <span className="text-sm font-medium">
-                    <Money value={p.amount} />
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+      {data && (
+        <DataTable<Payment>
+          tableId="payments"
+          exportName="payments"
+          rows={data}
+          getRowId={(p) => p.id}
+          onRowClick={(p) => router.push(`/payments/${p.id}`)}
+          emptyTitle="No payments"
+          emptyHint="Record a client collection or a writer payout."
+          columns={[
+            {
+              key: "direction",
+              header: "Dir",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["in", "out"],
+              render: (p) => (
+                <span className="inline-flex items-center gap-1">
+                  <Badge tone={p.direction === "in" ? "green" : "blue"}>{p.direction}</Badge>
+                  {p.reversesPaymentId && <Badge tone="red">rev</Badge>}
+                </span>
+              ),
+              value: (p) => p.direction,
+            },
+            {
+              key: "counterparty",
+              header: "Counterparty",
+              render: (p) => (p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span className="text-gray-400">—</span>),
+              value: (p) => p.counterpartyPartyId ?? "",
+            },
+            { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (p) => (p.amount == null ? "" : Number(p.amount)) },
+            { key: "paidAt", header: "Date", sortable: true, format: "date", value: (p) => p.paidAt },
+            { key: "medium", header: "Medium", filter: "text", value: (p) => p.medium ?? "" },
+            { key: "trxId", header: "Trx", value: (p) => p.trxId ?? "" },
+          ]}
+        />
       )}
     </AppShell>
   );

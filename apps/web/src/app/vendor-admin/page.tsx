@@ -1,8 +1,8 @@
 "use client";
 import { apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, EmptyState, ErrorNote, Money, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, ErrorNote, Money, Spinner } from "@/components/ui";
 
 /**
  * Admin review queue for vendor-submitted invoices (audit item 13). Approve/reject
@@ -36,36 +36,66 @@ export default function VendorAdminPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No vendor claims" hint="Submitted invoices will appear here." />}
-      {data && data.length > 0 && (
-        <div className="space-y-2">
-          {data.map((c) => (
-            <Card key={c.id}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="text-sm font-medium">{c.vendorName ?? c.vendorPartyId}</span>
-                  <span className="ml-2 text-sm font-semibold tabular-nums"><Money value={c.amount} /></span>
-                  {c.note && <span className="ml-2 text-xs text-gray-500">{c.note}</span>}
-                  <div className="mt-0.5 text-xs text-gray-400">{formatDate(c.createdAt)}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {c.status === "proposed" ? (
-                    <>
-                      <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => decide(c.id, "approved")}>
-                        Approve
-                      </Button>
-                      <Button variant="ghost" className="px-2 py-1 text-xs" onClick={() => decide(c.id, "rejected")}>
-                        Reject
-                      </Button>
-                    </>
-                  ) : (
-                    <Badge tone={c.status === "approved" ? "green" : "red"}>{c.status}</Badge>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+      {data && (
+        <DataTable<ClaimRow>
+          tableId="vendor-admin-claims"
+          exportName="vendor-claims"
+          rows={data}
+          getRowId={(c) => c.id}
+          emptyTitle="No vendor claims"
+          emptyHint="Submitted invoices will appear here."
+          columns={[
+            { key: "vendor", header: "Vendor", sortable: true, value: (c) => c.vendorName ?? c.vendorPartyId },
+            { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (c) => (c.amount == null ? "" : Number(c.amount)) },
+            { key: "note", header: "Note", filter: "text", value: (c) => c.note ?? "" },
+            { key: "createdAt", header: "Date", sortable: true, format: "date", value: (c) => c.createdAt },
+            {
+              key: "status",
+              header: "Status",
+              align: "center",
+              sortable: true,
+              filter: "select",
+              filterOptions: ["proposed", "approved", "rejected"],
+              render: (c) =>
+                c.status === "proposed" ? (
+                  <Badge tone="amber">proposed</Badge>
+                ) : (
+                  <Badge tone={c.status === "approved" ? "green" : "red"}>{c.status}</Badge>
+                ),
+              value: (c) => c.status,
+            },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (c) =>
+                c.status === "proposed" ? (
+                  <span className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      className="px-2 py-1 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        decide(c.id, "approved");
+                      }}
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      className="px-2 py-1 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        decide(c.id, "rejected");
+                      }}
+                    >
+                      Reject
+                    </Button>
+                  </span>
+                ) : null,
+            },
+          ]}
+        />
       )}
     </AppShell>
   );

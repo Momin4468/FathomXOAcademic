@@ -1,9 +1,9 @@
 "use client";
 import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
-import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { DataTable } from "@/components/DataTable";
+import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -111,34 +111,66 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {entries && entries.length === 0 && <EmptyState title={`No ${kind} yet`} />}
-      {entries && entries.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {entries.map((x) => {
-            const isReversal = !!x.reversesId;
-            const isReversed = reversedIds.has(x.id);
-            return (
-              <li key={x.id} className={`flex items-center justify-between gap-3 px-4 py-3 text-sm ${isReversed || isReversal ? "opacity-50" : ""}`}>
-                <div>
-                  <span className="font-medium">{x.categoryId ? catName.get(x.categoryId) ?? "—" : "Uncategorised"}</span>
-                  {isReversal && <span className="ml-2"><Badge tone="red">reversal</Badge></span>}
+      {entries && (
+        <DataTable<PfEntry>
+          tableId={`pf-${kind}`}
+          exportName={kind}
+          rows={entries}
+          getRowId={(x) => x.id}
+          emptyTitle={`No ${kind} yet`}
+          columns={[
+            {
+              key: "category",
+              header: "Category",
+              sortable: true,
+              filter: "text",
+              render: (x) => (
+                <span>
+                  {x.categoryId ? catName.get(x.categoryId) ?? "—" : "Uncategorised"}
                   {x.source === "business_payout" && <span className="ml-2"><Badge tone="blue">business payout</Badge></span>}
-                  <div className="mt-0.5 text-xs text-gray-500">
-                    {formatDate(x.occurredOn)}
-                    {x.note ? ` · ${x.note}` : ""}
-                    {x.convertedAmount ? ` · ≈ ${pfMoney(x.convertedAmount, x.convertedCurrency ?? "BDT")}` : ""}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`tabular-nums ${tone}`}>{pfMoney(x.amount, x.currency)}</span>
-                  {!isReversal && !isReversed && x.source !== "business_payout" && (
-                    <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => reverse(x.id)}>delete</button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </span>
+              ),
+              value: (x) => (x.categoryId ? catName.get(x.categoryId) ?? "" : "Uncategorised"),
+            },
+            {
+              key: "amount",
+              header: "Amount",
+              align: "right",
+              sortable: true,
+              total: true,
+              // Per-row currency: render with pfMoney; numeric value drives sort/total.
+              render: (x) => <span className={`tabular-nums ${tone}`}>{pfMoney(x.amount, x.currency)}</span>,
+              value: (x) => (x.amount == null ? "" : Number(x.amount)),
+            },
+            { key: "occurredOn", header: "Date", sortable: true, format: "date", value: (x) => x.occurredOn },
+            { key: "note", header: "Note", filter: "text", value: (x) => x.note ?? "" },
+            {
+              key: "flags",
+              header: "",
+              align: "center",
+              render: (x) => (x.reversesId ? <Badge tone="red">reversal</Badge> : reversedIds.has(x.id) ? <Badge tone="gray">reversed</Badge> : null),
+              value: (x) => (x.reversesId ? "reversal" : reversedIds.has(x.id) ? "reversed" : ""),
+            },
+            {
+              key: "action",
+              header: "",
+              align: "right",
+              render: (x) =>
+                !x.reversesId && !reversedIds.has(x.id) && x.source !== "business_payout" ? (
+                  <button
+                    type="button"
+                    className="text-xs text-red-600 hover:underline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      reverse(x.id);
+                    }}
+                  >
+                    delete
+                  </button>
+                ) : null,
+            },
+          ]}
+        />
       )}
     </>
   );

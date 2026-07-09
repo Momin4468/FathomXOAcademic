@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import {
   can,
   type PartyRow,
@@ -11,6 +10,7 @@ import {
   type WorkListRow,
 } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
 import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
@@ -90,26 +90,43 @@ export default function SettlementPage() {
           {canCreate && <PlatformFee onDone={refresh} />}
 
           <h2 className="mb-2 mt-6 text-sm font-semibold text-gray-700">Transfers</h2>
-          {transfers && transfers.length === 0 && <EmptyState title="No transfers yet" />}
-          {transfers && transfers.length > 0 && (
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-              {transfers.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <div className="text-sm">
-                    <span className="font-medium"><PartyName id={t.fromPartyId} /> → <PartyName id={t.toPartyId} /></span>
-                    <div className="mt-0.5 text-xs text-gray-500">
-                      {formatDate(t.transferredAt)}{t.medium ? ` · ${t.medium}` : ""}{t.reversesTransferId ? " · reversal" : ""}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium tabular-nums"><Money value={t.amount} /></span>
-                    {canApprove && !t.reversesTransferId && Number(t.amount) > 0 && (
+          {transfers && (
+            <DataTable<SettlementTransfer>
+              tableId="settlement-transfers"
+              exportName="transfers"
+              rows={transfers}
+              getRowId={(t) => t.id}
+              emptyTitle="No transfers yet"
+              columns={[
+                {
+                  key: "from",
+                  header: "From",
+                  render: (t) => <PartyName id={t.fromPartyId} />,
+                  value: (t) => t.fromPartyId ?? "",
+                },
+                {
+                  key: "to",
+                  header: "To",
+                  render: (t) => <PartyName id={t.toPartyId} />,
+                  value: (t) => t.toPartyId ?? "",
+                },
+                { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (t) => (t.amount == null ? "" : Number(t.amount)) },
+                { key: "transferredAt", header: "Date", sortable: true, format: "date", value: (t) => t.transferredAt },
+                { key: "medium", header: "Medium", filter: "text", value: (t) => t.medium ?? "" },
+                {
+                  key: "reversal",
+                  header: "",
+                  align: "center",
+                  render: (t) =>
+                    t.reversesTransferId ? (
+                      <Badge tone="red">reversal</Badge>
+                    ) : canApprove && Number(t.amount) > 0 ? (
                       <ReverseTransfer id={t.id} onDone={refresh} />
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    ) : null,
+                  value: (t) => (t.reversesTransferId ? "reversal" : ""),
+                },
+              ]}
+            />
           )}
         </>
       )}

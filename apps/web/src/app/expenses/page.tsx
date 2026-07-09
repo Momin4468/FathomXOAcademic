@@ -1,16 +1,15 @@
 "use client";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { can, type Expense, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import {
-  Badge,
   Button,
   Card,
   DateInput,
-  EmptyState,
   ErrorNote,
   Field,
   Input,
@@ -224,27 +223,43 @@ export default function ExpensesPage() {
 
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
-      {data && data.expenses.length === 0 && <EmptyState title="No expenses yet" />}
-      {data && data.expenses.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-          {data.expenses.map((x) => (
-            <li key={x.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="text-sm">
-                <span className="font-medium capitalize">{x.category}</span>
-                {x.campaignTag ? <span className="ml-2 text-xs text-gray-400">#{x.campaignTag}</span> : null}
-                {x.nextDueDate ? <span className="ml-2 text-xs text-amber-700">due {formatDate(x.nextDueDate)}</span> : null}
-                <div className="mt-0.5 text-xs text-gray-500">
-                  {formatDate(x.incurredAt)} · <Badge>{x.costBearer}</Badge>
-                </div>
-              </div>
-              <span className="text-sm font-medium tabular-nums">
-                {x.currency && x.currency !== "BDT"
-                  ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}`
-                  : <Money value={x.amount} />}
-              </span>
-            </li>
-          ))}
-        </ul>
+      {data && (
+        <DataTable<Expense>
+          tableId="expenses"
+          exportName="expenses"
+          rows={data.expenses}
+          getRowId={(x) => x.id}
+          emptyTitle="No expenses yet"
+          columns={[
+            {
+              key: "category",
+              header: "Category",
+              sortable: true,
+              filter: "select",
+              filterOptions: CATEGORIES,
+              render: (x) => (
+                <span>
+                  <span className="capitalize">{x.category}</span>
+                  {x.campaignTag ? <span className="ml-2 text-xs text-gray-400">#{x.campaignTag}</span> : null}
+                </span>
+              ),
+              value: (x) => x.category,
+            },
+            {
+              key: "amount",
+              header: "Amount",
+              align: "right",
+              sortable: true,
+              // Expenses can be non-BDT; no total to avoid mixing currencies.
+              render: (x) =>
+                x.currency && x.currency !== "BDT" ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}` : <Money value={x.amount} />,
+              value: (x) => (x.amount == null ? "" : Number(x.amount)),
+            },
+            { key: "costBearer", header: "Bearer", sortable: true, filter: "select", filterOptions: COST_BEARERS, value: (x) => x.costBearer },
+            { key: "incurredAt", header: "Date", sortable: true, format: "date", value: (x) => x.incurredAt },
+            { key: "note", header: "Note", filter: "text", value: (x) => x.note ?? "" },
+          ]}
+        />
       )}
     </AppShell>
   );
