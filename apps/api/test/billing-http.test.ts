@@ -215,6 +215,9 @@ describe("invoice live-grouping (N billable lines auto-join one open invoice §6
     const inv = await api(BASE, `/invoices/${a1.invoiceId}`, { token: mominToken });
     assert.equal(inv.status, 200);
     assert.equal((inv.body.lines as Array<any>).length, 4, "all four lines grouped");
+    // R5 audit trail — the creator's resolved name is returned (a name, not a uuid).
+    assert.ok(inv.body.invoice.createdByName, "invoice carries a resolved createdByName");
+    assert.notEqual(inv.body.invoice.createdByName, inv.body.invoice.createdBy, "createdByName is a name, not the uuid");
   });
 });
 

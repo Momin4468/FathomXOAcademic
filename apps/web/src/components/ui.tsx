@@ -8,7 +8,7 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { CURRENCIES } from "@business-os/shared";
-import { displayAmount, formatMoney, sanitizeAmount } from "@/lib/format";
+import { displayAmount, formatDateTime, formatMoney, sanitizeAmount } from "@/lib/format";
 
 export const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
@@ -308,4 +308,24 @@ export function Money({ value, prefix = "৳" }: { value: number | string | null
   const formatted = formatMoney(value, prefix);
   if (formatted === null) return null;
   return <span className="tabular-nums">{formatted}</span>;
+}
+
+/**
+ * Audit-trail line (UI_AUDIT R5) — "Created by <name> · <when>" (+ updated/confirmed
+ * when present) on a financial/governance record. A null actor shows "—"; a line
+ * with neither a name nor a date is dropped. Names are resolved server-side.
+ */
+export function Provenance({ items }: { items: Array<{ label: string; name?: string | null; at?: string | null }> }) {
+  const shown = items.filter((i) => i.name || i.at);
+  if (shown.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-2 text-xs text-gray-400">
+      {shown.map((i) => (
+        <div key={i.label}>
+          {i.label} <span className="text-gray-600">{i.name ?? "—"}</span>
+          {i.at ? ` · ${formatDateTime(i.at)}` : ""}
+        </div>
+      ))}
+    </div>
+  );
 }

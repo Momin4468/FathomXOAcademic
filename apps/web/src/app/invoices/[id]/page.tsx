@@ -8,7 +8,7 @@ import { can, type Invoice, type InvoiceDetail, type WhoAmI } from "@/lib/types"
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Money, Select, Spinner, StateBadge } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Money, Provenance, Select, Spinner, StateBadge } from "@/components/ui";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -73,9 +73,9 @@ export default function InvoiceDetailPage() {
               {inv.supersedesInvoiceId && <Badge tone="gray">final</Badge>}
             </div>
             <p className="text-xs text-gray-500">
-              created {formatDate(inv.createdAt)}
-              {inv.issuedAt ? ` · issued ${formatDate(inv.issuedAt)}` : ""}
+              {inv.issuedAt ? `issued ${formatDate(inv.issuedAt)}` : "not issued"}
             </p>
+            <Provenance items={[{ label: "Created by", name: inv.createdByName, at: inv.createdAt }]} />
             {inv.supersedesInvoiceId && (
               <Link href={`/invoices/${inv.supersedesInvoiceId}`} className="text-xs text-gray-500 hover:underline">
                 ← supersedes an earlier estimate

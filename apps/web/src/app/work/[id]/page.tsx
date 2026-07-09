@@ -7,7 +7,7 @@ import { formatDate } from "@/lib/format";
 import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Money, Spinner, StateBadge } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Money, Provenance, Spinner, StateBadge } from "@/components/ui";
 
 const NEXT_STATE: Record<string, string | undefined> = {
   draft: "pending",
@@ -87,11 +87,14 @@ export default function JobDetailPage() {
               <StateBadge state={item.moneyState} />
               {item.isEstimate && <Badge tone="amber">estimate</Badge>}
             </div>
-            <p className="text-xs text-gray-500">
-              {course?.canonical ? `${course.canonical} · ` : ""}
-              created {formatDate(item.createdAt)}
-              {item.confirmedAt ? ` · confirmed ${formatDate(item.confirmedAt)}` : ""}
-            </p>
+            <p className="text-xs text-gray-500">{course?.canonical ? course.canonical : ""}</p>
+            <Provenance
+              items={[
+                { label: "Created by", name: item.createdByName, at: item.createdAt },
+                { label: "Confirmed by", name: item.confirmedByName, at: item.confirmedAt },
+                { label: "Updated by", name: item.updatedByName, at: item.updatedAt },
+              ]}
+            />
             {mayTransition && (
               <div className="flex gap-2 pt-1">
                 <Button disabled={busy} onClick={() => transition(next!)}>

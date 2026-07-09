@@ -12,6 +12,7 @@ import {
 } from "@business-os/shared";
 import { and, eq, inArray, or } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { resolveUserNames } from "../../common/user-names.js";
 import type { ApplyChargeDto, RecordTransferDto } from "./dto.js";
 
 /**
@@ -103,17 +104,21 @@ export class SettlementService {
     return row!;
   }
 
-  listTransfers(tx: Db, partyId?: string) {
+  async listTransfers(tx: Db, partyId?: string) {
     // RLS already limits rows to transfers the caller is a party to; the
     // optional filter narrows to one counterparty within that.
     const where = partyId
       ? or(eq(schema.settlementTransfer.fromPartyId, partyId), eq(schema.settlementTransfer.toPartyId, partyId))
       : undefined;
-    return tx
+    const rows = await tx
       .select()
       .from(schema.settlementTransfer)
       .where(where)
       .orderBy(schema.settlementTransfer.transferredAt);
+    if (rows.length === 0) return rows;
+    // R5 audit trail — resolve each transfer's creator name (org-scoped).
+    const names = await resolveUserNames(tx, rows[0]!.orgId, rows.map((r) => r.createdBy));
+    return rows.map((r) => ({ ...r, createdByName: r.createdBy ? names.get(r.createdBy) ?? null : null }));
   }
 
   /** Reverse a transfer = a negative mirror (append-only). The actor is a party

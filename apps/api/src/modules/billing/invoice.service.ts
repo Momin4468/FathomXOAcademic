@@ -3,6 +3,7 @@ import { schema, sql, type Db } from "@business-os/db";
 import { computeLineAmount, lineBalance, round2, type SessionPrincipal } from "@business-os/shared";
 import { and, eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { resolveUserNames } from "../../common/user-names.js";
 import { recomputeMoneyState } from "./money-state.js";
 
 @Injectable()
@@ -197,7 +198,10 @@ export class InvoiceService {
         and i.status not in ('void', 'paid')
     `);
     const previousDue = round2(Number((prev.rows[0] as { prev_due: string }).prev_due));
-    return { invoice: inv, lines: withBalances, previousDue };
+    // R5 audit trail — resolve the creator's name (org-scoped) for display.
+    const names = await resolveUserNames(tx, inv.orgId, [inv.createdBy]);
+    const createdByName = inv.createdBy ? names.get(inv.createdBy) ?? null : null;
+    return { invoice: { ...inv, createdByName }, lines: withBalances, previousDue };
   }
 
   async list(tx: Db, filters: { clientPartyId?: string; status?: string }) {

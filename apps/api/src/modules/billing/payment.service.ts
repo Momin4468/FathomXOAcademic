@@ -4,6 +4,7 @@ import { schema, sql, type Db } from "@business-os/db";
 import { sumAmounts, type SessionPrincipal } from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { resolveUserNames } from "../../common/user-names.js";
 import { INCOME_BRIDGE, type IncomeBridgePort } from "./income-bridge/income-bridge.port.js";
 import { recomputeMoneyState, workItemForInvoiceLine } from "./money-state.js";
 import type { AllocateDto, RecordPaymentDto } from "./dto.js";
@@ -288,6 +289,9 @@ export class PaymentService {
       .select()
       .from(schema.paymentProof)
       .where(eq(schema.paymentProof.paymentId, id));
-    return { payment, allocations, proofs };
+    // R5 audit trail — resolve the creator's name (org-scoped).
+    const names = await resolveUserNames(tx, payment.orgId, [payment.createdBy]);
+    const createdByName = payment.createdBy ? names.get(payment.createdBy) ?? null : null;
+    return { payment: { ...payment, createdByName }, allocations, proofs };
   }
 }

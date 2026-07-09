@@ -114,6 +114,7 @@ export default function SettlementPage() {
                 { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (t) => (t.amount == null ? "" : Number(t.amount)) },
                 { key: "transferredAt", header: "Date", sortable: true, format: "date", value: (t) => t.transferredAt },
                 { key: "medium", header: "Medium", filter: "text", value: (t) => t.medium ?? "" },
+                { key: "createdByName", header: "By", value: (t) => t.createdByName ?? "" },
                 {
                   key: "reversal",
                   header: "",

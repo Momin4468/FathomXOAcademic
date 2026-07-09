@@ -42,6 +42,10 @@ export interface WorkItem {
   createdAt: string;
   confirmedBy: string | null;
   confirmedAt: string | null;
+  updatedAt?: string | null;
+  createdByName?: string | null; // R5 — resolved server-side
+  confirmedByName?: string | null;
+  updatedByName?: string | null;
 }
 
 export interface WorkLine {
@@ -152,6 +156,8 @@ export interface Invoice {
   supersedesInvoiceId: string | null;
   issuedAt: string | null;
   createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null; // R5 — resolved server-side
 }
 
 export interface InvoiceLine {
@@ -180,6 +186,8 @@ export interface Payment {
   note: string | null;
   reversesPaymentId: string | null;
   createdAt: string;
+  createdBy?: string | null;
+  createdByName?: string | null; // R5 — resolved server-side
 }
 
 export interface PaymentAllocation {
@@ -471,6 +479,7 @@ export interface SettlementTransfer {
   medium: string | null;
   note: string | null;
   reversesTransferId: string | null;
+  createdByName?: string | null; // R5 — resolved server-side
 }
 
 // ─── Credential vault (§8) ────────────────────────────────────────────────────

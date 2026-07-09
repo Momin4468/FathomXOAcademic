@@ -9,7 +9,7 @@ import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Money, MoneyInput, Spinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Field, Money, MoneyInput, Provenance, Spinner } from "@/components/ui";
 
 /** A candidate the payment can be allocated to, with the amount entered so far. */
 interface Target {
@@ -187,6 +187,7 @@ export default function PaymentDetailPage() {
               {payment.medium ? ` · ${payment.medium}` : ""}
               {payment.trxId ? ` · ${payment.trxId}` : ""}
             </p>
+            <Provenance items={[{ label: "Created by", name: payment.createdByName, at: payment.createdAt }]} />
             {amountVisible && !isReversal && (
               <p className="text-xs text-gray-500">
                 Remaining to allocate (this session):{" "}

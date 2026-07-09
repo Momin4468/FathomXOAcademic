@@ -14,6 +14,7 @@ import {
 } from "@business-os/shared";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { resolveUserNames } from "../../common/user-names.js";
 import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
@@ -300,8 +301,16 @@ export class WorkService {
       item.customJson as Record<string, unknown> | null,
     );
     const { lines, hasNegativeMarginLine } = this.lines.mapLines(lineRows, canSeeMoney);
+    // R5 audit trail — resolve the actor names (org-scoped) for created/updated/confirmed.
+    const names = await resolveUserNames(tx, item.orgId, [item.createdBy, item.updatedBy, item.confirmedBy]);
+    const withActors = {
+      ...item,
+      createdByName: item.createdBy ? names.get(item.createdBy) ?? null : null,
+      updatedByName: item.updatedBy ? names.get(item.updatedBy) ?? null : null,
+      confirmedByName: item.confirmedBy ? names.get(item.confirmedBy) ?? null : null,
+    };
     return {
-      item,
+      item: withActors,
       lines,
       hasNegativeMarginLine,
       legs,
