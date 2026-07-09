@@ -9,7 +9,7 @@
 
 ---
 
-## 🔨 In progress — UI_AUDIT shared primitives (R1–R5, R7, R8)
+## ✅ Done — UI_AUDIT shared primitives (R1–R5, R7, R8; R6/R9 shipped earlier)
 Per the approved plan (order R1→R2→R3→R4→R5→R7→R8). R6 (Toast) + R9 (notifications) already shipped. Confirmed: export = CSV+Excel+PDF; DataTable on all ~18 lists; R5 = enrich read DTOs; R8 = grouped sidebar + widen.
 - ✅ **R1 — MoneyInput / PercentInput / CurrencySelect.** Shared money control (no spinners, ৳/currency adornment, separators + 2dp on blur, right-aligned); `sanitizeAmount`/`displayAmount` helpers. Swept ~24 money fields across 18 files off raw `type=number`. money-input 6/6, web build clean, ui-reviewer ship-worthy (fixes applied). See DECISIONS 2026-07-09.
 - ✅ **R2 — DataTable.** Sticky header, sort, search, per-column filters, row-checkbox bulk, pagination+count, money totals, density, CSV/Excel/PDF export (xlsx+jspdf deps). Adopted on ~14 lists (payments/invoices/settlement/expenses/work/clients/tasks/PF-entries/targets/subscriptions/categories/vendor/hrm); advances+PF-loans/savings kept as cards (nested event forms). web build clean, ui-reviewer fixes applied. See DECISIONS 2026-07-09.
