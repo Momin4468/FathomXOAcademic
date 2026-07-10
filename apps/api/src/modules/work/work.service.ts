@@ -270,6 +270,7 @@ export class WorkService {
     tx: Db,
     filters: { doerPartyId?: string; sourcePartyId?: string; clientPartyId?: string; workState?: WorkState; includeArchived?: boolean },
     canSeeMoney = false,
+    isSuperadmin = false,
   ) {
     const conds = [sql`true`];
     if (!filters.includeArchived) conds.push(sql`w.archived_at is null`);
@@ -278,16 +279,29 @@ export class WorkService {
     if (filters.clientPartyId) conds.push(sql`w.client_party_id = ${filters.clientPartyId}`);
     if (filters.workState) conds.push(sql`w.work_state = ${filters.workState}`);
     const where = sql.join(conds, sql` and `);
-    // clientRate is a CLIENT PRICE → money-gated with the amounts (§4.4). word_count
-    // is spec (a writer knows their own size), so it stays ungated.
+    // Money is derived from the caller's RLS-VISIBLE legs, so partner opacity holds:
+    // you see the real economics on YOUR OWN jobs (you're on both the client and the
+    // writer leg), but on a job another partner merely SHARED with you, you see only
+    // your own hop — their real client price stays hidden by leg-RLS. A definer would
+    // bypass RLS and leak a peer's real margin, so it is deliberately NOT used. System
+    // SuperAdmin (party-less, sees every leg) reads the full inflow − outflow.
+    // clientRate is a client price → gated with the amounts; word_count stays ungated.
+    const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`lg.mynet`;
     const moneyCols = canSeeMoney
       ? sql`, cl.client_rate as "clientRate",
-             round(coalesce(jp.revenue, 0), 2) as "clientAmount",
-             round(coalesce(jp.writer_cost, 0), 2) as "writerAmount",
-             round(coalesce(jp.revenue, 0) - coalesce(jp.writer_cost, 0), 2) as "margin"`
+             round(lg.inflow, 2) as "clientAmount",
+             round(lg.outflow, 2) as "writerAmount",
+             round(${marginExpr}, 2) as "margin"`
       : sql``;
     const moneyJoin = canSeeMoney
-      ? sql`left join lateral (select revenue, writer_cost from job_pnl(w.id)) jp on true`
+      ? sql`left join lateral (
+          select
+            coalesce(sum(amount) filter (where from_party_id = w.source_party_id), 0) as inflow,
+            coalesce(sum(amount) filter (where to_party_id = w.doer_party_id), 0) as outflow,
+            coalesce(sum(case when to_party_id = app_current_party() then amount
+                              when from_party_id = app_current_party() then -amount else 0 end), 0) as mynet
+          from leg where work_item_id = w.id
+        ) lg on true`
       : sql``;
     const res = await tx.execute(sql`
       select w.id, w.title, w.work_state as "workState", w.money_state as "moneyState",

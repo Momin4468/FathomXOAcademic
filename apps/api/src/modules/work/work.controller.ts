@@ -73,8 +73,12 @@ export class WorkController {
   create(
     @CurrentRls() ctx: RlsContext,
     @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
     @Body() dto: CreateWorkItemDto,
   ) {
+    // The referral/source drives profit-share → only an admin may set it. A writer
+    // logs the job (course + their fee); the admin assigns the referral later.
+    if (!canSeeMoney(principal, perms)) dto.sourcePartyId = undefined;
     return this.db.withTenant(ctx, (tx) => this.work.create(tx, principal, dto));
   }
 
@@ -97,6 +101,7 @@ export class WorkController {
           includeArchived: query.includeArchived === "true",
         },
         canSeeMoney(principal, perms),
+        principal.isSystemSuperadmin,
       ),
     );
   }
@@ -136,9 +141,12 @@ export class WorkController {
   update(
     @CurrentRls() ctx: RlsContext,
     @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
     @Param("id", ParseUUIDPipe) id: string,
     @Body() dto: UpdateWorkItemDto,
   ) {
+    // Referral/source is admin-only (drives profit-share). A non-admin edit leaves it untouched.
+    if (!canSeeMoney(principal, perms)) dto.sourcePartyId = undefined;
     return this.db.withTenant(ctx, (tx) => this.work.update(tx, principal, id, dto));
   }
 

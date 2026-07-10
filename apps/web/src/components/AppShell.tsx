@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, Briefcase, ClipboardCheck, ClipboardList,
-  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, ListTodo, Menu, PackageCheck,
-  PieChart, Radio, Receipt, RotateCcw, Scale, Share2, Shield, ShieldCheck, SlidersHorizontal, Sparkles,
-  Users, UserPlus, Wallet, type LucideIcon,
+  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, LayoutDashboard, ListTodo, Menu,
+  PackageCheck, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Share2, Shield, ShieldCheck,
+  SlidersHorizontal, Sparkles, Users, UserPlus, Wallet, type LucideIcon,
 } from "lucide-react";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
@@ -27,12 +27,12 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Work",
     items: [
+      { href: "/", label: "Dashboard", perm: null, icon: LayoutDashboard },
       { href: "/work", label: "Jobs", perm: "work:view", icon: Briefcase },
+      { href: "/work/new", label: "New job", perm: "work:create", icon: Plus },
       { href: "/tasks", label: "Tasks", perm: "capture:view", icon: ListTodo },
       { href: "/capture", label: "AI capture", perm: "ai_capture:create", icon: Sparkles },
-      { href: "/outcomes", label: "Outcomes", perm: "outcomes:view", icon: Award },
       { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },
-      { href: "/checks", label: "Checks", perm: "checks:view", icon: ShieldCheck },
     ],
   },
   {
@@ -44,6 +44,7 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
       { href: "/expenses", label: "Expenses", perm: "expenses:view", icon: Wallet },
       { href: "/advances", label: "Advances", perm: "advances:view", icon: HandCoins },
       { href: "/opening-balances", label: "Opening balances", perm: "billing:approve", icon: Flag },
+      { href: "/checks", label: "Checks", perm: "checks:view", icon: ShieldCheck },
       { href: "/balance", label: "Balance", perm: null, icon: Scale },
     ],
   },
@@ -51,16 +52,8 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
     title: "Directory",
     items: [
       { href: "/clients", label: "Clients", perm: "reference:view", icon: Users },
-      { href: "/people", label: "People", perm: "reference:view", icon: Contact },
-      { href: "/reference-data", label: "Reference data", perm: "reference:view", icon: Database },
-      { href: "/vault", label: "Vault", perm: "credential_vault:view", icon: KeyRound },
-    ],
-  },
-  {
-    title: "Library",
-    items: [
-      { href: "/knowledge", label: "Knowledge", perm: "knowledge:view", icon: BookOpen },
-      { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view", icon: FileText },
+      { href: "/people", label: "Team & partners", perm: "reference:view", icon: Contact },
+      { href: "/reference-data", label: "Academic", perm: "reference:view", icon: Database },
     ],
   },
   {
@@ -82,12 +75,16 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Admin",
     items: [
-      { href: "/referrers", label: "Referrers", perm: "referrers:approve", icon: UserPlus },
-      { href: "/channels", label: "Channels", perm: "channels:approve", icon: Radio },
       { href: "/custom-fields", label: "Custom fields", perm: "custom_fields:view", icon: SlidersHorizontal },
+      { href: "/channels", label: "Channels", perm: "channels:approve", icon: Radio },
+      { href: "/referrers", label: "Referrers", perm: "referrers:approve", icon: UserPlus },
+      { href: "/outcomes", label: "Outcomes", perm: "outcomes:view", icon: Award },
+      { href: "/hrm", label: "Work logs", perm: "hrm:approve", icon: ClipboardCheck },
+      { href: "/vault", label: "Vault", perm: "credential_vault:view", icon: KeyRound },
+      { href: "/knowledge", label: "Knowledge", perm: "knowledge:view", icon: BookOpen },
+      { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view", icon: FileText },
       { href: "/client-admin", label: "Client portal", perm: "client_portal:view", icon: Globe },
       { href: "/vendor-admin", label: "Vendor claims", perm: "vendor:approve", icon: PackageCheck },
-      { href: "/hrm", label: "Work logs", perm: "hrm:approve", icon: ClipboardCheck },
       { href: "/roles", label: "Roles", perm: "platform:view", icon: Shield },
     ],
   },

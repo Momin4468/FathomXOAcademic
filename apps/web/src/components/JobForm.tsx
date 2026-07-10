@@ -1,10 +1,10 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { apiGet, apiSend } from "@/lib/api";
+import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
-import type { PartyRow, RefEntity, WorkItem } from "@/lib/types";
+import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkItem } from "@/lib/types";
 import { EntityPicker, type PickItem } from "./EntityPicker";
 import { Button, Card, Collapsible, ErrorNote, Field, Input, MoneyInput, Select, Textarea } from "./ui";
 
@@ -32,6 +32,8 @@ const searchParty = (type: string) => async (q: string): Promise<PickItem[]> => 
 export function JobForm({ initial }: { initial?: WorkItem }) {
   const router = useRouter();
   const editing = !!initial;
+  const { data: me } = useApi<WhoAmI>("platform/whoami");
+  const canApprove = can(me?.permissions, "work:approve"); // referral is admin-only
   const [title, setTitle] = useState(initial?.title ?? "");
   const [details, setDetails] = useState(initial?.details ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
@@ -130,12 +132,14 @@ export function JobForm({ initial }: { initial?: WorkItem }) {
           </p>
         )}
 
-        {/* Source & referral */}
-        <Collapsible title="Source &amp; referral" hint="drives profit-share">
-          <Field label="Referral / source" hint="Who introduced/sourced this job (drives profit-share). Leave blank for a direct job.">
-            <EntityPicker placeholder="Search referrer / partner / channel…" search={searchParty("referrer")} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
-          </Field>
-        </Collapsible>
+        {/* Source & referral — ADMIN ONLY (drives profit-share; writers can't set it) */}
+        {canApprove && (
+          <Collapsible title="Source &amp; referral" hint="admin only · drives profit-share">
+            <Field label="Referral / source" hint="Who introduced/sourced this job (drives profit-share). Leave blank for a direct job.">
+              <EntityPicker placeholder="Search referrer / partner / channel…" search={searchParty("referrer")} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
+            </Field>
+          </Collapsible>
+        )}
 
         {/* Academic details */}
         <Collapsible title="Academic details">
