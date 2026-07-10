@@ -137,6 +137,7 @@ export const workLine = pgTable("work_line", {
   writerPartyId: uuid("writer_party_id").references(() => party.id),
   wordCount: integer("word_count"),
   unitCount: integer("unit_count").default(1),
+  unitLabel: text("unit_label"), // words | slides | pages | weight% | copies (0050)
   clientRate: numeric("client_rate", { precision: 10, scale: 4 }),
   writerRate: numeric("writer_rate", { precision: 10, scale: 4 }),
   fixedAmount: numeric("fixed_amount", { precision: 14, scale: 2 }),

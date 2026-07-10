@@ -75,6 +75,22 @@ export class SetLineStatusDto {
   @IsIn(WORK_LINE_STATUSES) to!: WorkLineStatus;
 }
 
+/**
+ * Inline-edit a work_line's fields (the grid's pre-bill cell edit). A BILLED line
+ * is rejected (its amount changes via reprice). clientRate/fixedAmount (client
+ * price) are applied only for an admin (work:approve) — a writer edits their own
+ * writerRate / counts / note.
+ */
+export class UpdateLineDto {
+  @IsOptional() @IsInt() @Min(0) wordCount?: number;
+  @IsOptional() @IsInt() @Min(1) unitCount?: number;
+  @IsOptional() @IsString() @MaxLength(30) unitLabel?: string; // words | slides | pages | weight% | copies
+  @IsOptional() @IsNumber() clientRate?: number; // admin only
+  @IsOptional() @IsNumber() @Min(0) writerRate?: number;
+  @IsOptional() @IsNumber() fixedAmount?: number; // admin only (client-side)
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
+}
+
 export class TransitionDto {
   @IsIn(WORK_STATES)
   toState!: WorkState;

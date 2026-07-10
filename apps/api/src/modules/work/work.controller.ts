@@ -27,6 +27,7 @@ import {
   ResitDto,
   SetLineStatusDto,
   TransitionDto,
+  UpdateLineDto,
   UpdateWorkItemDto,
 } from "./dto.js";
 import { LegService } from "./leg.service.js";
@@ -186,6 +187,25 @@ export class WorkController {
    * submitted, or →cancelled from pending/submitted. `billed` is set by invoicing,
    * never here; a billed line is frozen (correct its amount via reprice).
    */
+  /**
+   * Inline-edit a line's fields (the grid's pre-bill cell edit). Billed lines are
+   * rejected (→ reprice); the client price is applied only for an admin.
+   */
+  @Patch("lines/:lineId")
+  @RequirePermission("work", "edit")
+  updateLine(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Param("lineId", ParseUUIDPipe) lineId: string,
+    @Body() dto: UpdateLineDto,
+  ) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const row = await this.lines.updateLine(tx, principal, lineId, dto, canSeeMoney(principal, perms));
+      return this.lines.mapLine(row, canSeeMoney(principal, perms));
+    });
+  }
+
   @Post("lines/:lineId/status")
   @HttpCode(200)
   @RequirePermission("work", "edit")

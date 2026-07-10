@@ -69,8 +69,12 @@ export interface WorkListRow {
   doerName?: string | null;
   courseCode?: string | null; // canonical course code (e.g. UMKCQT)
   wordCount?: number | null; // primary consumer line
-  clientRate?: string | null;
+  unitLabel?: string | null; // words | slides | pages | weight% | copies
+  consumerLineId?: string | null; // primary client line (for inline edit)
+  producerLineId?: string | null; // primary writer line (for inline fee edit)
   // Money-gated (present only when the viewer may see money):
+  clientRate?: string | null;
+  writerRate?: string | null;
   clientAmount?: number | null;
   writerAmount?: number | null;
   margin?: number | null;
@@ -116,6 +120,7 @@ export interface WorkLine {
   consumerPartyId?: string | null; // present only if money-visible
   wordCount: number | null;
   unitCount: number | null;
+  unitLabel?: string | null;
   sourceLineId: string | null;
   note: string | null;
   clientRate?: string | null; // money — present only if visible

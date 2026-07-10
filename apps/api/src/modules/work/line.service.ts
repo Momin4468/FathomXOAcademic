@@ -11,7 +11,7 @@ import {
 } from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
-import type { AddLineDto, FanOutDto } from "./dto.js";
+import type { AddLineDto, FanOutDto, UpdateLineDto } from "./dto.js";
 
 type LineRow = typeof schema.workLine.$inferSelect;
 
@@ -43,6 +43,7 @@ export class LineService {
       writerPartyId: row.writerPartyId,
       wordCount: row.wordCount,
       unitCount: row.unitCount,
+      unitLabel: row.unitLabel,
       sourceLineId: row.sourceLineId,
       note: row.note,
     };
@@ -74,6 +75,45 @@ export class LineService {
    * NEVER set here — it's set when the line is invoiced; a post-billed amount
    * change goes through the reprice mechanism, not a status/edit.
    */
+  /**
+   * Inline-edit a line's fields (the grid's pre-bill cell edit). A BILLED line is
+   * frozen (correct its amount via reprice). The client price (clientRate /
+   * fixedAmount) is admin-only; a writer may still edit their own writerRate,
+   * counts, unit label, and note. work_line is mutable master data (not the
+   * append-only leg ledger), so a direct update is correct here.
+   */
+  async updateLine(tx: Db, principal: SessionPrincipal, lineId: string, dto: UpdateLineDto, canApprove: boolean) {
+    const [line] = await tx.select().from(schema.workLine).where(eq(schema.workLine.id, lineId));
+    if (!line) throw new NotFoundException("Work line not found");
+    if ((line.lineStatus ?? "pending") === "billed") {
+      throw new BadRequestException("A billed line can't be edited — correct its amount via reprice");
+    }
+    const negatived = (dto.clientRate != null && dto.clientRate < 0) || (dto.fixedAmount != null && dto.fixedAmount < 0);
+    if (negatived && line.lineKind !== "discount") {
+      throw new BadRequestException("A negative amount is only allowed on a 'discount' line");
+    }
+    const patch: Record<string, unknown> = {};
+    if (dto.wordCount !== undefined) patch.wordCount = dto.wordCount;
+    if (dto.unitCount !== undefined) patch.unitCount = dto.unitCount;
+    if (dto.unitLabel !== undefined) patch.unitLabel = dto.unitLabel.trim() || null;
+    if (dto.writerRate !== undefined) patch.writerRate = numOrNull(dto.writerRate);
+    if (dto.note !== undefined) patch.note = dto.note.trim() || null;
+    if (canApprove) {
+      if (dto.clientRate !== undefined) patch.clientRate = numOrNull(dto.clientRate);
+      if (dto.fixedAmount !== undefined) patch.fixedAmount = numOrNull(dto.fixedAmount);
+    }
+    if (Object.keys(patch).length === 0) return line;
+    const [updated] = await tx.update(schema.workLine).set(patch).where(eq(schema.workLine.id, lineId)).returning();
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.line_edited",
+      entity: "work_line",
+      entityId: lineId,
+      detail: { workItemId: line.workItemId, fields: Object.keys(patch) },
+    });
+    return updated!;
+  }
+
   async setLineStatus(tx: Db, principal: SessionPrincipal, lineId: string, to: WorkLineStatus) {
     if (!WORK_LINE_STATUSES.includes(to)) throw new BadRequestException("Unknown line status");
     const [line] = await tx.select().from(schema.workLine).where(eq(schema.workLine.id, lineId));

@@ -288,7 +288,7 @@ export class WorkService {
     // clientRate is a client price → gated with the amounts; word_count stays ungated.
     const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`lg.mynet`;
     const moneyCols = canSeeMoney
-      ? sql`, cl.client_rate as "clientRate",
+      ? sql`, cl.client_rate as "clientRate", pl.writer_rate as "writerRate",
              round(lg.inflow, 2) as "clientAmount",
              round(lg.outflow, 2) as "writerAmount",
              round(${marginExpr}, 2) as "margin"`
@@ -310,15 +310,20 @@ export class WorkService {
              w.updated_at as "updatedAt",
              dp.display_name as "doerName",
              ce.canonical as "courseCode",
-             cl.word_count as "wordCount"
+             cl.word_count as "wordCount", cl.unit_label as "unitLabel",
+             cl.consumer_line_id as "consumerLineId", pl.producer_line_id as "producerLineId"
              ${moneyCols}
       from work_item w
       left join party dp on dp.id = w.doer_party_id
       left join ref_entity ce on ce.id = w.course_ref_id
       left join lateral (
-        select word_count, client_rate from work_line
+        select id as consumer_line_id, word_count, unit_label, client_rate from work_line
         where work_item_id = w.id and consumer_party_id is not null limit 1
       ) cl on true
+      left join lateral (
+        select id as producer_line_id, writer_rate from work_line
+        where work_item_id = w.id and writer_party_id is not null limit 1
+      ) pl on true
       ${moneyJoin}
       where ${where}
       order by w.updated_at desc
