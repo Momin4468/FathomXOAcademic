@@ -72,6 +72,14 @@ export class BillingController {
     return this.db.withTenant(ctx, (tx) => this.invoices.list(tx, q));
   }
 
+  /** The client's UNBILLED work pool — the lines an admin bills from (Rule 3).
+   *  Declared before invoices/:id so "billable" isn't matched as an id. */
+  @Get("invoices/billable")
+  @RequirePermission("billing", "view")
+  billable(@CurrentRls() ctx: RlsContext, @Query("clientPartyId", ParseUUIDPipe) clientPartyId: string) {
+    return this.db.withTenant(ctx, (tx) => this.invoices.billableLines(tx, clientPartyId));
+  }
+
   @Get("invoices/:id")
   @RequirePermission("billing", "view")
   getInvoice(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {

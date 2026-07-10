@@ -238,6 +238,40 @@ export class InvoiceService {
     return { billed: round2(billed), collected: round2(collected), outstanding: round2(billed - collected), openLines };
   }
 
+  /**
+   * The client's UNBILLED work pool (Rule 3): consumer work_lines not yet on any
+   * non-void invoice, not cancelled — the pool an admin bills FROM (writers don't
+   * know the client). Amount = fixed, else rate × (words | units). billing:view.
+   */
+  async billableLines(tx: Db, clientPartyId: string) {
+    const res = await tx.execute(sql`
+      select wl.id, wl.work_item_id as "workItemId", w.title, ce.canonical as "courseCode",
+             wl.word_count as "wordCount", wl.unit_count as "unitCount", wl.client_rate as "clientRate", wl.fixed_amount as "fixedAmount"
+      from work_line wl
+      join work_item w on w.id = wl.work_item_id
+      left join ref_entity ce on ce.id = w.course_ref_id
+      where wl.consumer_party_id = ${clientPartyId}
+        and wl.line_status <> 'cancelled'
+        and w.archived_at is null
+        and not exists (
+          select 1 from invoice_line il join invoice i on i.id = il.invoice_id
+          where il.work_line_id = wl.id and i.status <> 'void'
+        )
+      order by w.created_at asc
+    `);
+    return (res.rows as Array<Record<string, unknown>>).map((r) => ({
+      id: r.id as string,
+      workItemId: r.workItemId as string,
+      title: r.title as string,
+      courseCode: (r.courseCode as string) ?? null,
+      amount: round2(
+        r.fixedAmount != null
+          ? Number(r.fixedAmount)
+          : Number(r.clientRate ?? 0) * Number(r.wordCount ?? r.unitCount ?? 1),
+      ),
+    }));
+  }
+
   async list(tx: Db, filters: { clientPartyId?: string; status?: string }) {
     const conds = [];
     if (filters.clientPartyId) conds.push(eq(schema.invoice.clientPartyId, filters.clientPartyId));
