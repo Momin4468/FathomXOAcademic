@@ -1,46 +1,59 @@
 import type { Config } from "tailwindcss";
 
 /**
- * X-Factor AS design system — the marketing site's "Midnight Scholar" palette,
- * shared so the internal tool and the public site read as one product: a deep
- * ink-navy base (NOT black), a warm gold accent, serif display (Fraunces) + clean
- * sans body (Inter). Values are copied verbatim from apps/marketing/tailwind.config.ts.
+ * X-Factor AS design system. The DEFAULT look is a dark ink-navy sidebar/header
+ * with a LIGHT main-content area (matching the reference); a user toggle switches
+ * the content to full dark. Mechanism: the `ink`/`slate` content tokens are CSS
+ * variables (light values by default, dark under the `.dark` class — see
+ * globals.css), so any component using them themes automatically. The sidebar/
+ * header use the FIXED `nav` scale so they stay dark in both modes. `gold` (the
+ * brand accent) is fixed. Palette values come from apps/marketing ("Midnight Scholar").
  */
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
+        // Content surfaces/borders — theme-driven via CSS vars.
         ink: {
-          950: "#070A14",
-          900: "#0B1020", // page base
-          850: "#0F1528", // card / surface
-          800: "#141B33", // elevated / hover
-          700: "#1C2542", // border
-          600: "#283153",
-          500: "#3A4570",
+          950: "#070A14", // fixed: text/icon shown ON gold (dark in both modes)
+          900: "var(--ink-900)", // page background
+          850: "var(--ink-850)", // card / surface
+          800: "var(--ink-800)", // hover surface
+          700: "var(--ink-700)", // border
+          600: "#283153", // fixed (logo stroke etc.)
+          500: "#3A4570", // fixed
+        },
+        // Content text — theme-driven via CSS vars (dark text in light mode).
+        slate: {
+          100: "var(--slate-100)", // primary text
+          200: "var(--slate-200)",
+          300: "var(--slate-300)", // secondary
+          400: "var(--slate-400)", // muted
+          500: "var(--slate-500)", // faint
+        },
+        // The always-dark sidebar/header scale (never themed).
+        nav: {
+          bg: "#0B1020",
+          surface: "#0F1528",
+          hover: "#141B33",
+          border: "#1C2542",
+          text: "#AEB7CD",
+          bright: "#E8EBF2",
+          muted: "#9AA4BD",
         },
         gold: {
           200: "#F6E2B3",
           300: "#F0D08C",
           400: "#E8B64C", // primary accent
           500: "#D9A23A",
-          600: "#B6822A",
-        },
-        slate: {
-          100: "#E8EBF2",
-          200: "#CBD2E0",
-          300: "#AEB7CD", // body copy (AA on the ink base)
-          400: "#9AA4BD", // secondary / micro copy (AA on ink-900/850)
-          500: "#9AA4BD", // alias so any stray text-slate-500 stays legible
+          600: "#B6822A", // legible gold for text/links on a LIGHT surface
         },
       },
       fontFamily: {
         display: ["var(--font-display)", "Fraunces", "Georgia", "serif"],
         sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
-      },
-      boxShadow: {
-        card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 20px 40px -24px rgba(0,0,0,0.6)",
       },
     },
   },

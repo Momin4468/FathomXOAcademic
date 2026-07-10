@@ -2,82 +2,93 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import {
+  ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, Briefcase, ClipboardCheck, ClipboardList,
+  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, ListTodo, Menu, PackageCheck,
+  PieChart, Radio, Receipt, RotateCcw, Scale, Share2, Shield, ShieldCheck, SlidersHorizontal, Sparkles,
+  Users, UserPlus, Wallet, type LucideIcon,
+} from "lucide-react";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
-import { Button, cx } from "./ui";
+import { cx } from "./ui";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
- * App shell (UI_AUDIT R8). A grouped, collapsible LEFT SIDEBAR (rubric's data-heavy
- * pattern) with active-state, replacing the old 23-link horizontal overflow bar; a
- * WIDER content area (max-w-6xl) so money tables aren't cramped; auto-breadcrumbs
- * from the path; and a mobile hamburger drawer. Links are permission-gated exactly
- * as before (same `can(perms, "module:action")`), and a group hides when the user
- * can see none of its items.
+ * App shell. A FIXED dark ink-navy sidebar + header (the `nav` scale — never
+ * themed), with a LIGHT (default) or dark (user toggle) main-content area. Every
+ * nav item carries a consistent lucide icon. Groups read top-down as: the job
+ * workflow (Work), the money ledgers (Money), directories, the doc library,
+ * insights, the viewer's own numbers (Mine), and admin config.
  */
-type NavItem = { href: string; label: string; perm: string | null };
+type NavItem = { href: string; label: string; perm: string | null; icon: LucideIcon };
 const NAV: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Work",
     items: [
-      { href: "/tasks", label: "Tasks", perm: "capture:view" },
-      { href: "/capture", label: "AI capture", perm: "ai_capture:create" },
-      { href: "/outcomes", label: "Outcomes", perm: "outcomes:view" },
-      { href: "/resit", label: "Resit", perm: "work:approve" },
-      { href: "/checks", label: "Checks", perm: "checks:view" },
-      { href: "/knowledge", label: "Knowledge", perm: "knowledge:view" },
-      { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view" },
-      { href: "/custom-fields", label: "Custom fields", perm: "custom_fields:view" },
+      { href: "/work", label: "Jobs", perm: "work:view", icon: Briefcase },
+      { href: "/tasks", label: "Tasks", perm: "capture:view", icon: ListTodo },
+      { href: "/capture", label: "AI capture", perm: "ai_capture:create", icon: Sparkles },
+      { href: "/outcomes", label: "Outcomes", perm: "outcomes:view", icon: Award },
+      { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },
+      { href: "/checks", label: "Checks", perm: "checks:view", icon: ShieldCheck },
     ],
   },
   {
     title: "Money",
     items: [
-      { href: "/invoices", label: "Invoices", perm: "billing:view" },
-      { href: "/payments", label: "Payments", perm: "billing:view" },
-      { href: "/settlement", label: "Settlement", perm: "billing:view" },
-      { href: "/expenses", label: "Expenses", perm: "expenses:view" },
-      { href: "/advances", label: "Advances", perm: "advances:view" },
-      { href: "/opening-balances", label: "Opening balances", perm: "billing:approve" },
-      { href: "/balance", label: "Balance", perm: null }, // universal — own two-way position
+      { href: "/invoices", label: "Invoices", perm: "billing:view", icon: FileText },
+      { href: "/payments", label: "Payments", perm: "billing:view", icon: Banknote },
+      { href: "/settlement", label: "Settlement", perm: "billing:view", icon: ArrowLeftRight },
+      { href: "/expenses", label: "Expenses", perm: "expenses:view", icon: Wallet },
+      { href: "/advances", label: "Advances", perm: "advances:view", icon: HandCoins },
+      { href: "/opening-balances", label: "Opening balances", perm: "billing:approve", icon: Flag },
+      { href: "/balance", label: "Balance", perm: null, icon: Scale },
     ],
   },
   {
     title: "Directory",
     items: [
-      { href: "/clients", label: "Clients", perm: "reference:view" },
-      { href: "/people", label: "People", perm: "reference:view" },
-      { href: "/reference-data", label: "Reference data", perm: "reference:view" },
-      { href: "/vault", label: "Vault", perm: "credential_vault:view" },
+      { href: "/clients", label: "Clients", perm: "reference:view", icon: Users },
+      { href: "/people", label: "People", perm: "reference:view", icon: Contact },
+      { href: "/reference-data", label: "Reference data", perm: "reference:view", icon: Database },
+      { href: "/vault", label: "Vault", perm: "credential_vault:view", icon: KeyRound },
+    ],
+  },
+  {
+    title: "Library",
+    items: [
+      { href: "/knowledge", label: "Knowledge", perm: "knowledge:view", icon: BookOpen },
+      { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view", icon: FileText },
     ],
   },
   {
     title: "Insights",
     items: [
-      { href: "/analytics", label: "Analytics", perm: "dashboard:view" },
-      { href: "/data", label: "Data", perm: "import_export:view" },
+      { href: "/analytics", label: "Analytics", perm: "dashboard:view", icon: BarChart3 },
+      { href: "/data", label: "Data", perm: "import_export:view", icon: Download },
     ],
   },
   {
     title: "Mine",
     items: [
-      { href: "/channels/mine", label: "My share", perm: "channels:view" },
-      { href: "/referrers/me", label: "My referrals", perm: "referrers:view" },
-      { href: "/vendor/me", label: "My invoices", perm: "vendor:create" },
-      { href: "/employee/log", label: "My work log", perm: "hrm:create" },
+      { href: "/channels/mine", label: "My share", perm: "channels:view", icon: PieChart },
+      { href: "/referrers/me", label: "My referrals", perm: "referrers:view", icon: Share2 },
+      { href: "/vendor/me", label: "My invoices", perm: "vendor:create", icon: Receipt },
+      { href: "/employee/log", label: "My work log", perm: "hrm:create", icon: ClipboardList },
     ],
   },
   {
     title: "Admin",
     items: [
-      { href: "/referrers", label: "Referrers", perm: "referrers:approve" },
-      { href: "/channels", label: "Channels", perm: "channels:approve" },
-      { href: "/client-admin", label: "Client portal", perm: "client_portal:view" },
-      { href: "/vendor-admin", label: "Vendor claims", perm: "vendor:approve" },
-      { href: "/hrm", label: "Work logs", perm: "hrm:approve" },
-      { href: "/roles", label: "Roles", perm: "platform:view" }, // SuperAdmin-only (Admins lack platform)
+      { href: "/referrers", label: "Referrers", perm: "referrers:approve", icon: UserPlus },
+      { href: "/channels", label: "Channels", perm: "channels:approve", icon: Radio },
+      { href: "/custom-fields", label: "Custom fields", perm: "custom_fields:view", icon: SlidersHorizontal },
+      { href: "/client-admin", label: "Client portal", perm: "client_portal:view", icon: Globe },
+      { href: "/vendor-admin", label: "Vendor claims", perm: "vendor:approve", icon: PackageCheck },
+      { href: "/hrm", label: "Work logs", perm: "hrm:approve", icon: ClipboardCheck },
+      { href: "/roles", label: "Roles", perm: "platform:view", icon: Shield },
     ],
   },
 ];
@@ -131,26 +142,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebar = (
     <nav className="space-y-4">
       <Link href="/" className="block px-3" onClick={() => setDrawer(false)}>
-        <Logo />
+        <Logo onDark />
       </Link>
       {groups.map((g) => (
         <div key={g.title}>
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{g.title}</p>
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-nav-muted">{g.title}</p>
           <div className="space-y-0.5">
-            {g.items.map((it) => (
-              <Link
-                key={it.href}
-                href={it.href}
-                onClick={() => setDrawer(false)}
-                aria-current={isActive(it.href) ? "page" : undefined}
-                className={cx(
-                  "block rounded-lg px-3 py-1.5 text-sm",
-                  isActive(it.href) ? "bg-gold-400 font-medium text-ink-950" : "text-slate-300 hover:bg-ink-800 hover:text-slate-100",
-                )}
-              >
-                {it.label}
-              </Link>
-            ))}
+            {g.items.map((it) => {
+              const Icon = it.icon;
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  onClick={() => setDrawer(false)}
+                  aria-current={isActive(it.href) ? "page" : undefined}
+                  className={cx(
+                    "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-sm",
+                    isActive(it.href)
+                      ? "bg-gold-400 font-medium text-ink-950"
+                      : "text-nav-text hover:bg-nav-hover hover:text-nav-bright",
+                  )}
+                >
+                  <Icon aria-hidden className="h-4 w-4 shrink-0" />
+                  {it.label}
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}
@@ -159,31 +176,38 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-ink-900">
-      {/* top strip */}
-      <header className="sticky top-0 z-20 border-b border-ink-700 bg-ink-850">
+      {/* top strip (always dark) */}
+      <header className="sticky top-0 z-20 border-b border-nav-border bg-nav-surface">
         <div className="flex h-12 items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded p-2 text-slate-300 hover:bg-ink-800 lg:hidden"
+              className="rounded p-2 text-nav-text hover:bg-nav-hover hover:text-nav-bright lg:hidden"
               aria-label="Open menu"
               onClick={() => setDrawer(true)}
             >
               <Menu aria-hidden className="h-5 w-5" />
             </button>
-            <Link href="/" className="lg:hidden"><Logo compact /></Link>
+            <Link href="/" className="lg:hidden"><Logo onDark compact /></Link>
           </div>
-          <div className="flex items-center gap-3">
-            {me?.party?.displayName && <span className="hidden text-xs text-slate-400 sm:inline">{me.party.displayName}</span>}
+          <div className="flex items-center gap-2">
+            {me?.party?.displayName && <span className="hidden text-xs text-nav-muted sm:inline">{me.party.displayName}</span>}
+            <ThemeToggle />
             {can(perms, "notifications:view") && <NotificationBell canBroadcast={can(perms, "notifications:approve")} />}
-            <Button variant="ghost" className="px-2 text-xs" onClick={() => logout()}>Sign out</Button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="rounded-lg px-2 py-1.5 text-xs text-nav-text hover:bg-nav-hover hover:text-nav-bright"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </header>
 
       <div className="flex">
-        {/* desktop sidebar */}
-        <aside className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-ink-700 bg-ink-850 py-4 lg:block">
+        {/* desktop sidebar (always dark) */}
+        <aside className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-nav-border bg-nav-surface py-4 lg:block">
           {sidebar}
         </aside>
 
@@ -191,7 +215,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {drawer && (
           <div className="fixed inset-0 z-30 lg:hidden">
             <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/50" onClick={() => setDrawer(false)} />
-            <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto border-r border-ink-700 bg-ink-850 py-4 shadow-lg">{sidebar}</div>
+            <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto border-r border-nav-border bg-nav-surface py-4 shadow-lg">{sidebar}</div>
           </div>
         )}
 

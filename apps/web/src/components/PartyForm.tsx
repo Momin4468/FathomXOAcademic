@@ -107,7 +107,7 @@ export function PartyForm({
               className={cx(
                 "rounded-full border px-3 py-1 text-xs capitalize",
                 types.includes(t)
-                  ? "border-gold-400 bg-gold-400/15 text-gold-300"
+                  ? "border-gold-400 bg-gold-400/15 text-gold-700 dark:text-gold-300"
                   : "border-ink-700 text-slate-400 hover:bg-ink-800",
               )}
             >

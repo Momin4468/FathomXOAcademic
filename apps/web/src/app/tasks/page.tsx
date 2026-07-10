@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
@@ -79,7 +80,7 @@ export default function TasksPage() {
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Tasks</h1>
-          <p className="text-xs text-gray-500">Due tracking in your timezone — nudges, never blocks.</p>
+          <p className="text-xs text-gray-500">Reminders &amp; due-tracking in your timezone — nudges, never blocks. Billable work lives under <Link href="/work" className="text-gold-600 hover:underline dark:text-gold-400">Jobs</Link>.</p>
         </div>
         <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Task"}</Button>
       </div>
@@ -138,6 +139,20 @@ export default function TasksPage() {
               filterOptions: ["overdue", "soon", "later", "none"],
               render: (t) => <Badge tone={BUCKET_TONE[t.urgency.bucket]}>{t.urgency.bucket}</Badge>,
               value: (t) => t.urgency.bucket,
+            },
+            {
+              key: "workItemId",
+              header: "Job",
+              align: "center",
+              render: (t) =>
+                t.workItemId ? (
+                  <Link href={`/work/${t.workItemId}`} onClick={(e) => e.stopPropagation()} className="text-xs text-gold-600 hover:underline dark:text-gold-400">
+                    View job
+                  </Link>
+                ) : (
+                  <span className="text-xs text-gray-400">—</span>
+                ),
+              value: (t) => (t.workItemId ? "linked" : ""),
             },
             {
               key: "state",

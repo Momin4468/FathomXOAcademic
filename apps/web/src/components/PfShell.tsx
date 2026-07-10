@@ -34,7 +34,7 @@ export function PfShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-10 border-b border-emerald-500/20 bg-ink-850">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <nav className="flex items-center gap-4 overflow-x-auto whitespace-nowrap text-sm">
-            <Link href="/personal-finance" className="font-semibold tracking-tight text-emerald-300">
+            <Link href="/personal-finance" className="font-semibold tracking-tight text-emerald-700 dark:text-emerald-300">
               Personal Finance
             </Link>
             {LINKS.slice(1).map((l) => (
@@ -44,7 +44,7 @@ export function PfShell({ children }: { children: React.ReactNode }) {
                 aria-current={pathname === l.href ? "page" : undefined}
                 className={cx(
                   "hover:text-slate-100",
-                  pathname === l.href ? "text-emerald-300 font-medium" : "text-slate-400",
+                  pathname === l.href ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-slate-400",
                 )}
               >
                 {l.label}

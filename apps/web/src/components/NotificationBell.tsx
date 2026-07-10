@@ -67,7 +67,7 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
         onClick={() => setOpen((o) => !o)}
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
         aria-expanded={open}
-        className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-slate-300 hover:text-slate-100"
+        className="relative flex min-h-[36px] min-w-[36px] items-center justify-center rounded text-nav-text hover:bg-nav-hover hover:text-nav-bright"
       >
         <Bell aria-hidden className="h-5 w-5" />
         {unread > 0 && (
@@ -95,7 +95,7 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
 
             <div className="max-h-80 overflow-y-auto">
               {rowsError ? (
-                <p className="px-3 py-4 text-xs text-red-400">Couldn't load notifications.</p>
+                <p className="px-3 py-4 text-xs text-red-600 dark:text-red-400">Couldn't load notifications.</p>
               ) : !rows ? (
                 <p className="px-3 py-4 text-xs text-slate-400">Loading…</p>
               ) : rows.length === 0 ? (

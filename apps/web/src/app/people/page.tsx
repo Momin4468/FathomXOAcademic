@@ -89,7 +89,7 @@ export default function PeoplePage() {
               header: "",
               align: "right",
               render: (p) => (
-                <button type="button" onClick={() => void openEdit(p.id)} className="text-xs text-gold-400 hover:underline">
+                <button type="button" onClick={() => void openEdit(p.id)} className="text-xs text-gold-600 hover:underline dark:text-gold-400">
                   Edit
                 </button>
               ),

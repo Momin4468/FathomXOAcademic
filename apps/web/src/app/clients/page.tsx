@@ -80,7 +80,7 @@ export default function ClientsPage() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); void openEdit(p.id); }}
-                  className="text-xs text-gold-400 hover:underline"
+                  className="text-xs text-gold-600 hover:underline dark:text-gold-400"
                 >
                   Edit
                 </button>

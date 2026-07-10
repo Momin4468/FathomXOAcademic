@@ -197,7 +197,7 @@ export default function JobDetailPage() {
           <section className="space-y-2">
             <h2 className="text-sm font-semibold text-slate-300">Lines</h2>
             {billedInvoiceId && (
-              <p className="rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
+              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
                 Added to the client's open invoice.{" "}
                 <Link href={`/invoices/${billedInvoiceId}`} className="font-medium underline">
                   View invoice

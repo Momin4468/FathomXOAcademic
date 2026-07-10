@@ -3,15 +3,38 @@
 @tailwind utilities;
 
 /*
- * X-Factor AS — dark navy ("Midnight Scholar") base for the internal tool, so it
- * reads as one product with the marketing site. NOT pure black: the page base is
- * ink-900 (#0B1020, a deep desaturated navy), surfaces step up through
- * ink-850/800, gold (#E8B64C) is the accent. --font-display / --font-sans come
- * from next/font (see layout.tsx); the Tailwind fontFamily stack carries fallbacks.
+ * X-Factor AS theme tokens. DEFAULT = light main content (dark sidebar is fixed,
+ * see the `nav` scale in tailwind.config). The `.dark` class (toggled by the
+ * header theme switch, persisted in localStorage) flips the content to full dark.
+ * `ink`/`slate` Tailwind colors resolve to these vars, so every component that
+ * uses them themes for free.
  */
+:root {
+  --ink-900: #f6f7f9; /* page background (light) */
+  --ink-850: #ffffff; /* card / surface */
+  --ink-800: #eef1f5; /* hover surface */
+  --ink-700: #e2e6ec; /* border */
+  --slate-100: #0e1524; /* primary text (near-ink) */
+  --slate-200: #26304a;
+  --slate-300: #45506a; /* secondary text */
+  --slate-400: #667085; /* muted text */
+  --slate-500: #8a93a6; /* faint text */
+}
+.dark {
+  --ink-900: #0b1020;
+  --ink-850: #0f1528;
+  --ink-800: #141b33;
+  --ink-700: #1c2542;
+  --slate-100: #e8ebf2;
+  --slate-200: #cbd2e0;
+  --slate-300: #aeb7cd;
+  --slate-400: #9aa4bd;
+  --slate-500: #9aa4bd;
+}
+
 @layer base {
   body {
-    @apply bg-ink-900 text-slate-200 antialiased;
+    @apply bg-ink-900 font-sans text-slate-200 antialiased;
     font-family: var(--font-sans);
   }
   h1, h2, h3, h4 {
@@ -20,12 +43,6 @@
   ::selection {
     background: rgba(232, 182, 76, 0.3);
   }
-  /*
-   * Gold keyboard-focus indicator on the dark base. Only the shared
-   * Input/Textarea/Select carry their own focus ring; this scoped rule covers
-   * every raw <button>, link, sortable header, and role="button" in one place.
-   * Mouse clicks don't trigger :focus-visible, so pointer users see no change.
-   */
   a:focus-visible,
   button:focus-visible,
   summary:focus-visible,
@@ -36,3 +53,24 @@
     border-radius: 4px;
   }
 }
+
+/*
+ * Dark-mode remap for pages still written with raw gray/white Tailwind utilities
+ * (the deep pages). In LIGHT mode they render natively; under `.dark` they flip to
+ * the ink/navy surfaces here — so the whole app is theme-consistent without editing
+ * every page. Scoped to `.dark`, higher specificity than the base utility, and
+ * !important so it wins regardless of utility source order.
+ */
+.dark .bg-white { background-color: #0f1528 !important; }
+.dark .bg-gray-50 { background-color: #0b1020 !important; }
+.dark .bg-gray-100 { background-color: #141b33 !important; }
+.dark .text-gray-900, .dark .text-gray-800 { color: #e8ebf2 !important; }
+.dark .text-gray-700 { color: #cbd2e0 !important; }
+.dark .text-gray-600 { color: #aeb7cd !important; }
+.dark .text-gray-500 { color: #9aa4bd !important; }
+.dark .text-gray-400 { color: #9aa4bd !important; }
+.dark .border-gray-200, .dark .border-gray-300 { border-color: #1c2542 !important; }
+.dark .border-gray-100 { border-color: #141b33 !important; }
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #141b33 !important; }
+.dark .hover\:bg-gray-50:hover { background-color: #141b33 !important; }
+.dark .hover\:bg-gray-100:hover { background-color: #1c2542 !important; }

@@ -117,7 +117,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                   className="mt-1"
                 />
                 {touched && opts.reasonField.required && !reason.trim() && (
-                  <span id="confirm-reason-err" className="mt-1 block text-xs text-red-400">A reason is required.</span>
+                  <span id="confirm-reason-err" className="mt-1 block text-xs text-red-600 dark:text-red-400">A reason is required.</span>
                 )}
               </div>
             )}

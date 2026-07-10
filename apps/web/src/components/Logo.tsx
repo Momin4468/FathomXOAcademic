@@ -20,13 +20,17 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-/** Full lockup: mark + wordmark. `compact` hides the subtitle. */
-export function Logo({ compact }: { compact?: boolean }) {
+/**
+ * Full lockup: mark + wordmark. `compact` hides the subtitle. `onDark` forces a
+ * fixed light wordmark for the always-dark sidebar/header; without it the wordmark
+ * follows the content theme (dark text on the light login/content, light in dark).
+ */
+export function Logo({ compact, onDark }: { compact?: boolean; onDark?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
       <LogoMark className="h-8 w-8" />
       <span className="leading-none">
-        <span className="block font-display text-base font-semibold tracking-tight text-slate-100">
+        <span className={`block font-display text-base font-semibold tracking-tight ${onDark ? "text-nav-bright" : "text-slate-100"}`}>
           X-Factor AS
         </span>
         {!compact && (

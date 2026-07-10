@@ -22,7 +22,7 @@ export function Button({ variant = "primary", className, ...props }: ButtonProps
     primary: "bg-gold-400 text-ink-950 hover:bg-gold-300 disabled:bg-ink-700 disabled:text-slate-400",
     secondary: "border border-ink-700 text-slate-200 hover:bg-ink-800",
     ghost: "text-slate-300 hover:bg-ink-800",
-    danger: "border border-red-500/40 text-red-300 hover:bg-red-500/10",
+    danger: "border border-red-500/40 text-red-600 hover:bg-red-500/10 dark:text-red-300",
   }[variant];
   return (
     <button
@@ -244,11 +244,11 @@ export function Field({
     <label className="block space-y-1">
       <span className="text-sm font-medium text-slate-300">
         {label}
-        {required && <span className="ml-0.5 text-red-400" aria-hidden>*</span>}
+        {required && <span className="ml-0.5 text-red-500 dark:text-red-400" aria-hidden>*</span>}
       </span>
       {children}
       {hint && !error && <span className="block text-xs text-slate-400">{hint}</span>}
-      {error && <span className="block text-xs text-red-400">{error}</span>}
+      {error && <span className="block text-xs text-red-600 dark:text-red-400">{error}</span>}
     </label>
   );
 }
@@ -278,10 +278,10 @@ export function Collapsible({ title, hint, defaultOpen, children }: { title: str
 
 const BADGE_TONES: Record<string, string> = {
   gray: "bg-ink-700 text-slate-300",
-  blue: "bg-blue-500/15 text-blue-300",
-  amber: "bg-amber-500/15 text-amber-300",
-  green: "bg-emerald-500/15 text-emerald-300",
-  red: "bg-red-500/15 text-red-300",
+  blue: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
 };
 export function Badge({ tone = "gray", children }: { tone?: keyof typeof BADGE_TONES | string; children: ReactNode }) {
   return (
@@ -322,7 +322,7 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   );
 }
 export function ErrorNote({ message }: { message: string }) {
-  return <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{message}</p>;
+  return <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{message}</p>;
 }
 
 /**
@@ -345,7 +345,7 @@ export function Money({
   // For a signed negative, format the magnitude and wrap it in parentheses.
   const formatted = formatMoney(negative ? Math.abs(n) : value, prefix);
   if (formatted === null) return null;
-  return <span className={cx("tabular-nums", negative && "text-red-400")}>{negative ? `(${formatted})` : formatted}</span>;
+  return <span className={cx("tabular-nums", negative && "text-red-600 dark:text-red-400")}>{negative ? `(${formatted})` : formatted}</span>;
 }
 
 /**
