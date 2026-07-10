@@ -1,6 +1,14 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { schema, type Db } from "@business-os/db";
-import { computeLineAmount, deriveLineMargin, type SessionPrincipal } from "@business-os/shared";
+import {
+  canTransitionLineStatus,
+  computeLineAmount,
+  deriveLineMargin,
+  rollupLineStatus,
+  WORK_LINE_STATUSES,
+  type SessionPrincipal,
+  type WorkLineStatus,
+} from "@business-os/shared";
 import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import type { AddLineDto, FanOutDto } from "./dto.js";
@@ -30,6 +38,7 @@ export class LineService {
       id: row.id,
       workItemId: row.workItemId,
       lineKind: row.lineKind,
+      lineStatus: row.lineStatus,
       side,
       writerPartyId: row.writerPartyId,
       wordCount: row.wordCount,
@@ -52,6 +61,48 @@ export class LineService {
 
   async getLines(tx: Db, workItemId: string): Promise<LineRow[]> {
     return tx.select().from(schema.workLine).where(eq(schema.workLine.workItemId, workItemId));
+  }
+
+  /** The job's status as a derived rollup of its lines' statuses (never stored). */
+  jobStatusRollup(rows: LineRow[]) {
+    return rollupLineStatus(rows.map((r) => (r.lineStatus ?? "pending") as WorkLineStatus));
+  }
+
+  /**
+   * Move a single line through its lifecycle (0048, Phase 4A). Manual moves only
+   * (draft→pending→submitted, or →cancelled from pending/submitted). `billed` is
+   * NEVER set here — it's set when the line is invoiced; a post-billed amount
+   * change goes through the reprice mechanism, not a status/edit.
+   */
+  async setLineStatus(tx: Db, principal: SessionPrincipal, lineId: string, to: WorkLineStatus) {
+    if (!WORK_LINE_STATUSES.includes(to)) throw new BadRequestException("Unknown line status");
+    const [line] = await tx.select().from(schema.workLine).where(eq(schema.workLine.id, lineId));
+    if (!line) throw new NotFoundException("Work line not found");
+    const from = (line.lineStatus ?? "pending") as WorkLineStatus;
+    if (from === to) return line;
+    if (to === "billed") {
+      throw new BadRequestException("A line becomes 'billed' by invoicing it, not by a status change");
+    }
+    if (!canTransitionLineStatus(from, to)) {
+      throw new BadRequestException(
+        from === "billed"
+          ? "A billed line can't change status — correct the amount via reprice"
+          : `Invalid line-status change ${from} → ${to}`,
+      );
+    }
+    const [updated] = await tx
+      .update(schema.workLine)
+      .set({ lineStatus: to })
+      .where(eq(schema.workLine.id, lineId))
+      .returning();
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.line_status_changed",
+      entity: "work_line",
+      entityId: lineId,
+      detail: { workItemId: line.workItemId, from, to },
+    });
+    return updated!;
   }
 
   /** The writer-side total of a producer line (same convention as mapLine). */
@@ -115,12 +166,21 @@ export class LineService {
     } else if (negativeAmt) {
       throw new BadRequestException("A negative amount is only allowed on a 'discount' line");
     }
+    // A line added under a client-portal DRAFT job starts as 'draft'; every
+    // internally-logged line goes straight to 'pending' (0048).
+    const [parent] = await tx
+      .select({ clientAccountId: schema.workItem.clientAccountId, workState: schema.workItem.workState })
+      .from(schema.workItem)
+      .where(eq(schema.workItem.id, workItemId));
+    const lineStatus: WorkLineStatus =
+      parent?.clientAccountId && parent.workState === "draft" ? "draft" : "pending";
     const [row] = await tx
       .insert(schema.workLine)
       .values({
         orgId: principal.orgId,
         workItemId,
         lineKind: dto.lineKind,
+        lineStatus,
         consumerPartyId: dto.consumerPartyId ?? null,
         writerPartyId: dto.writerPartyId ?? null,
         wordCount: dto.wordCount ?? null,

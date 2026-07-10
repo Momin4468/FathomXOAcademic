@@ -3,21 +3,36 @@
 @tailwind utilities;
 
 /*
- * UI_POLISH: a global keyboard-focus indicator (UI_AUDIT R-polish). Only the
- * shared Input/Textarea/Select carry a focus ring today, so every raw <button>,
- * link, sortable header, and role="button" was invisible to keyboard users. This
- * scoped :focus-visible rule covers them in one place; form fields are excluded
- * (they keep their own focus:ring, so no double outline). Mouse clicks don't
- * trigger :focus-visible, so pointer users see no change.
+ * X-Factor AS — dark navy ("Midnight Scholar") base for the internal tool, so it
+ * reads as one product with the marketing site. NOT pure black: the page base is
+ * ink-900 (#0B1020, a deep desaturated navy), surfaces step up through
+ * ink-850/800, gold (#E8B64C) is the accent. --font-display / --font-sans come
+ * from next/font (see layout.tsx); the Tailwind fontFamily stack carries fallbacks.
  */
 @layer base {
+  body {
+    @apply bg-ink-900 text-slate-200 antialiased;
+    font-family: var(--font-sans);
+  }
+  h1, h2, h3, h4 {
+    @apply text-slate-100;
+  }
+  ::selection {
+    background: rgba(232, 182, 76, 0.3);
+  }
+  /*
+   * Gold keyboard-focus indicator on the dark base. Only the shared
+   * Input/Textarea/Select carry their own focus ring; this scoped rule covers
+   * every raw <button>, link, sortable header, and role="button" in one place.
+   * Mouse clicks don't trigger :focus-visible, so pointer users see no change.
+   */
   a:focus-visible,
   button:focus-visible,
   summary:focus-visible,
   [role="button"]:focus-visible,
   [tabindex]:not([tabindex="-1"]):focus-visible {
-    outline: 2px solid theme("colors.gray.900");
+    outline: 2px solid #e8b64c;
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: 4px;
   }
 }

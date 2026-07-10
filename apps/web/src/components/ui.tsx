@@ -19,10 +19,10 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 export function Button({ variant = "primary", className, ...props }: ButtonProps) {
   const styles = {
-    primary: "bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-400",
-    secondary: "border border-gray-300 text-gray-800 hover:bg-gray-50",
-    ghost: "text-gray-600 hover:bg-gray-100",
-    danger: "border border-red-300 text-red-700 hover:bg-red-50",
+    primary: "bg-gold-400 text-ink-950 hover:bg-gold-300 disabled:bg-ink-700 disabled:text-slate-400",
+    secondary: "border border-ink-700 text-slate-200 hover:bg-ink-800",
+    ghost: "text-slate-300 hover:bg-ink-800",
+    danger: "border border-red-500/40 text-red-300 hover:bg-red-500/10",
   }[variant];
   return (
     <button
@@ -41,7 +41,7 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return (
     <input
       className={cx(
-        "min-h-[44px] w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+        "min-h-[44px] w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400",
         className,
       )}
       {...props}
@@ -52,7 +52,7 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   return (
     <textarea
       className={cx(
-        "min-h-[88px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+        "min-h-[88px] w-full rounded-lg border border-ink-700 bg-ink-850 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400",
         className,
       )}
       {...props}
@@ -63,7 +63,7 @@ export function Select({ className, children, ...props }: SelectHTMLAttributes<H
   return (
     <select
       className={cx(
-        "min-h-[44px] w-full rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+        "min-h-[44px] w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400",
         className,
       )}
       {...props}
@@ -107,7 +107,7 @@ export function MoneyInput({
   const symbol = ({ BDT: "৳", USD: "$", GBP: "£", EUR: "€", AUD: "A$" } as Record<string, string>)[currency] ?? currency;
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400">{symbol}</span>
+      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-slate-400">{symbol}</span>
       <input
         type="text"
         inputMode="decimal"
@@ -128,7 +128,7 @@ export function MoneyInput({
           onChange(t);
         }}
         className={cx(
-          "min-h-[44px] w-full rounded-lg border border-gray-300 pl-7 pr-3 text-right text-sm tabular-nums outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+          "min-h-[44px] w-full rounded-lg border border-ink-700 bg-ink-850 pl-7 pr-3 text-right text-sm tabular-nums text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400",
           className,
         )}
         {...rest}
@@ -156,12 +156,12 @@ export function PercentInput({
         // Reuse the money sanitizer so a percent can't hold multiple dots (→ NaN).
         onChange={(e) => onChange(sanitizeAmount(e.target.value))}
         className={cx(
-          "min-h-[44px] w-full rounded-lg border border-gray-300 pl-3 pr-7 text-right text-sm tabular-nums outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900",
+          "min-h-[44px] w-full rounded-lg border border-ink-700 bg-ink-850 pl-3 pr-7 text-right text-sm tabular-nums text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400",
           className,
         )}
         {...rest}
       />
-      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-gray-400">%</span>
+      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-sm text-slate-400">%</span>
     </div>
   );
 }
@@ -242,28 +242,46 @@ export function Field({
 }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium text-gray-700">
+      <span className="text-sm font-medium text-slate-300">
         {label}
-        {required && <span className="ml-0.5 text-red-500" aria-hidden>*</span>}
+        {required && <span className="ml-0.5 text-red-400" aria-hidden>*</span>}
       </span>
       {children}
-      {hint && !error && <span className="block text-xs text-gray-500">{hint}</span>}
-      {error && <span className="block text-xs text-red-600">{error}</span>}
+      {hint && !error && <span className="block text-xs text-slate-400">{hint}</span>}
+      {error && <span className="block text-xs text-red-400">{error}</span>}
     </label>
   );
 }
 
 // ─── Card / Badge ────────────────────────────────────────────────────────────
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <div className={cx("rounded-xl border border-gray-200 bg-white p-4", className)}>{children}</div>;
+  return <div className={cx("rounded-xl border border-ink-700 bg-ink-850 p-4 text-slate-200", className)}>{children}</div>;
+}
+
+/**
+ * Expandable section (native <details>) — the "common fields shown, the rest in
+ * expandable groups" pattern for overloaded forms, so a long form isn't one wall
+ * of inputs. Reused by the job form and anywhere else a form gets heavy.
+ */
+export function Collapsible({ title, hint, defaultOpen, children }: { title: string; hint?: string; defaultOpen?: boolean; children: ReactNode }) {
+  return (
+    <details open={defaultOpen} className="group rounded-lg border border-ink-700 bg-ink-900/40">
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-sm font-medium text-slate-200 [&::-webkit-details-marker]:hidden">
+        <span className="text-slate-500 transition group-open:rotate-90">▸</span>
+        {title}
+        {hint && <span className="ml-auto text-xs font-normal text-slate-500">{hint}</span>}
+      </summary>
+      <div className="space-y-4 px-3 pb-3 pt-1">{children}</div>
+    </details>
+  );
 }
 
 const BADGE_TONES: Record<string, string> = {
-  gray: "bg-gray-100 text-gray-700",
-  blue: "bg-blue-100 text-blue-700",
-  amber: "bg-amber-100 text-amber-800",
-  green: "bg-green-100 text-green-700",
-  red: "bg-red-100 text-red-700",
+  gray: "bg-ink-700 text-slate-300",
+  blue: "bg-blue-500/15 text-blue-300",
+  amber: "bg-amber-500/15 text-amber-300",
+  green: "bg-emerald-500/15 text-emerald-300",
+  red: "bg-red-500/15 text-red-300",
 };
 export function Badge({ tone = "gray", children }: { tone?: keyof typeof BADGE_TONES | string; children: ReactNode }) {
   return (
@@ -279,6 +297,8 @@ export function StateBadge({ state }: { state: string }) {
     {
       // work-state
       draft: "gray", pending: "amber", confirmed: "blue", delivered: "green",
+      // work_line line-status (Phase 4A): draft→pending→submitted→billed, or cancelled
+      submitted: "blue", billed: "green", cancelled: "red",
       // money-state
       unbilled: "gray", invoiced: "amber", partial: "amber", settled: "green",
       // invoice status
@@ -291,18 +311,18 @@ export function StateBadge({ state }: { state: string }) {
 
 // ─── States ──────────────────────────────────────────────────────────────────
 export function Spinner({ label = "Loading…" }: { label?: string }) {
-  return <p className="py-8 text-center text-sm text-gray-500">{label}</p>;
+  return <p className="py-8 text-center text-sm text-slate-400">{label}</p>;
 }
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center">
-      <p className="text-sm font-medium text-gray-600">{title}</p>
-      {hint && <p className="mt-1 text-xs text-gray-500">{hint}</p>}
+    <div className="rounded-xl border border-dashed border-ink-700 px-4 py-10 text-center">
+      <p className="text-sm font-medium text-slate-300">{title}</p>
+      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }
 export function ErrorNote({ message }: { message: string }) {
-  return <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{message}</p>;
+  return <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{message}</p>;
 }
 
 /**
@@ -325,7 +345,7 @@ export function Money({
   // For a signed negative, format the magnitude and wrap it in parentheses.
   const formatted = formatMoney(negative ? Math.abs(n) : value, prefix);
   if (formatted === null) return null;
-  return <span className={cx("tabular-nums", negative && "text-red-600")}>{negative ? `(${formatted})` : formatted}</span>;
+  return <span className={cx("tabular-nums", negative && "text-red-400")}>{negative ? `(${formatted})` : formatted}</span>;
 }
 
 /**
@@ -337,10 +357,10 @@ export function Provenance({ items }: { items: Array<{ label: string; name?: str
   const shown = items.filter((i) => i.name || i.at);
   if (shown.length === 0) return null;
   return (
-    <div className="mt-3 space-y-0.5 border-t border-gray-100 pt-2 text-xs text-gray-400">
+    <div className="mt-3 space-y-0.5 border-t border-ink-700 pt-2 text-xs text-slate-400">
       {shown.map((i) => (
         <div key={i.label}>
-          {i.label} <span className="text-gray-600">{i.name ?? "—"}</span>
+          {i.label} <span className="text-slate-200">{i.name ?? "—"}</span>
           {i.at ? ` · ${formatDateTime(i.at)}` : ""}
         </div>
       ))}

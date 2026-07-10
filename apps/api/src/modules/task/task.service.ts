@@ -112,6 +112,7 @@ export class TaskService {
       conds.push(eq(schema.task.assigneePartyId, principal.partyId));
     }
     if (q.state) conds.push(eq(schema.task.state, q.state));
+    if (q.workItemId) conds.push(eq(schema.task.workItemId, q.workItemId));
     const rows = await tx
       .select()
       .from(schema.task)

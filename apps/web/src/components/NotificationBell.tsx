@@ -67,11 +67,11 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
         onClick={() => setOpen((o) => !o)}
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
         aria-expanded={open}
-        className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-gray-600 hover:text-gray-900"
+        className="relative flex min-h-[44px] min-w-[44px] items-center justify-center rounded text-slate-300 hover:text-slate-100"
       >
         <Bell aria-hidden className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold leading-none text-white">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white">
             {unread > 99 ? "99+" : unread}
           </span>
         )}
@@ -81,11 +81,11 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
         <>
           {/* click-away backdrop */}
           <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-20 cursor-default" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-30 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
-            <div className="flex items-center justify-between border-b border-gray-100 px-3 py-2">
+          <div className="absolute right-0 z-30 mt-2 w-80 max-w-[90vw] overflow-hidden rounded-lg border border-ink-700 bg-ink-850 shadow-lg">
+            <div className="flex items-center justify-between border-b border-ink-700 px-3 py-2">
               <span className="text-sm font-medium">Notifications</span>
               {unread > 0 && (
-                <button type="button" onClick={markAll} className="text-xs text-gray-500 hover:text-gray-900">
+                <button type="button" onClick={markAll} className="text-xs text-slate-400 hover:text-slate-100">
                   Mark all read
                 </button>
               )}
@@ -95,25 +95,25 @@ export function NotificationBell({ canBroadcast }: { canBroadcast: boolean }) {
 
             <div className="max-h-80 overflow-y-auto">
               {rowsError ? (
-                <p className="px-3 py-4 text-xs text-red-600">Couldn't load notifications.</p>
+                <p className="px-3 py-4 text-xs text-red-400">Couldn't load notifications.</p>
               ) : !rows ? (
-                <p className="px-3 py-4 text-xs text-gray-500">Loading…</p>
+                <p className="px-3 py-4 text-xs text-slate-400">Loading…</p>
               ) : rows.length === 0 ? (
-                <p className="px-3 py-6 text-center text-xs text-gray-500">You're all caught up.</p>
+                <p className="px-3 py-6 text-center text-xs text-slate-400">You're all caught up.</p>
               ) : (
-                <ul className="divide-y divide-gray-100">
+                <ul className="divide-y divide-ink-800">
                   {rows.map((n) => (
                     <li key={n.id}>
                       <button
                         type="button"
                         onClick={() => n.readAt === null && markRead(n.id)}
-                        className={cx("flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-gray-50", n.readAt === null && "bg-blue-50/40")}
+                        className={cx("flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-ink-800", n.readAt === null && "bg-blue-500/10")}
                       >
-                        <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.readAt === null ? "bg-blue-600" : "bg-transparent")} />
+                        <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.readAt === null ? "bg-blue-400" : "bg-transparent")} />
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-medium text-gray-900">{n.title}</span>
-                          {n.body && <span className="mt-0.5 block break-words text-xs text-gray-600">{n.body}</span>}
-                          <span className="mt-0.5 block text-[11px] text-gray-400">{formatDateTime(n.createdAt)}</span>
+                          <span className="block text-sm font-medium text-slate-100">{n.title}</span>
+                          {n.body && <span className="mt-0.5 block break-words text-xs text-slate-300">{n.body}</span>}
+                          <span className="mt-0.5 block text-[11px] text-slate-500">{formatDateTime(n.createdAt)}</span>
                         </span>
                       </button>
                     </li>
@@ -153,14 +153,14 @@ function BroadcastComposer({ onSent }: { onSent: () => Promise<void> }) {
   }
 
   return (
-    <div className="space-y-1.5 border-b border-gray-100 bg-gray-50 px-3 py-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">Broadcast to everyone</p>
+    <div className="space-y-1.5 border-b border-ink-700 bg-ink-800 px-3 py-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Broadcast to everyone</p>
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Title"
         maxLength={200}
-        className="w-full rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+        className="w-full rounded border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400"
       />
       <textarea
         value={body}
@@ -168,7 +168,7 @@ function BroadcastComposer({ onSent }: { onSent: () => Promise<void> }) {
         placeholder="Message (optional)"
         rows={2}
         maxLength={4000}
-        className="w-full resize-none rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
+        className="w-full resize-none rounded border border-ink-700 bg-ink-850 px-2 py-1 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400"
       />
       <div className="flex justify-end">
         <Button variant="secondary" className="px-2 py-1 text-xs" disabled={busy || !title.trim()} onClick={send}>

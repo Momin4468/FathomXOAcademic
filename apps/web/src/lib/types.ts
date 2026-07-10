@@ -72,9 +72,18 @@ export interface WorkItem {
   workState: string;
   moneyState: string;
   sourcePartyId: string | null;
+  clientPartyId?: string | null;
   doerPartyId: string | null;
   courseRefId: string | null;
   assignmentTypeRefId: string | null;
+  universityRefId?: string | null;
+  moduleName?: string | null;
+  groupKind?: string | null;
+  groupScope?: string | null;
+  groupNote?: string | null;
+  deliveryDate?: string | null;
+  submissionDate?: string | null;
+  wordCount?: number | null;
   isEstimate: boolean;
   notes: string | null;
   createdBy: string | null;
@@ -90,6 +99,7 @@ export interface WorkItem {
 export interface WorkLine {
   id: string;
   lineKind: string;
+  lineStatus: string; // draft|pending|submitted|billed|cancelled (0048)
   side: "consumer" | "producer" | "unassigned";
   writerPartyId: string | null;
   consumerPartyId?: string | null; // present only if money-visible
@@ -128,9 +138,17 @@ export interface JobPnl {
   isLoss: boolean;
 }
 
+export interface JobStatusRollup {
+  counts: Record<string, number>;
+  total: number;
+  active: number;
+  label: string;
+}
+
 export interface WorkDetail {
   item: WorkItem;
   lines: WorkLine[];
+  jobStatus: JobStatusRollup;
   legs: Leg[];
   margins: MarginNode[];
   pnl?: JobPnl | null; // present only when money-visible (work:approve)

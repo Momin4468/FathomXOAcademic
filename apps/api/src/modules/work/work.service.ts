@@ -62,9 +62,18 @@ export class WorkService {
         customJson,
         details: dto.details ?? null,
         sourcePartyId: dto.sourcePartyId ?? null,
+        clientPartyId: dto.clientPartyId ?? null,
         doerPartyId: dto.doerPartyId ?? null,
         courseRefId: dto.courseRefId ?? null,
         assignmentTypeRefId: dto.assignmentTypeRefId ?? null,
+        universityRefId: dto.universityRefId ?? null,
+        moduleName: dto.moduleName ?? null,
+        groupKind: dto.groupKind ?? undefined, // column default 'individual'
+        groupScope: dto.groupScope ?? null,
+        groupNote: dto.groupNote ?? null,
+        deliveryDate: dto.deliveryDate ?? null,
+        submissionDate: dto.submissionDate ?? null,
+        wordCount: dto.wordCount ?? null,
         projectId: dto.projectId ?? null,
         milestoneId: dto.milestoneId ?? null,
         trackable: dto.trackable ?? undefined, // column default true
@@ -157,9 +166,18 @@ export class WorkService {
       "title",
       "details",
       "sourcePartyId",
+      "clientPartyId",
       "doerPartyId",
       "courseRefId",
       "assignmentTypeRefId",
+      "universityRefId",
+      "moduleName",
+      "groupKind",
+      "groupScope",
+      "groupNote",
+      "deliveryDate",
+      "submissionDate",
+      "wordCount",
       "projectId",
       "milestoneId",
       "trackable",
@@ -301,6 +319,8 @@ export class WorkService {
       item.customJson as Record<string, unknown> | null,
     );
     const { lines, hasNegativeMarginLine } = this.lines.mapLines(lineRows, canSeeMoney);
+    // Job status = a DERIVED rollup of the lines' per-line statuses (never stored).
+    const jobStatus = this.lines.jobStatusRollup(lineRows);
     // R5 audit trail — resolve the actor names (org-scoped) for created/updated/confirmed.
     const names = await resolveUserNames(tx, item.orgId, [item.createdBy, item.updatedBy, item.confirmedBy]);
     const withActors = {
@@ -312,6 +332,7 @@ export class WorkService {
     return {
       item: withActors,
       lines,
+      jobStatus,
       hasNegativeMarginLine,
       legs,
       margins: this.legs.marginsFor(legs),

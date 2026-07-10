@@ -4,6 +4,8 @@ import { BalanceService } from "./balance.service.js";
 import { BillingController } from "./billing.controller.js";
 import { ChargeService } from "./charge.service.js";
 import { InvoiceService } from "./invoice.service.js";
+import { OpeningBalanceController } from "./opening-balance.controller.js";
+import { OpeningBalanceService } from "./opening-balance.service.js";
 import { OtherIncomeService } from "./other-income.service.js";
 import { PaymentService } from "./payment.service.js";
 import { DbIncomeBridge } from "./income-bridge/db-income-bridge.js";
@@ -19,12 +21,13 @@ import { INCOME_BRIDGE } from "./income-bridge/income-bridge.port.js";
  */
 @Module({
   imports: [AuthModule],
-  controllers: [BillingController],
+  controllers: [BillingController, OpeningBalanceController],
   providers: [
     InvoiceService,
     PaymentService,
     ChargeService,
     BalanceService,
+    OpeningBalanceService,
     OtherIncomeService,
     { provide: INCOME_BRIDGE, useClass: DbIncomeBridge },
   ],

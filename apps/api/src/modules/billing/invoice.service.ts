@@ -66,6 +66,9 @@ export class InvoiceService {
       .insert(schema.invoiceLine)
       .values({ orgId: principal.orgId, invoiceId, workLineId, amount: String(amount) })
       .returning();
+    // Phase 4A sync point: invoicing a line flips its line_status → 'billed' in the
+    // SAME action that flips the job's money_state (recomputeMoneyState) → invoiced.
+    await tx.update(schema.workLine).set({ lineStatus: "billed" }).where(eq(schema.workLine.id, workLineId));
     await recomputeMoneyState(tx, wl.workItemId);
     await this.audit.record(tx, principal.orgId, {
       actorUserId: principal.userId,

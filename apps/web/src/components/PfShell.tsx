@@ -30,11 +30,11 @@ export function PfShell({ children }: { children: React.ReactNode }) {
   const { data: me } = usePfApi<PfProfile>("auth/me");
   const pathname = usePathname();
   return (
-    <div className="min-h-screen bg-emerald-50/40">
-      <header className="sticky top-0 z-10 border-b border-emerald-100 bg-white">
+    <div className="min-h-screen bg-ink-900">
+      <header className="sticky top-0 z-10 border-b border-emerald-500/20 bg-ink-850">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <nav className="flex items-center gap-4 overflow-x-auto whitespace-nowrap text-sm">
-            <Link href="/personal-finance" className="font-semibold tracking-tight text-emerald-800">
+            <Link href="/personal-finance" className="font-semibold tracking-tight text-emerald-300">
               Personal Finance
             </Link>
             {LINKS.slice(1).map((l) => (
@@ -43,8 +43,8 @@ export function PfShell({ children }: { children: React.ReactNode }) {
                 href={l.href}
                 aria-current={pathname === l.href ? "page" : undefined}
                 className={cx(
-                  "hover:text-gray-900",
-                  pathname === l.href ? "text-gray-900 font-medium" : "text-gray-600",
+                  "hover:text-slate-100",
+                  pathname === l.href ? "text-emerald-300 font-medium" : "text-slate-400",
                 )}
               >
                 {l.label}
@@ -52,7 +52,7 @@ export function PfShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {me?.displayName && <span className="hidden text-xs text-gray-500 sm:inline">{me.displayName}</span>}
+            {me?.displayName && <span className="hidden text-xs text-slate-400 sm:inline">{me.displayName}</span>}
             <Button variant="ghost" className="px-2 text-xs" onClick={() => pfLogout()}>
               Sign out
             </Button>

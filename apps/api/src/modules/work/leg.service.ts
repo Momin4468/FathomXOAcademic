@@ -237,7 +237,47 @@ export class LegService {
         stampLineId: dto.stampLineId ?? null,
       },
     });
+
+    // A real amount change auto-notifies the writer (the job's doer), reusing the
+    // existing notifications surface — no bespoke channel (Phase 4A). No-op if the
+    // job has no doer or the doer has no active login.
+    if (delta !== 0) {
+      await this.notifyDoerOfReprice(tx, principal, workItemId, dto.newAmount, dto.note ?? null);
+    }
     return { current, newAmount: dto.newAmount, delta };
+  }
+
+  /**
+   * Write a "your fee was adjusted" row to the shared `notification` table (module
+   * 19's surface — the bell reads it) for the job's doer. Direct insert (not the
+   * NotificationsService) so the work module needn't hard-depend on the
+   * independently feature-flagged notifications module; same table, same bell.
+   */
+  private async notifyDoerOfReprice(
+    tx: Db,
+    principal: SessionPrincipal,
+    workItemId: string,
+    newAmount: number,
+    note: string | null,
+  ): Promise<void> {
+    const [item] = await tx
+      .select({ doerPartyId: schema.workItem.doerPartyId, title: schema.workItem.title })
+      .from(schema.workItem)
+      .where(eq(schema.workItem.id, workItemId));
+    if (!item?.doerPartyId) return;
+    const [user] = await tx
+      .select({ id: schema.userAccount.id })
+      .from(schema.userAccount)
+      .where(and(eq(schema.userAccount.partyId, item.doerPartyId), eq(schema.userAccount.status, "active")));
+    if (!user) return;
+    await tx.insert(schema.notification).values({
+      orgId: principal.orgId,
+      recipientUserId: user.id,
+      kind: "fee_adjustment",
+      title: "A fee on your job was adjusted",
+      body: `"${item.title}" was repriced to ৳${newAmount}${note ? ` — ${note}` : ""}.`,
+      createdBy: principal.userId,
+    });
   }
 
   /** RLS filters this to the caller's own legs (or all for SuperAdmin). */

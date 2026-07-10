@@ -5,6 +5,7 @@ import { useState } from "react";
 import { login } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { Button, Card, ErrorNote, Field, Input } from "@/components/ui";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,8 +37,8 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <h1 className="text-xl font-semibold tracking-tight">Business OS</h1>
-      <p className="mt-1 text-sm text-gray-500">Sign in to your workspace</p>
+      <Logo />
+      <p className="mt-3 text-sm text-slate-400">Sign in to your workspace</p>
       <Card className="mt-6">
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Email" error={fieldErrs.email}>
@@ -57,8 +58,8 @@ export default function LoginPage() {
           </Button>
         </form>
       </Card>
-      <p className="mt-4 text-center text-sm text-gray-500">
-        <Link href="/forgot-password" className="font-medium text-gray-900 hover:underline">
+      <p className="mt-4 text-center text-sm text-slate-400">
+        <Link href="/forgot-password" className="font-medium text-gold-400 hover:underline">
           Forgot password?
         </Link>
       </p>

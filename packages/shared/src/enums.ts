@@ -68,6 +68,55 @@ export type WorkState = (typeof WORK_STATES)[number];
 export const MONEY_STATES = ["unbilled", "invoiced", "partial", "settled"] as const;
 export type MoneyState = (typeof MONEY_STATES)[number];
 
+/**
+ * work_line.line_status — the per-LINE lifecycle (0048, Phase 4A). A job's status
+ * is a rollup of its lines' statuses. `billed` is set by the billing flow (when a
+ * line is invoiced), never manually; a post-billed amount change goes through the
+ * reprice mechanism, not a status/edit. `cancelled` is terminal and reachable only
+ * from pending/submitted (never from billed).
+ */
+export const WORK_LINE_STATUSES = ["draft", "pending", "submitted", "billed", "cancelled"] as const;
+export type WorkLineStatus = (typeof WORK_LINE_STATUSES)[number];
+
+/** Allowed MANUAL line-status transitions (billing sets `billed`; both terminals are empty). */
+export const LINE_STATUS_TRANSITIONS: Record<WorkLineStatus, WorkLineStatus[]> = {
+  draft: ["pending"],
+  pending: ["submitted", "cancelled"],
+  submitted: ["pending", "cancelled"],
+  billed: [],
+  cancelled: [],
+};
+export function canTransitionLineStatus(from: WorkLineStatus, to: WorkLineStatus): boolean {
+  return LINE_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+/** Roll a job's line statuses up into a headline (e.g. "2/3 submitted"). Derived, never stored. */
+export function rollupLineStatus(statuses: WorkLineStatus[]): {
+  counts: Record<WorkLineStatus, number>;
+  total: number;
+  active: number;
+  label: string;
+} {
+  const counts = { draft: 0, pending: 0, submitted: 0, billed: 0, cancelled: 0 } as Record<WorkLineStatus, number>;
+  for (const s of statuses) counts[s] = (counts[s] ?? 0) + 1;
+  const total = statuses.length;
+  const active = total - counts.cancelled; // cancelled lines don't count toward progress
+  let label: string;
+  if (total === 0) label = "no lines";
+  else if (active === 0) label = "all cancelled";
+  else if (counts.billed === active) label = `all ${active} billed`;
+  else if (counts.billed > 0) label = `${counts.billed}/${active} billed`;
+  else if (counts.submitted > 0) label = `${counts.submitted}/${active} submitted`;
+  else label = `${active} pending`;
+  return { counts, total, active, label };
+}
+
+/** work_item.group_kind / group_scope — §3.1 group-vs-individual capture (0048). */
+export const GROUP_KINDS = ["individual", "group"] as const;
+export type GroupKind = (typeof GROUP_KINDS)[number];
+export const GROUP_SCOPES = ["full", "partial"] as const;
+export type GroupScope = (typeof GROUP_SCOPES)[number];
+
 /** work_line.line_kind — copies / layers / parts are one mechanism (SCHEMA C, spec §3.3). */
 export const LINE_KINDS = ["copy", "rate_layer", "extra", "part", "discount"] as const;
 export type LineKind = (typeof LINE_KINDS)[number];

@@ -35,3 +35,24 @@ export const advanceEvent = pgTable("advance_event", {
   createdBy: uuid("created_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * SCHEMA (Phase 5) — a one-time OPENING BALANCE per party (party_id NULL = the
+ * business overall), migration 0049. Its own clearly-labeled entry type — never a
+ * synthetic backdated job/payment. `amount` is signed (+ owed to the party, − owed
+ * by them); it feeds the DERIVED balance as a starting constant. Append-only
+ * (a correction is a reversing entry); `as_of` may be any past date (backdating
+ * is always allowed).
+ */
+export const openingBalance = pgTable("opening_balance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  partyId: uuid("party_id").references(() => party.id), // null = business overall
+  amount: numeric("amount", { precision: 16, scale: 2 }).notNull(),
+  currency: text("currency").notNull().default("BDT"),
+  asOf: date("as_of").notNull(),
+  note: text("note"),
+  reversesId: uuid("reverses_id"), // self-FK enforced in SQL (0049)
+  createdBy: uuid("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

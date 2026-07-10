@@ -84,8 +84,20 @@ export const workItem = pgTable("work_item", {
   title: text("title").notNull(),
   details: text("details"),
   sourcePartyId: uuid("source_party_id").references(() => party.id),
+  // The paying student — DISTINCT from source_party_id (the referral/source that
+  // drives profit-share). A direct job may set both to the same party (0048).
+  clientPartyId: uuid("client_party_id").references(() => party.id),
   doerPartyId: uuid("doer_party_id").references(() => party.id),
   assignerUserId: uuid("assigner_user_id").references(() => userAccount.id),
+  // §3.1 academic capture (0048).
+  universityRefId: uuid("university_ref_id").references(() => refEntity.id),
+  moduleName: text("module_name"),
+  groupKind: text("group_kind").notNull().default("individual"), // individual | group
+  groupScope: text("group_scope"), // full | partial (when group)
+  groupNote: text("group_note"),
+  deliveryDate: text("delivery_date"), // date (yyyy-mm-dd)
+  submissionDate: text("submission_date"),
+  wordCount: integer("word_count"),
   workState: text("work_state").notNull().default("draft"), // draft|pending|confirmed|delivered
   moneyState: text("money_state").notNull().default("unbilled"), // unbilled|invoiced|partial|settled
   // Child flags within a project (trackable / billable / both); §5.
@@ -118,6 +130,9 @@ export const workLine = pgTable("work_line", {
     .notNull()
     .references(() => workItem.id),
   lineKind: text("line_kind").notNull(), // copy | rate_layer | extra | part
+  // Per-line lifecycle (0048); job status is a rollup of these. draft|pending|
+  // submitted|billed|cancelled. 'billed' is set when the line is invoiced.
+  lineStatus: text("line_status").notNull().default("pending"),
   consumerPartyId: uuid("consumer_party_id").references(() => party.id),
   writerPartyId: uuid("writer_party_id").references(() => party.id),
   wordCount: integer("word_count"),

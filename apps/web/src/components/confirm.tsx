@@ -98,13 +98,13 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
         >
-          <button type="button" aria-hidden tabIndex={-1} onClick={onCancel} className="absolute inset-0 cursor-default bg-black/30" />
-          <div ref={panelRef} className="relative w-full max-w-sm rounded-xl border border-gray-200 bg-white p-5 shadow-lg">
-            <h2 className="text-sm font-semibold text-gray-900">{opts.title}</h2>
-            {opts.body && <div className="mt-1 text-sm text-gray-600">{opts.body}</div>}
+          <button type="button" aria-hidden tabIndex={-1} onClick={onCancel} className="absolute inset-0 cursor-default bg-black/50" />
+          <div ref={panelRef} className="relative w-full max-w-sm rounded-xl border border-ink-700 bg-ink-850 p-5 shadow-lg">
+            <h2 className="text-sm font-semibold text-slate-100">{opts.title}</h2>
+            {opts.body && <div className="mt-1 text-sm text-slate-300">{opts.body}</div>}
             {opts.reasonField && (
               <div className="mt-3">
-                <label htmlFor="confirm-reason" className="text-xs text-gray-500">{opts.reasonField.label}</label>
+                <label htmlFor="confirm-reason" className="text-xs text-slate-400">{opts.reasonField.label}</label>
                 <Textarea
                   id="confirm-reason"
                   autoFocus
@@ -117,7 +117,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                   className="mt-1"
                 />
                 {touched && opts.reasonField.required && !reason.trim() && (
-                  <span id="confirm-reason-err" className="mt-1 block text-xs text-red-600">A reason is required.</span>
+                  <span id="confirm-reason-err" className="mt-1 block text-xs text-red-400">A reason is required.</span>
                 )}
               </div>
             )}

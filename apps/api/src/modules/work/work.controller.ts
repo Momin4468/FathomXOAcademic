@@ -25,6 +25,7 @@ import {
   ListWorkQueryDto,
   RepriceLegDto,
   ResitDto,
+  SetLineStatusDto,
   TransitionDto,
   UpdateWorkItemDto,
 } from "./dto.js";
@@ -158,6 +159,27 @@ export class WorkController {
     return this.db.withTenant(ctx, async (tx) => {
       const row = await this.lines.addLine(tx, principal, id, dto);
       // Redact money/consumer identity in the response per the caller (B2).
+      return this.lines.mapLine(row, canSeeMoney(principal, perms));
+    });
+  }
+
+  /**
+   * Move a single line through its lifecycle (0048, Phase 4A): draft→pending→
+   * submitted, or →cancelled from pending/submitted. `billed` is set by invoicing,
+   * never here; a billed line is frozen (correct its amount via reprice).
+   */
+  @Post("lines/:lineId/status")
+  @HttpCode(200)
+  @RequirePermission("work", "edit")
+  setLineStatus(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Param("lineId", ParseUUIDPipe) lineId: string,
+    @Body() dto: SetLineStatusDto,
+  ) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const row = await this.lines.setLineStatus(tx, principal, lineId, dto.to);
       return this.lines.mapLine(row, canSeeMoney(principal, perms));
     });
   }

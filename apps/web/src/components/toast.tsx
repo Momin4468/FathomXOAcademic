@@ -23,9 +23,9 @@ interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const TONE: Record<ToastVariant, string> = {
-  success: "border-green-200 bg-green-50 text-green-900",
-  error: "border-red-200 bg-red-50 text-red-900",
-  info: "border-gray-200 bg-white text-gray-900",
+  success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200",
+  error: "border-red-500/30 bg-red-500/10 text-red-200",
+  info: "border-ink-700 bg-ink-850 text-slate-100",
 };
 
 let seq = 0;

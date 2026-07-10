@@ -38,4 +38,5 @@ export class UpdateTaskDto {
 export class ListTasksQueryDto {
   @IsOptional() @IsString() mine?: string; // "true" → only the caller's tasks
   @IsOptional() @IsIn(TASK_STATES) state?: TaskState;
+  @IsOptional() @IsUUID() workItemId?: string; // tasks linked to a specific job (Phase 4B)
 }

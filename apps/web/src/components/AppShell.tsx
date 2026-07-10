@@ -6,6 +6,7 @@ import { Menu } from "lucide-react";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
 import { Button, cx } from "./ui";
+import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
 
 /**
@@ -39,6 +40,7 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
       { href: "/settlement", label: "Settlement", perm: "billing:view" },
       { href: "/expenses", label: "Expenses", perm: "expenses:view" },
       { href: "/advances", label: "Advances", perm: "advances:view" },
+      { href: "/opening-balances", label: "Opening balances", perm: "billing:approve" },
       { href: "/balance", label: "Balance", perm: null }, // universal — own two-way position
     ],
   },
@@ -46,6 +48,8 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
     title: "Directory",
     items: [
       { href: "/clients", label: "Clients", perm: "reference:view" },
+      { href: "/people", label: "People", perm: "reference:view" },
+      { href: "/reference-data", label: "Reference data", perm: "reference:view" },
       { href: "/vault", label: "Vault", perm: "credential_vault:view" },
     ],
   },
@@ -89,15 +93,15 @@ function Breadcrumbs({ pathname }: { pathname: string }) {
     label: looksLikeId(seg) ? "Detail" : titleCase(seg),
   }));
   return (
-    <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1 text-xs text-gray-400">
-      <Link href="/" className="hover:text-gray-700">Home</Link>
+    <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1 text-xs text-slate-400">
+      <Link href="/" className="hover:text-slate-200">Home</Link>
       {crumbs.map((c, i) => (
         <span key={c.href} className="flex items-center gap-1">
           <span>/</span>
           {i === crumbs.length - 1 ? (
-            <span className="text-gray-600">{c.label}</span>
+            <span className="text-slate-300">{c.label}</span>
           ) : (
-            <Link href={c.href} className="hover:text-gray-700">{c.label}</Link>
+            <Link href={c.href} className="hover:text-slate-200">{c.label}</Link>
           )}
         </span>
       ))}
@@ -126,12 +130,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const sidebar = (
     <nav className="space-y-4">
-      <Link href="/" className="block px-3 text-sm font-semibold tracking-tight" onClick={() => setDrawer(false)}>
-        Business OS
+      <Link href="/" className="block px-3" onClick={() => setDrawer(false)}>
+        <Logo />
       </Link>
       {groups.map((g) => (
         <div key={g.title}>
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">{g.title}</p>
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{g.title}</p>
           <div className="space-y-0.5">
             {g.items.map((it) => (
               <Link
@@ -141,7 +145,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-current={isActive(it.href) ? "page" : undefined}
                 className={cx(
                   "block rounded-lg px-3 py-1.5 text-sm",
-                  isActive(it.href) ? "bg-gray-900 font-medium text-white" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isActive(it.href) ? "bg-gold-400 font-medium text-ink-950" : "text-slate-300 hover:bg-ink-800 hover:text-slate-100",
                 )}
               >
                 {it.label}
@@ -154,23 +158,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-ink-900">
       {/* top strip */}
-      <header className="sticky top-0 z-20 border-b border-gray-200 bg-white">
+      <header className="sticky top-0 z-20 border-b border-ink-700 bg-ink-850">
         <div className="flex h-12 items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded p-2 text-gray-600 hover:bg-gray-100 lg:hidden"
+              className="rounded p-2 text-slate-300 hover:bg-ink-800 lg:hidden"
               aria-label="Open menu"
               onClick={() => setDrawer(true)}
             >
               <Menu aria-hidden className="h-5 w-5" />
             </button>
-            <Link href="/" className="text-sm font-semibold tracking-tight lg:hidden">Business OS</Link>
+            <Link href="/" className="lg:hidden"><Logo compact /></Link>
           </div>
           <div className="flex items-center gap-3">
-            {me?.party?.displayName && <span className="hidden text-xs text-gray-500 sm:inline">{me.party.displayName}</span>}
+            {me?.party?.displayName && <span className="hidden text-xs text-slate-400 sm:inline">{me.party.displayName}</span>}
             {can(perms, "notifications:view") && <NotificationBell canBroadcast={can(perms, "notifications:approve")} />}
             <Button variant="ghost" className="px-2 text-xs" onClick={() => logout()}>Sign out</Button>
           </div>
@@ -179,15 +183,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <div className="flex">
         {/* desktop sidebar */}
-        <aside className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-gray-200 bg-white py-4 lg:block">
+        <aside className="sticky top-12 hidden h-[calc(100vh-3rem)] w-60 shrink-0 overflow-y-auto border-r border-ink-700 bg-ink-850 py-4 lg:block">
           {sidebar}
         </aside>
 
         {/* mobile drawer */}
         {drawer && (
           <div className="fixed inset-0 z-30 lg:hidden">
-            <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/30" onClick={() => setDrawer(false)} />
-            <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto bg-white py-4 shadow-lg">{sidebar}</div>
+            <button type="button" aria-label="Close menu" className="absolute inset-0 bg-black/50" onClick={() => setDrawer(false)} />
+            <div className="absolute left-0 top-0 h-full w-64 overflow-y-auto border-r border-ink-700 bg-ink-850 py-4 shadow-lg">{sidebar}</div>
           </div>
         )}
 

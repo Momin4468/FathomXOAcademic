@@ -11,9 +11,9 @@ export function WorkList({ title, path, emptyHint }: { title: string; path: stri
   const { data, error, isLoading } = useApi<WorkListRow[]>(path);
   return (
     <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-gray-700">
+      <h2 className="text-sm font-semibold text-slate-300">
         {title}
-        {data ? <span className="ml-2 text-xs font-normal text-gray-400">{data.length}</span> : null}
+        {data ? <span className="ml-2 text-xs font-normal text-slate-500">{data.length}</span> : null}
       </h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}

@@ -22,15 +22,19 @@
     "wait": "node --import tsx src/wait.ts",
     "migrate": "node --import tsx src/migrate.ts",
     "seed": "node --import tsx src/seed.ts",
+    "seed:demo": "node --import tsx src/demo/seed-demo.ts",
+    "wipe:demo": "node --import tsx src/demo/wipe-demo.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "guard:no-stored-profit": "node --import tsx src/guard-no-stored-profit.ts"
   },
   "dependencies": {
     "@business-os/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "drizzle-orm": "^0.38.3",
     "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
     "dotenv": "^16.4.7",

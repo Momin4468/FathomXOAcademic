@@ -78,9 +78,9 @@ export function EntityPicker({
 
   if (picked) {
     return (
-      <div className="flex items-center justify-between rounded-lg border border-gray-300 px-3 py-2">
-        <span className="text-sm">{picked.label}</span>
-        <button type="button" className="text-xs text-gray-500 hover:underline" onClick={clear}>
+      <div className="flex items-center justify-between rounded-lg border border-ink-700 bg-ink-850 px-3 py-2">
+        <span className="text-sm text-slate-100">{picked.label}</span>
+        <button type="button" className="text-xs text-slate-400 hover:underline" onClick={clear}>
           change
         </button>
       </div>
@@ -106,29 +106,29 @@ export function EntityPicker({
         }}
       />
       {showDropdown && (
-        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          {searching && <li className="px-3 py-2 text-xs text-gray-400">Searching…</li>}
+        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-ink-700 bg-ink-850 shadow-sm">
+          {searching && <li className="px-3 py-2 text-xs text-slate-500">Searching…</li>}
           {!searching && items.length === 0 && !onCreate && (
-            <li className="px-3 py-2 text-xs text-gray-400">No matches</li>
+            <li className="px-3 py-2 text-xs text-slate-500">No matches</li>
           )}
           {items.map((i) => (
             <li key={i.id}>
               <button
                 type="button"
-                className={cx("flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50")}
+                className={cx("flex min-h-[44px] w-full items-center justify-between px-3 py-2 text-left text-sm text-slate-100 hover:bg-ink-800")}
                 onClick={() => choose(i)}
               >
                 <span>{i.label}</span>
-                {i.sub && <span className="text-xs text-gray-400">{i.sub}</span>}
+                {i.sub && <span className="text-xs text-slate-500">{i.sub}</span>}
               </button>
             </li>
           ))}
           {onCreate && q.trim() && !exact && (
-            <li className="border-t border-gray-100">
+            <li className="border-t border-ink-800">
               <button
                 type="button"
                 disabled={busy}
-                className="flex min-h-[44px] w-full items-center px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                className="flex min-h-[44px] w-full items-center px-3 py-2 text-left text-sm text-slate-300 hover:bg-ink-800 disabled:opacity-60"
                 onClick={async () => {
                   setBusy(true);
                   try {
@@ -138,7 +138,7 @@ export function EntityPicker({
                   }
                 }}
               >
-                + Add &ldquo;{q.trim()}&rdquo; <span className="text-xs text-gray-400">(new, provisional)</span>
+                + Add &ldquo;{q.trim()}&rdquo; <span className="text-xs text-slate-500">(new, provisional)</span>
               </button>
             </li>
           )}

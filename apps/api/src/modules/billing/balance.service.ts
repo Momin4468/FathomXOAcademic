@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { sql, type Db } from "@business-os/db";
 import { derivePosition } from "@business-os/shared";
+import { OpeningBalanceService } from "./opening-balance.service.js";
 
 /**
  * A party's two-way balance (DESIGN_SPEC §6 + bidirectional ledger): earnings
@@ -55,9 +56,15 @@ export class BalanceService {
       order by c.created_at
     `);
 
+    // Opening balance (Phase 5): a signed, dated starting point (+ owed to the
+    // party, − owed by them). Derived at read and folded into the net position —
+    // never a fake backdated leg/payment.
+    const openingBalance = await OpeningBalanceService.sumForParty(tx, partyId);
+
     const pos = derivePosition({ earningsOwed, earningsPaid, chargesOwed, chargesPaid });
     return {
       partyId,
+      openingBalance,
       earnings: { owed: earningsOwed, paid: earningsPaid, outstanding: pos.earningsOutstanding },
       charges: {
         owed: chargesOwed,
@@ -68,7 +75,7 @@ export class BalanceService {
           due: Number(c.amount) - Number(c.settled),
         })),
       },
-      net: pos.net,
+      net: pos.net + openingBalance,
     };
   }
 }

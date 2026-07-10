@@ -16,41 +16,63 @@ import {
   MinLength,
   ValidateNested,
 } from "class-validator";
-import { LINE_KINDS, WORK_STATES, type LineKind, type WorkState } from "@business-os/shared";
+import {
+  GROUP_KINDS,
+  GROUP_SCOPES,
+  LINE_KINDS,
+  WORK_LINE_STATUSES,
+  WORK_STATES,
+  type GroupKind,
+  type GroupScope,
+  type LineKind,
+  type WorkLineStatus,
+  type WorkState,
+} from "@business-os/shared";
 
-export class CreateWorkItemDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(300)
-  title!: string;
-
-  @IsOptional() @IsString() @MaxLength(4000) details?: string;
+/**
+ * §3.1 academic fields shared by create + update (0048). `clientPartyId` is the
+ * paying student, kept DISTINCT from `sourcePartyId` (the referral/source that
+ * drives profit-share). Everything is optional — capture-first, complete later.
+ */
+class WorkItemFieldsDto {
   @IsOptional() @IsUUID() sourcePartyId?: string;
+  @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsUUID() doerPartyId?: string;
   @IsOptional() @IsUUID() courseRefId?: string;
   @IsOptional() @IsUUID() assignmentTypeRefId?: string;
-  @IsOptional() @IsUUID() projectId?: string;
-  @IsOptional() @IsUUID() milestoneId?: string;
-  @IsOptional() @IsBoolean() trackable?: boolean; // child of a project (default true)
-  @IsOptional() @IsBoolean() billable?: boolean; // child of a project (default false)
-  @IsOptional() @IsString() @MaxLength(4000) notes?: string;
-  @IsOptional() @IsBoolean() isEstimate?: boolean;
-  @IsOptional() @IsObject() customJson?: Record<string, unknown>;
-}
-
-export class UpdateWorkItemDto {
-  @IsOptional() @IsString() @MinLength(1) @MaxLength(300) title?: string;
-  @IsOptional() @IsString() @MaxLength(4000) details?: string;
-  @IsOptional() @IsUUID() sourcePartyId?: string;
-  @IsOptional() @IsUUID() doerPartyId?: string;
-  @IsOptional() @IsUUID() courseRefId?: string;
-  @IsOptional() @IsUUID() assignmentTypeRefId?: string;
+  @IsOptional() @IsUUID() universityRefId?: string;
+  @IsOptional() @IsString() @MaxLength(300) moduleName?: string;
+  @IsOptional() @IsIn(GROUP_KINDS) groupKind?: GroupKind;
+  @IsOptional() @IsIn(GROUP_SCOPES) groupScope?: GroupScope; // full | partial (when group)
+  @IsOptional() @IsString() @MaxLength(1000) groupNote?: string;
+  @IsOptional() @IsDateString() deliveryDate?: string;
+  @IsOptional() @IsDateString() submissionDate?: string;
+  @IsOptional() @IsInt() @Min(0) wordCount?: number;
   @IsOptional() @IsUUID() projectId?: string;
   @IsOptional() @IsUUID() milestoneId?: string;
   @IsOptional() @IsBoolean() trackable?: boolean;
   @IsOptional() @IsBoolean() billable?: boolean;
   @IsOptional() @IsString() @MaxLength(4000) notes?: string;
+  @IsOptional() @IsString() @MaxLength(4000) details?: string;
   @IsOptional() @IsObject() customJson?: Record<string, unknown>;
+}
+
+export class CreateWorkItemDto extends WorkItemFieldsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  title!: string;
+
+  @IsOptional() @IsBoolean() isEstimate?: boolean;
+}
+
+export class UpdateWorkItemDto extends WorkItemFieldsDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(300) title?: string;
+}
+
+/** Move a single work_line through its lifecycle (0048, Phase 4A). */
+export class SetLineStatusDto {
+  @IsIn(WORK_LINE_STATUSES) to!: WorkLineStatus;
 }
 
 export class TransitionDto {
