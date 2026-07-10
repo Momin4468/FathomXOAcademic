@@ -283,6 +283,15 @@ const BADGE_TONES: Record<string, string> = {
   green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
 };
+/** A compact monospace chip for codes / linked records (course code, IDs). */
+export function Chip({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span className={cx("inline-flex items-center rounded-md border border-ink-700 bg-ink-800 px-1.5 py-0.5 font-mono text-[11px] leading-none text-slate-300", className)}>
+      {children}
+    </span>
+  );
+}
+
 export function Badge({ tone = "gray", children }: { tone?: keyof typeof BADGE_TONES | string; children: ReactNode }) {
   return (
     <span className={cx("inline-flex rounded-full px-2 py-0.5 text-xs font-medium", BADGE_TONES[tone] ?? BADGE_TONES.gray)}>

@@ -207,6 +207,37 @@ export class InvoiceService {
     return { invoice: { ...inv, createdByName }, lines: withBalances, previousDue };
   }
 
+  /**
+   * A client's AR summary (QuickBooks-style, for the client-360 card): billed =
+   * Σ invoice-line amounts on non-void invoices; collected = Σ allocations against
+   * them; outstanding = billed − collected. Plus the still-open lines (oldest
+   * first) so a quick "record a payment" can FIFO-allocate against them. Derived at
+   * read; billing:view gated at the controller.
+   */
+  async clientAr(tx: Db, clientPartyId: string) {
+    const res = await tx.execute(sql`
+      select il.id as "invoiceLineId", il.amount,
+             coalesce((select sum(pa.amount) from payment_allocation pa where pa.invoice_line_id = il.id), 0) as paid,
+             i.created_at as "createdAt"
+      from invoice i
+      join invoice_line il on il.invoice_id = i.id
+      where i.client_party_id = ${clientPartyId} and i.status <> 'void'
+      order by i.created_at asc, il.id asc
+    `);
+    let billed = 0;
+    let collected = 0;
+    const openLines: Array<{ invoiceLineId: string; due: number }> = [];
+    for (const r of res.rows as Array<{ invoiceLineId: string; amount: string; paid: string }>) {
+      const amt = Number(r.amount);
+      const paid = Number(r.paid);
+      billed += amt;
+      collected += paid;
+      const due = round2(amt - paid);
+      if (due > 0) openLines.push({ invoiceLineId: r.invoiceLineId, due });
+    }
+    return { billed: round2(billed), collected: round2(collected), outstanding: round2(billed - collected), openLines };
+  }
+
   async list(tx: Db, filters: { clientPartyId?: string; status?: string }) {
     const conds = [];
     if (filters.clientPartyId) conds.push(eq(schema.invoice.clientPartyId, filters.clientPartyId));

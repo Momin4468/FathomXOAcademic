@@ -80,14 +80,24 @@ export class WorkController {
 
   @Get()
   @RequirePermission("work", "view")
-  list(@CurrentRls() ctx: RlsContext, @Query() query: ListWorkQueryDto) {
+  list(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+    @Query() query: ListWorkQueryDto,
+  ) {
     return this.db.withTenant(ctx, (tx) =>
-      this.work.list(tx, {
-        doerPartyId: query.doerPartyId,
-        sourcePartyId: query.sourcePartyId,
-        workState: query.workState,
-        includeArchived: query.includeArchived === "true",
-      }),
+      this.work.list(
+        tx,
+        {
+          doerPartyId: query.doerPartyId,
+          sourcePartyId: query.sourcePartyId,
+          clientPartyId: query.clientPartyId,
+          workState: query.workState,
+          includeArchived: query.includeArchived === "true",
+        },
+        canSeeMoney(principal, perms),
+      ),
     );
   }
 

@@ -12,7 +12,7 @@ import {
   type SessionPrincipal,
   type WorkState,
 } from "@business-os/shared";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { resolveUserNames } from "../../common/user-names.js";
 import { CustomFieldService } from "../custom-fields/custom-field.service.js";
@@ -257,30 +257,60 @@ export class WorkService {
     return updated!;
   }
 
-  /** Capture-first list with light filters. Spec only (no money). */
+  /**
+   * Capture-first list. Spec fields (title/state/doer name/course code) go to
+   * every viewer; the money-gated per-job economics (client amount, writer cost,
+   * **margin**) are added ONLY when `canSeeMoney` — so the client-360 and the Work
+   * board can answer "what's the margin on this work" inline, while a writer's
+   * list never carries a client price. Margin = revenue − writer_cost from the
+   * `job_pnl` definer (derived, never stored). The primary consumer line's
+   * word_count + client_rate are surfaced for the spreadsheet-style "words @ rate".
+   */
   async list(
     tx: Db,
-    filters: { doerPartyId?: string; sourcePartyId?: string; workState?: WorkState; includeArchived?: boolean },
+    filters: { doerPartyId?: string; sourcePartyId?: string; clientPartyId?: string; workState?: WorkState; includeArchived?: boolean },
+    canSeeMoney = false,
   ) {
-    const conds = [];
-    if (!filters.includeArchived) conds.push(isNull(schema.workItem.archivedAt));
-    if (filters.doerPartyId) conds.push(eq(schema.workItem.doerPartyId, filters.doerPartyId));
-    if (filters.sourcePartyId) conds.push(eq(schema.workItem.sourcePartyId, filters.sourcePartyId));
-    if (filters.workState) conds.push(eq(schema.workItem.workState, filters.workState));
-    return tx
-      .select({
-        id: schema.workItem.id,
-        title: schema.workItem.title,
-        workState: schema.workItem.workState,
-        moneyState: schema.workItem.moneyState,
-        doerPartyId: schema.workItem.doerPartyId,
-        sourcePartyId: schema.workItem.sourcePartyId,
-        updatedAt: schema.workItem.updatedAt,
-      })
-      .from(schema.workItem)
-      .where(conds.length ? and(...conds) : undefined)
-      .orderBy(desc(schema.workItem.updatedAt))
-      .limit(100);
+    const conds = [sql`true`];
+    if (!filters.includeArchived) conds.push(sql`w.archived_at is null`);
+    if (filters.doerPartyId) conds.push(sql`w.doer_party_id = ${filters.doerPartyId}`);
+    if (filters.sourcePartyId) conds.push(sql`w.source_party_id = ${filters.sourcePartyId}`);
+    if (filters.clientPartyId) conds.push(sql`w.client_party_id = ${filters.clientPartyId}`);
+    if (filters.workState) conds.push(sql`w.work_state = ${filters.workState}`);
+    const where = sql.join(conds, sql` and `);
+    // clientRate is a CLIENT PRICE → money-gated with the amounts (§4.4). word_count
+    // is spec (a writer knows their own size), so it stays ungated.
+    const moneyCols = canSeeMoney
+      ? sql`, cl.client_rate as "clientRate",
+             round(coalesce(jp.revenue, 0), 2) as "clientAmount",
+             round(coalesce(jp.writer_cost, 0), 2) as "writerAmount",
+             round(coalesce(jp.revenue, 0) - coalesce(jp.writer_cost, 0), 2) as "margin"`
+      : sql``;
+    const moneyJoin = canSeeMoney
+      ? sql`left join lateral (select revenue, writer_cost from job_pnl(w.id)) jp on true`
+      : sql``;
+    const res = await tx.execute(sql`
+      select w.id, w.title, w.work_state as "workState", w.money_state as "moneyState",
+             w.doer_party_id as "doerPartyId", w.source_party_id as "sourcePartyId",
+             w.client_party_id as "clientPartyId", w.course_ref_id as "courseRefId",
+             w.updated_at as "updatedAt",
+             dp.display_name as "doerName",
+             ce.canonical as "courseCode",
+             cl.word_count as "wordCount"
+             ${moneyCols}
+      from work_item w
+      left join party dp on dp.id = w.doer_party_id
+      left join ref_entity ce on ce.id = w.course_ref_id
+      left join lateral (
+        select word_count, client_rate from work_line
+        where work_item_id = w.id and consumer_party_id is not null limit 1
+      ) cl on true
+      ${moneyJoin}
+      where ${where}
+      order by w.updated_at desc
+      limit 100
+    `);
+    return res.rows;
   }
 
   /**

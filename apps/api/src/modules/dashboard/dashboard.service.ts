@@ -68,19 +68,39 @@ export class DashboardService {
       profit: round2(Number(r.net)), // derived in TS; SQL exposes it as `net`
     }));
     const outstandingDuesTotal = round2(duesByClient.reduce((s, d) => s + d.due, 0));
+    const billed = round2(duesByClient.reduce((s, d) => s + d.invoiced, 0));
+    const collected = round2(duesByClient.reduce((s, d) => s + d.paid, 0));
     const orgMargin = {
       revenue: round2(profitPerWriter.reduce((s, w) => s + w.revenue, 0)),
       writerCost: round2(profitPerWriter.reduce((s, w) => s + w.writerCost, 0)),
       margin: round2(profitPerWriter.reduce((s, w) => s + w.profit, 0)),
     };
 
+    // "Writer payouts owed" = what each writer earned (definer P&L writerCost)
+    // minus what we've already paid them (Σ allocations — payment_allocation is
+    // org-RLS, so no definer needed). Clamped ≥ 0; derived at read.
+    const paidRows = await tx.execute(sql`
+      select writer_party_id as "writerPartyId", coalesce(sum(amount), 0) as paid
+      from payment_allocation where writer_party_id is not null group by writer_party_id
+    `);
+    const paidByWriter = new Map<string, number>(
+      (paidRows.rows as Array<{ writerPartyId: string; paid: string }>).map((r) => [r.writerPartyId, Number(r.paid)]),
+    );
+    const writerPayoutsOwed = profitPerWriter
+      .map((w) => ({ writerPartyId: w.writerPartyId, owed: round2(Math.max(0, w.writerCost - (paidByWriter.get(w.writerPartyId) ?? 0))) }))
+      .filter((w) => w.owed > 0)
+      .sort((a, b) => b.owed - a.owed);
+
     return {
       ...base,
       owner: {
         outstandingDuesTotal,
+        billed,
+        collected,
         pendingClientCount: duesByClient.length,
         duesByClient,
         profitPerWriter,
+        writerPayoutsOwed,
         orgMargin,
         openLoopsTotal: openLoops.count, // canSeeAllLoops is true here
       },

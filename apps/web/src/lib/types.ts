@@ -63,6 +63,17 @@ export interface WorkListRow {
   doerPartyId: string | null;
   sourcePartyId: string | null;
   updatedAt: string;
+  // Enriched, non-money (all viewers):
+  clientPartyId?: string | null;
+  courseRefId?: string | null;
+  doerName?: string | null;
+  courseCode?: string | null; // canonical course code (e.g. UMKCQT)
+  wordCount?: number | null; // primary consumer line
+  clientRate?: string | null;
+  // Money-gated (present only when the viewer may see money):
+  clientAmount?: number | null;
+  writerAmount?: number | null;
+  margin?: number | null;
 }
 
 export interface WorkItem {
@@ -509,9 +520,12 @@ export interface DashboardData {
   openLoops: { count: number; scope: "all" | "mine" };
   owner?: {
     outstandingDuesTotal: number;
+    billed: number;
+    collected: number;
     pendingClientCount: number;
     duesByClient: Array<{ clientPartyId: string; invoiced: number; paid: number; due: number }>;
     profitPerWriter: Array<{ writerPartyId: string; jobs: number; revenue: number; writerCost: number; profit: number }>;
+    writerPayoutsOwed: Array<{ writerPartyId: string; owed: number }>;
     orgMargin: { revenue: number; writerCost: number; margin: number };
     openLoopsTotal: number;
   };

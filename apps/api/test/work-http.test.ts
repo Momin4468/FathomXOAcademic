@@ -412,11 +412,18 @@ describe("work_line money redaction — Writer (no approve) cannot see client mo
     assert.ok(!/9\.99|clientRate|writerRate|"amount"/.test(blob), `fan-out response must not echo money to a Writer: ${blob}`);
   });
 
-  it("the list endpoint never carries any money fields (spec-only projection)", async () => {
-    const res = await api(BASE, `/work`, { token: writerToken });
-    assert.equal(res.status, 200);
-    const blob = JSON.stringify(res.body);
-    assert.ok(!/clientRate|writerRate|"amount"/.test(blob), "the list projection must be money-free");
+  it("the list is money-gated: a Writer's projection is money-free; an approver's carries margin", async () => {
+    // A Writer (no work:approve) → no client price / amounts / margin (§4.4).
+    const wRes = await api(BASE, `/work`, { token: writerToken });
+    assert.equal(wRes.status, 200);
+    const wBlob = JSON.stringify(wRes.body);
+    assert.ok(!/clientRate|writerRate|clientAmount|"margin"/.test(wBlob), "a Writer's list projection must be money-free");
+    // An approver (work:approve) → the list carries the derived per-job margin
+    // (the "what's the margin on this work" answer, money-gated).
+    const aRes = await api(BASE, `/work`, { token: mominToken });
+    assert.equal(aRes.status, 200);
+    assert.ok(Array.isArray(aRes.body) && aRes.body.length > 0, "there is at least one job to inspect");
+    assert.ok(Object.prototype.hasOwnProperty.call(aRes.body[0], "margin"), "an approver's list carries a derived margin field");
   });
 });
 

@@ -78,6 +78,13 @@ export class BillingController {
     return this.db.withTenant(ctx, (tx) => this.invoices.getInvoice(tx, id));
   }
 
+  /** A client's AR summary (billed/collected/outstanding + open lines) for the client-360. */
+  @Get("billing/client/:clientPartyId/ar")
+  @RequirePermission("billing", "view")
+  clientAr(@CurrentRls() ctx: RlsContext, @Param("clientPartyId", ParseUUIDPipe) clientPartyId: string) {
+    return this.db.withTenant(ctx, (tx) => this.invoices.clientAr(tx, clientPartyId));
+  }
+
   // ── payments ──
   @Post("payments")
   @RequirePermission("billing", "create")

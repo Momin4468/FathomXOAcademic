@@ -83,6 +83,7 @@ export class TransitionDto {
 export class ListWorkQueryDto {
   @IsOptional() @IsUUID() doerPartyId?: string;
   @IsOptional() @IsUUID() sourcePartyId?: string;
+  @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsIn(WORK_STATES) workState?: WorkState;
   @IsOptional() @IsString() includeArchived?: string; // "true" to include
 }
