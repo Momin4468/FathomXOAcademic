@@ -33,7 +33,10 @@ export default function ClientDetailPage() {
   const canMoney = can(perms, "billing:view");
   const canBill = can(perms, "billing:create");
 
+  const canPortal = can(perms, "client_portal:view");
   const { data: party, error, isLoading } = useApi<PartyDetail>(`parties/${id}`);
+  const { data: accounts } = useApi<Array<{ id: string; partyId: string; loginId: string; status: string }>>(canPortal ? "client-portal/accounts" : null);
+  const portal = (accounts ?? []).find((a) => a.partyId === id);
   const { data: jobs } = useApi<WorkListRow[]>(can(perms, "work:view") ? `work?sourcePartyId=${id}` : null);
   const { data: ar, mutate: mutateAr } = useApi<ClientAr>(canMoney ? `billing/client/${id}/ar` : null);
   const { data: payments, mutate: mutatePayments } = useApi<PaymentRow[]>(canMoney ? `payments?counterpartyPartyId=${id}` : null);
@@ -185,7 +188,18 @@ export default function ClientDetailPage() {
             )}
           </div>
 
-          {/* Secondary: custom fields + credentials */}
+          {/* Secondary: portal access + custom fields + credentials */}
+          {canPortal && (
+            <Card>
+              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Portal access</h2>
+              {portal ? (
+                <p className="text-sm">Login <span className="font-mono text-slate-100">{portal.loginId}</span>{" "}
+                  <Badge tone={portal.status === "active" ? "green" : portal.status === "lead" ? "amber" : "gray"}>{portal.status}</Badge></p>
+              ) : (
+                <p className="text-sm text-slate-400">No portal login yet. <Link href="/client-admin" className="text-gold-600 hover:underline dark:text-gold-400">Provision one →</Link></p>
+              )}
+            </Card>
+          )}
           {party.customFields.length > 0 && (
             <Card>
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Details</h2>
