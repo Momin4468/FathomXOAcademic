@@ -143,6 +143,26 @@ export default function InvoiceDetailPage() {
               </ul>
             )}
           </section>
+
+          {/* Totals block — reads like an invoice document (derived; nothing stored). */}
+          {data.lines.length > 0 && (() => {
+            const total = data.lines.reduce((s, l) => s + Number(l.amount ?? 0), 0);
+            const paid = data.lines.reduce((s, l) => s + Number(l.paid ?? 0), 0);
+            const due = data.lines.reduce((s, l) => s + Number(l.due ?? 0), 0);
+            const prev = Number(data.previousDue ?? 0);
+            return (
+              <Card className="ml-auto max-w-xs">
+                <dl className="space-y-1 text-sm">
+                  <div className="flex justify-between"><dt className="text-slate-400">Invoice total</dt><dd className="tabular-nums"><Money value={total} /></dd></div>
+                  <div className="flex justify-between"><dt className="text-slate-400">Paid</dt><dd className="tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={paid} /></dd></div>
+                  {prev > 0 && <div className="flex justify-between"><dt className="text-slate-400">Previous due</dt><dd className="tabular-nums"><Money value={prev} /></dd></div>}
+                  <div className="mt-1 flex justify-between border-t border-ink-700 pt-1 font-semibold">
+                    <dt>Balance due</dt><dd className="tabular-nums text-gold-600 dark:text-gold-400"><Money value={due + prev} /></dd>
+                  </div>
+                </dl>
+              </Card>
+            );
+          })()}
         </div>
       )}
     </AppShell>

@@ -5,6 +5,7 @@ import { chargeCategoryLabel } from "@/lib/billing";
 import { can, type Balance, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { BalanceView } from "@/components/BalanceView";
+import { Register } from "@/components/Register";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { useConfirm } from "@/components/confirm";
 import { Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
@@ -94,7 +95,10 @@ export default function BalancePage() {
         ) : myLoading ? (
           <Spinner />
         ) : myBalance ? (
-          <BalanceView balance={myBalance} perspective="self" />
+          <>
+            <BalanceView balance={myBalance} perspective="self" />
+            {myPartyId && <Register path="billing/register/me" title="My register" />}
+          </>
         ) : null}
       </section>
 
@@ -112,6 +116,7 @@ export default function BalancePage() {
           {lookupId && lookup && (
             <>
               <BalanceView balance={lookup} perspective="other" onReverseCharge={canApprove ? reverseCharge : undefined} />
+              <Register path={`billing/register/${encodeURIComponent(lookupId)}`} title="Register" />
               {actionError && <ErrorNote message={actionError} />}
               {canCreate && (
                 <Card>

@@ -246,6 +246,7 @@ export interface InvoiceLine {
 export interface InvoiceDetail {
   invoice: Invoice;
   lines: InvoiceLine[];
+  previousDue?: number;
 }
 
 export interface Payment {

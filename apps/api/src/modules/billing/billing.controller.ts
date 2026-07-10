@@ -172,4 +172,16 @@ export class BillingController {
   partyBalance(@CurrentRls() ctx: RlsContext, @Param("partyId", ParseUUIDPipe) partyId: string) {
     return this.db.withTenant(ctx, (tx) => this.balances.balance(tx, partyId));
   }
+
+  /** The caller's own running-balance register (QuickBooks-style ledger). */
+  @Get("billing/register/me")
+  registerMe(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal) {
+    return this.db.withTenant(ctx, (tx) => this.balances.register(tx, p.partyId));
+  }
+
+  @Get("billing/register/:partyId")
+  @RequirePermission("billing", "view")
+  partyRegister(@CurrentRls() ctx: RlsContext, @Param("partyId", ParseUUIDPipe) partyId: string) {
+    return this.db.withTenant(ctx, (tx) => this.balances.register(tx, partyId));
+  }
 }
