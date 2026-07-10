@@ -9,7 +9,7 @@ import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Money, MoneyInput, Provenance, Spinner } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, ErrorNote, Money, MoneyInput, Provenance, Spinner, cx } from "@/components/ui";
 
 /** A candidate the payment can be allocated to, with the amount entered so far. */
 interface Target {
@@ -144,6 +144,21 @@ export default function PaymentDetailPage() {
     }
   }
 
+  /** Auto-fill the match FIFO up to the payment amount (QuickBooks "suggest"). */
+  function suggestSplit() {
+    if (payment?.amount == null) return;
+    let rem = Number(payment.amount);
+    setTargets((ts) =>
+      ts.map((t) => {
+        if (t.kind === "writer") { const a = rem; rem = 0; return { ...t, amount: a > 0 ? String(Math.round(a * 100) / 100) : "" }; }
+        if (t.due == null || rem <= 0) return { ...t, amount: "" };
+        const a = Math.min(rem, t.due);
+        rem = Math.round((rem - a) * 100) / 100;
+        return { ...t, amount: a > 0 ? String(Math.round(a * 100) / 100) : "" };
+      }),
+    );
+  }
+
   async function reverse() {
     const reason = await confirm({
       title: "Reverse this payment?",
@@ -173,89 +188,73 @@ export default function PaymentDetailPage() {
       {error && <ErrorNote message={error.message} />}
       {!isLoading && !error && !payment && <EmptyState title="Payment not found" />}
       {payment && (
-        <div className="space-y-5">
-          <header className="space-y-2">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+          {/* Left — the payment */}
+          <Card className="h-fit">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-semibold tracking-tight">
-                <Money value={payment.amount} />
-              </h1>
+              <h1 className="text-xl font-semibold tracking-tight"><Money value={payment.amount} /></h1>
               <Badge tone={payment.direction === "in" ? "green" : "blue"}>{payment.direction}</Badge>
               {isReversal && <Badge tone="red">reversal</Badge>}
             </div>
-            <p className="text-xs text-gray-500">
-              {payment.counterpartyPartyId ? <PartyName id={payment.counterpartyPartyId} /> : "no counterparty"} · {formatDate(payment.paidAt)}
-              {payment.medium ? ` · ${payment.medium}` : ""}
-              {payment.trxId ? ` · ${payment.trxId}` : ""}
+            <p className="mt-1 text-xs text-slate-400">
+              {counterparty ? <PartyName id={counterparty} /> : "no counterparty"} · {formatDate(payment.paidAt)}
+              {payment.medium ? ` · ${payment.medium}` : ""}{payment.trxId ? ` · ${payment.trxId}` : ""}
             </p>
             <Provenance items={[{ label: "Created by", name: payment.createdByName, at: payment.createdAt }]} />
             {amountVisible && !isReversal && (
-              <p className="text-xs text-gray-500">
-                Remaining to allocate (this session):{" "}
-                <span className={remaining < 0 ? "font-medium text-red-600" : "font-medium text-gray-700"}>
-                  <Money value={remaining} />
-                </span>
-                {remaining < 0 && <span className="ml-1 text-red-600">— exceeds payment amount</span>}
-              </p>
+              <dl className="mt-3 space-y-1 rounded-lg border border-ink-700 p-3 text-sm">
+                <div className="flex justify-between"><dt className="text-slate-400">Payment</dt><dd className="tabular-nums"><Money value={payment.amount} /></dd></div>
+                <div className="flex justify-between"><dt className="text-slate-400">Allocated</dt><dd className="tabular-nums"><Money value={Number(payment.amount) - remaining} /></dd></div>
+                <div className="mt-1 flex justify-between border-t border-ink-700 pt-1 font-semibold"><dt>Unapplied</dt><dd className={cx("tabular-nums", remaining < 0 && "text-red-600 dark:text-red-400")}><Money value={remaining} /></dd></div>
+              </dl>
             )}
-            {canApprove && !isReversal && (
-              <div className="pt-1">
-                <Button variant="danger" disabled={busy} onClick={reverse}>
-                  Reverse payment
-                </Button>
-              </div>
-            )}
-            {actionError && <ErrorNote message={actionError} />}
-            {okMsg && <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{okMsg}</p>}
-          </header>
+            {canApprove && !isReversal && <Button variant="danger" className="mt-3 w-full" disabled={busy} onClick={reverse}>Reverse payment</Button>}
+            {actionError && <div className="mt-2"><ErrorNote message={actionError} /></div>}
+            {okMsg && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{okMsg}</p>}
+          </Card>
 
+          {/* Right — match against open items */}
           {!isReversal && canViewBalance && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-gray-700">Allocate</h2>
+            <Card className="p-0 lg:col-span-2">
+              <div className="flex items-center justify-between border-b border-ink-700 px-4 py-2.5">
+                <h2 className="text-sm font-semibold">Match against open items</h2>
+                {canCreate && targets.some((t) => t.due != null) && (
+                  <Button variant="secondary" className="min-h-0 px-2 py-1 text-xs" onClick={suggestSplit}>Suggest split</Button>
+                )}
+              </div>
               {!counterparty ? (
-                <EmptyState title="No counterparty on this payment" hint="Allocation targets are derived from the counterparty." />
+                <div className="p-4"><EmptyState title="No counterparty" hint="Open items derive from the counterparty." /></div>
               ) : loadingTargets ? (
-                <Spinner label="Finding targets…" />
+                <div className="p-4"><Spinner label="Finding open items…" /></div>
               ) : targets.length === 0 ? (
-                <EmptyState
-                  title={direction === "in" ? "Nothing outstanding for this client" : "No payout target"}
-                  hint={direction === "in" ? "No invoice lines or charges with a due." : undefined}
-                />
+                <div className="p-4"><EmptyState title={direction === "in" ? "Nothing outstanding for this client" : "No payout target"} /></div>
               ) : (
-                <div className="space-y-2">
-                  {targets.map((t) => (
-                    <Card key={t.key} className="flex items-center justify-between gap-3 py-3">
-                      <div className="text-sm">
-                        <span className="font-medium">{t.label}</span>
-                        {t.kind === "charge" && <Badge tone="amber">charge</Badge>}
-                        {t.sub && <div className="mt-0.5 text-xs text-gray-500">{t.sub}</div>}
-                      </div>
-                      <div className="w-24 shrink-0 sm:w-32">
-                        <MoneyInput
-                          placeholder="0"
-                          value={t.amount}
-                          disabled={!canCreate}
-                          onChange={(v) => setAmount(t.key, v)}
-                          onBlur={() => {
-                            // Clamp to the line/charge due if known (UI guard; server is authority).
-                            if (t.due !== undefined && Number(t.amount) > 0) {
-                              setAmount(t.key, String(clampAmount(t.amount, t.due)));
-                            }
-                          }}
-                        />
-                      </div>
-                    </Card>
-                  ))}
+                <>
+                  <ul className="divide-y divide-ink-800">
+                    {targets.map((t) => (
+                      <li key={t.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <div className="min-w-0 text-sm">
+                          <span className="font-medium">{t.label}</span>{t.kind === "charge" && <Badge tone="amber">charge</Badge>}
+                          {t.sub && <div className="text-xs text-slate-500">{t.sub}</div>}
+                        </div>
+                        <div className="w-28 shrink-0">
+                          <MoneyInput placeholder="0" value={t.amount} disabled={!canCreate} onChange={(v) => setAmount(t.key, v)}
+                            onBlur={() => { if (t.due !== undefined && Number(t.amount) > 0) setAmount(t.key, String(clampAmount(t.amount, t.due))); }} />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                   {canCreate && (
-                    <Button disabled={busy || remaining < 0 || targets.every((t) => Number(t.amount) <= 0)} onClick={allocate}>
-                      {busy ? "Allocating…" : "Allocate"}
-                    </Button>
+                    <div className="flex items-center justify-between border-t border-ink-700 px-4 py-2.5">
+                      <span className="text-xs text-slate-400">Tick several to split across jobs.</span>
+                      <Button disabled={busy || remaining < 0 || targets.every((t) => Number(t.amount) <= 0)} onClick={allocate}>
+                        {busy ? "Applying…" : "Apply allocation"}
+                      </Button>
+                    </div>
                   )}
-                  <p className="text-xs text-gray-400">
-                    Tick several with partial amounts to split this payment across jobs (or in part within one).
-                  </p>
-                </div>
+                </>
               )}
-            </section>
+            </Card>
           )}
         </div>
       )}
