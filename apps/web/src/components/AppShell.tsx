@@ -6,7 +6,7 @@ import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, Briefcase, ClipboardCheck, ClipboardList,
   Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, LayoutDashboard, ListTodo, Menu,
   PackageCheck, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Share2, Shield, ShieldCheck,
-  SlidersHorizontal, Sparkles, Users, UserPlus, Wallet, type LucideIcon,
+  SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, type LucideIcon,
 } from "lucide-react";
 import { useApi, logout } from "@/lib/api";
 import { can, type WhoAmI } from "@/lib/types";
@@ -85,6 +85,7 @@ const NAV: Array<{ title: string; items: NavItem[] }> = [
       { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view", icon: FileText },
       { href: "/client-admin", label: "Client portal", perm: "client_portal:view", icon: Globe },
       { href: "/vendor-admin", label: "Vendor claims", perm: "vendor:approve", icon: PackageCheck },
+      { href: "/users", label: "Users", perm: "platform:view", icon: UserCog },
       { href: "/roles", label: "Roles", perm: "platform:view", icon: Shield },
     ],
   },
@@ -188,7 +189,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/" className="lg:hidden"><Logo onDark compact /></Link>
           </div>
           <div className="flex items-center gap-2">
-            {me?.party?.displayName && <span className="hidden text-xs text-nav-muted sm:inline">{me.party.displayName}</span>}
+            <Link href="/profile" title="Profile & security" className="hidden rounded-lg px-2 py-1.5 text-xs text-nav-muted hover:bg-nav-hover hover:text-nav-bright sm:inline">
+              {me?.party?.displayName ?? me?.account?.email ?? "Profile"}
+            </Link>
             <ThemeToggle />
             {can(perms, "notifications:view") && <NotificationBell canBroadcast={can(perms, "notifications:approve")} />}
             <button

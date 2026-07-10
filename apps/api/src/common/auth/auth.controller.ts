@@ -3,7 +3,7 @@ import type { SessionPrincipal } from "@business-os/shared";
 import type { Request } from "express";
 import { AuthService } from "./auth.service.js";
 import { CurrentPrincipal } from "./current-principal.decorator.js";
-import { Enable2faDto, LoginDto, LogoutDto, RefreshDto, RequestResetDto, ResetPasswordDto } from "./dto.js";
+import { ChangePasswordDto, Enable2faDto, LoginDto, LogoutDto, RefreshDto, RequestResetDto, ResetPasswordDto } from "./dto.js";
 import { clientIpOf } from "./client-ip.js";
 import { PasswordResetService } from "./password-reset.service.js";
 import { Public } from "./public.decorator.js";
@@ -56,6 +56,14 @@ export class AuthController {
   @Get("me")
   me(@CurrentPrincipal() principal: SessionPrincipal) {
     return { principal };
+  }
+
+  /** Change your own password — revokes all sessions, so the client must re-login. */
+  @Post("change-password")
+  @HttpCode(200)
+  async changePassword(@CurrentPrincipal() principal: SessionPrincipal, @Body() dto: ChangePasswordDto) {
+    await this.auth.changePassword(principal, dto.currentPassword, dto.newPassword);
+    return { ok: true };
   }
 
   @Post("2fa/enroll")

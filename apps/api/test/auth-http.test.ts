@@ -36,6 +36,11 @@ const twofaUserId = randomUUID();
 const twofaEmail = `twofa+${randomUUID()}@fathomxo.test`;
 const twofaSecret = makeBase32Secret();
 
+// A dedicated user for the self-service change-password flow (no 2FA), so the
+// test can mutate its secret without affecting the shared seed logins.
+const cpUserId = randomUUID();
+const cpEmail = `changepw+${randomUUID()}@fathomxo.test`;
+
 let server: ChildProcess;
 const admin = new pg.Client({ connectionString: process.env.DATABASE_URL_ADMIN });
 
@@ -63,13 +68,18 @@ before(async () => {
      values ($1,$2,$3,$4,'active',$5)`,
     [twofaUserId, ORG, twofaEmail, hash, twofaSecret],
   );
+  await admin.query(
+    `insert into user_account (id, org_id, email, password_hash, status)
+     values ($1,$2,$3,$4,'active')`,
+    [cpUserId, ORG, cpEmail, hash],
+  );
   await startServer();
 });
 
 after(async () => {
-  await admin.query("delete from audit_log where actor_user_id = $1", [twofaUserId]);
-  await admin.query("delete from auth_refresh_token where user_id = $1", [twofaUserId]);
-  await admin.query("delete from user_account where id = $1", [twofaUserId]);
+  await admin.query("delete from audit_log where actor_user_id = any($1)", [[twofaUserId, cpUserId]]);
+  await admin.query("delete from auth_refresh_token where user_id = any($1)", [[twofaUserId, cpUserId]]);
+  await admin.query("delete from user_account where id = any($1)", [[twofaUserId, cpUserId]]);
   // Clean any users created by the permission-gating happy-path test.
   await admin.query("delete from user_account where email like 'created+%@fathomxo.test'");
   await admin.end();
@@ -256,6 +266,65 @@ describe("2FA login gate", () => {
     const ok = await login(twofaEmail, DEV_PASSWORD, totpCode(twofaSecret));
     assert.equal(ok.status, 200, "a valid TOTP must succeed");
     assert.ok(ok.body.accessToken);
+  });
+});
+
+describe("self-service change-password", () => {
+  it("requires the correct current password, enforces length, rotates, and revokes sessions", async () => {
+    const NEW = "NewPassword456!";
+    // Fresh session; capture the refresh token to prove the change revokes it.
+    const start = await login(cpEmail, DEV_PASSWORD);
+    assert.equal(start.status, 200, "seed change-pw user should log in");
+    const token = start.body.accessToken as string;
+    const oldRefresh = start.body.refreshToken as string;
+
+    // Unauthenticated → 401 (it's an authed endpoint).
+    const anon = await api(BASE, "/auth/change-password", {
+      method: "POST",
+      body: { currentPassword: DEV_PASSWORD, newPassword: NEW },
+    });
+    assert.equal(anon.status, 401, "change-password requires a bearer token");
+
+    // Wrong current password → 401, and nothing changes.
+    const wrong = await api(BASE, "/auth/change-password", {
+      method: "POST",
+      token,
+      body: { currentPassword: "not-my-password", newPassword: NEW },
+    });
+    assert.equal(wrong.status, 401, "a wrong current password is rejected");
+
+    // Too-short new password → 400 (validation at the boundary).
+    const short = await api(BASE, "/auth/change-password", {
+      method: "POST",
+      token,
+      body: { currentPassword: DEV_PASSWORD, newPassword: "short" },
+    });
+    assert.equal(short.status, 400, "the new password must be at least 8 chars");
+
+    // Valid change → 200.
+    const ok = await api(BASE, "/auth/change-password", {
+      method: "POST",
+      token,
+      body: { currentPassword: DEV_PASSWORD, newPassword: NEW },
+    });
+    assert.equal(ok.status, 200, "a valid change succeeds");
+
+    // The old password no longer authenticates; the new one does.
+    const oldPw = await login(cpEmail, DEV_PASSWORD);
+    assert.equal(oldPw.status, 401, "the old password is dead after a change");
+    const newPw = await login(cpEmail, NEW);
+    assert.equal(newPw.status, 200, "the new password works");
+
+    // Every prior session was revoked — the pre-change refresh token is dead.
+    const refresh = await api(BASE, "/auth/refresh", { method: "POST", body: { refreshToken: oldRefresh } });
+    assert.equal(refresh.status, 401, "changing the password revokes outstanding sessions");
+
+    // The sensitive action is audited.
+    const audit = await admin.query(
+      "select count(*)::int as n from audit_log where action='auth.password_changed' and entity_id=$1",
+      [cpUserId],
+    );
+    assert.equal(audit.rows[0].n, 1, "a password change writes an audit row");
   });
 });
 

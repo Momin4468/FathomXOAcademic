@@ -328,4 +328,60 @@ export class AuthService {
       });
     });
   }
+
+  /**
+   * Self-service password change (authenticated). Verifies the current password
+   * against the caller's own row, writes the new hash, and revokes EVERY refresh
+   * token for the account so all devices must re-authenticate with the new secret.
+   * Fails closed on a wrong current password — the message never distinguishes
+   * "wrong password" from "no account" (it is always the caller's own row).
+   */
+  async changePassword(
+    principal: SessionPrincipal,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    if (typeof newPassword !== "string" || newPassword.length < 8) {
+      throw new BadRequestException("New password must be at least 8 characters.");
+    }
+    const ctx: RlsContext = {
+      orgId: principal.orgId,
+      partyId: principal.partyId,
+      isSuperadmin: false,
+    };
+    await this.db.withTenant(ctx, async (tx) => {
+      const [row] = await tx
+        .select({ hash: schema.userAccount.passwordHash })
+        .from(schema.userAccount)
+        .where(eq(schema.userAccount.id, principal.userId));
+      // Verify current secret before anything mutates. Unknown row → same 401.
+      if (!row || !(await this.passwords.verify(currentPassword, row.hash))) {
+        throw new UnauthorizedException("Current password is incorrect.");
+      }
+      if (await this.passwords.verify(newPassword, row.hash)) {
+        throw new BadRequestException("New password must differ from the current one.");
+      }
+      const newHash = await this.passwords.hash(newPassword);
+      await tx
+        .update(schema.userAccount)
+        .set({ passwordHash: newHash, updatedAt: new Date() })
+        .where(eq(schema.userAccount.id, principal.userId));
+      // Sign out every device — outstanding refresh tokens can no longer mint access.
+      await tx
+        .update(schema.authRefreshToken)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(schema.authRefreshToken.userId, principal.userId),
+            isNull(schema.authRefreshToken.revokedAt),
+          ),
+        );
+      await this.audit.record(tx, principal.orgId, {
+        actorUserId: principal.userId,
+        action: "auth.password_changed",
+        entity: "user_account",
+        entityId: principal.userId,
+      });
+    });
+  }
 }

@@ -1,15 +1,17 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
 } from "@nestjs/common";
 import { schema } from "@business-os/db";
 import type { RlsContext, SessionPrincipal } from "@business-os/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
 import { PasswordService } from "../../common/auth/password.service.js";
 import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.js";
@@ -18,7 +20,7 @@ import type { EffectivePermissions } from "../../common/authz/permission.service
 import { RequirePermission } from "../../common/authz/require-permission.decorator.js";
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
-import { AssignRoleDto, CreateUserDto } from "./dto.js";
+import { AssignRoleDto, CreateUserDto, SetUserStatusDto } from "./dto.js";
 
 /**
  * Minimal platform admin surface (Module 0). Every endpoint is permission-gated
@@ -61,6 +63,52 @@ export class AdminController {
         detail: { email: dto.email, linkedParty: dto.partyId ?? null },
       });
       return user;
+    });
+  }
+
+  /**
+   * Enable/disable a login. A disabled account fails auth at `login()` (status
+   * check) but is NEVER deleted — it stays referenced by the audit/ledger trail.
+   * You cannot disable your own account (no self-lockout).
+   */
+  @Patch("users/:id/status")
+  @RequirePermission("platform", "approve")
+  async setUserStatus(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) userId: string,
+    @Body() dto: SetUserStatusDto,
+  ) {
+    if (userId === principal.userId && dto.status !== "active") {
+      throw new BadRequestException("You cannot disable your own account.");
+    }
+    return this.db.withTenant(ctx, async (tx) => {
+      const [row] = await tx
+        .update(schema.userAccount)
+        .set({ status: dto.status, updatedAt: new Date() })
+        .where(eq(schema.userAccount.id, userId))
+        .returning({ id: schema.userAccount.id, status: schema.userAccount.status });
+      if (!row) throw new BadRequestException("User not found.");
+      // Disabling revokes outstanding refresh tokens so open sessions can't refresh.
+      if (dto.status !== "active") {
+        await tx
+          .update(schema.authRefreshToken)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(schema.authRefreshToken.userId, userId),
+              isNull(schema.authRefreshToken.revokedAt),
+            ),
+          );
+      }
+      await this.audit.record(tx, ctx.orgId, {
+        actorUserId: principal.userId,
+        action: "platform.user_status_changed",
+        entity: "user_account",
+        entityId: userId,
+        detail: { status: dto.status },
+      });
+      return { ok: true, status: row.status };
     });
   }
 

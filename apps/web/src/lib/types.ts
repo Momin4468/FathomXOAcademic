@@ -11,6 +11,7 @@ export interface Principal {
 
 export interface WhoAmI {
   principal: Principal;
+  account?: { email: string; status: string } | null;
   party: { id: string; displayName: string } | null;
   roleNames: string[];
   permissions: string[]; // "module:action"
@@ -51,8 +52,11 @@ export interface PermissionCatalog {
 export interface AdminUserRow {
   id: string;
   email: string;
+  status: string;
+  partyId: string | null;
   displayName: string | null;
   roleNames: string[];
+  createdAt?: string;
 }
 
 export interface WorkListRow {
@@ -626,6 +630,7 @@ export interface PartyDetail {
   universityCanonical: string | null;
   referredByPartyId: string | null;
   referredByName: string | null;
+  contact?: Record<string, unknown> | null;
   customFields: CustomFieldOnRecord[];
   createdAt: string;
 }

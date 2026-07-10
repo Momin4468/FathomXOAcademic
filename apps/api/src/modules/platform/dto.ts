@@ -21,6 +21,12 @@ export class AssignRoleDto {
   roleId!: string;
 }
 
+/** Enable/disable a login (a disabled account cannot authenticate; never deleted). */
+export class SetUserStatusDto {
+  @IsIn(["active", "disabled"])
+  status!: "active" | "disabled";
+}
+
 export class CreateRoleDto {
   @IsString()
   @MinLength(1)

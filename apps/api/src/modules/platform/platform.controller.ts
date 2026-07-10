@@ -45,10 +45,16 @@ export class PlatformController {
             .from(schema.party)
             .where(eq(schema.party.id, ctx.partyId))
         : [];
+      // The login identity itself (email/status) — powers the self-service profile.
+      const acct = await tx
+        .select({ email: schema.userAccount.email, status: schema.userAccount.status })
+        .from(schema.userAccount)
+        .where(eq(schema.userAccount.id, principal.userId));
       const eff = await this.permissions.loadEffective(tx, principal.userId);
       return {
         principal,
         dbSeesContext: gucs.rows[0],
+        account: acct[0] ?? null,
         party: party[0] ?? null,
         roleNames: eff.roleNames,
         permissions: [...eff.perms].sort(),

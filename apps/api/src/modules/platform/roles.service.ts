@@ -76,13 +76,16 @@ export class RolesService {
     return { ...r, permissions, assignments };
   }
 
-  /** Users (for the assignment picker) with the roles they already hold. */
+  /** Users (for the assignment picker + user-management surface) with roles held. */
   async listUsers(tx: Db) {
     const users = await tx
       .select({
         id: userAccount.id,
         email: userAccount.email,
+        status: userAccount.status,
+        partyId: userAccount.partyId,
         displayName: party.displayName,
+        createdAt: userAccount.createdAt,
       })
       .from(userAccount)
       .leftJoin(party, eq(party.id, userAccount.partyId));

@@ -52,6 +52,19 @@ export class ResetPasswordDto {
   newPassword!: string;
 }
 
+/** Self-service password change for the authenticated account. */
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  currentPassword!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(200)
+  newPassword!: string;
+}
+
 export class Enable2faDto {
   @IsString()
   @MinLength(1)

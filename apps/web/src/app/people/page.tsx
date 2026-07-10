@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 import { apiGet, useApi } from "@/lib/api";
@@ -76,7 +77,15 @@ export default function PeoplePage() {
           getRowId={(p) => p.id}
           emptyTitle={`No ${type}s found`}
           columns={[
-            { key: "displayName", header: "Name", sortable: true, value: (p) => p.displayName },
+            {
+              key: "displayName",
+              header: "Name",
+              sortable: true,
+              value: (p) => p.displayName,
+              render: (p) => (
+                <Link href={`/people/${p.id}`} className="font-medium text-gold-600 hover:underline dark:text-gold-400">{p.displayName}</Link>
+              ),
+            },
             {
               key: "partyType",
               header: "Type",
