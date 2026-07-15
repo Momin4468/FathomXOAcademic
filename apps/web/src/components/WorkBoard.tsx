@@ -133,6 +133,7 @@ export function WorkBoard() {
                   <th className="px-3 py-2 font-medium">Size @ rate</th>
                   <th className="px-3 py-2 font-medium">Writer</th>
                   <th className="px-3 py-2 text-center font-medium">Status</th>
+                  {!canMoney && <th className="px-3 py-2 text-right font-medium">My fee</th>}
                   {canMoney && <th className="px-3 py-2 text-right font-medium">Client</th>}
                   {canMoney && <th className="px-3 py-2 text-right font-medium">Margin</th>}
                 </tr>
@@ -145,6 +146,7 @@ export function WorkBoard() {
                         {groupBy === "course" ? <Chip>{g.label}</Chip> : <PartyName id={g.label} />}
                         <span className="ml-2 text-slate-500">{g.rows.length} job{g.rows.length === 1 ? "" : "s"}</span>
                       </td>
+                      {!canMoney && <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(g.rows, (r) => r.myFee)} /></td>}
                       {canMoney && <td className="px-3 py-1.5 text-right tabular-nums"><Money value={sum(g.rows, (r) => r.clientAmount)} /></td>}
                       {canMoney && <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(g.rows, (r) => r.margin)} /></td>}
                     </tr>
@@ -167,6 +169,7 @@ export function WorkBoard() {
                           )}
                         </span>
                       </td>
+                      {!canMoney && <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={r.myFee} /></td>}
                       {canMoney && <td className="px-3 py-2 text-right tabular-nums"><Money value={r.clientAmount} /></td>}
                       {canMoney && <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={r.margin} /></td>}
                     </tr>
@@ -179,6 +182,14 @@ export function WorkBoard() {
                     <td colSpan={5} className="px-3 py-2 text-right text-xs text-slate-500">Total</td>
                     <td className="px-3 py-2 text-right tabular-nums"><Money value={sum(rows, (r) => r.clientAmount)} /></td>
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(rows, (r) => r.margin)} /></td>
+                  </tr>
+                </tfoot>
+              )}
+              {!canMoney && (
+                <tfoot className="border-t border-ink-700 bg-ink-800/60 text-sm font-medium">
+                  <tr>
+                    <td colSpan={5} className="px-3 py-2 text-right text-xs text-slate-500">You&apos;re owed</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(rows, (r) => r.myFee)} /></td>
                   </tr>
                 </tfoot>
               )}

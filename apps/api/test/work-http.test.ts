@@ -418,6 +418,12 @@ describe("work_line money redaction — Writer (no approve) cannot see client mo
     assert.equal(wRes.status, 200);
     const wBlob = JSON.stringify(wRes.body);
     assert.ok(!/clientRate|writerRate|clientAmount|"margin"/.test(wBlob), "a Writer's list projection must be money-free");
+    // ...but a Writer DOES now see their OWN fee: `myFee` (their net across only the
+    // legs they're on) is always present + opacity-safe — never a client price/cut.
+    assert.ok(
+      Array.isArray(wRes.body) && wRes.body.length > 0 && Object.prototype.hasOwnProperty.call(wRes.body[0], "myFee"),
+      "a Writer's list carries their own myFee (own earnings, §4)",
+    );
     // An approver (work:approve) → the list carries the derived per-job margin
     // (the "what's the margin on this work" answer, money-gated).
     const aRes = await api(BASE, `/work`, { token: mominToken });

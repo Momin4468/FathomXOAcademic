@@ -76,6 +76,9 @@ export interface WorkListRow {
   unitLabel?: string | null; // words | slides | pages | weight% | copies
   consumerLineId?: string | null; // primary client line (for inline edit)
   producerLineId?: string | null; // primary writer line (for inline fee edit)
+  // The caller's OWN net from their RLS-visible legs — always present + opacity-safe
+  // (a writer's own fee; never a client price or peer cut). Not money-gated.
+  myFee?: number | null;
   // Money-gated (present only when the viewer may see money):
   clientRate?: string | null;
   writerRate?: string | null;

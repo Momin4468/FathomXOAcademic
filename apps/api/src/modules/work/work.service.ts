@@ -286,7 +286,16 @@ export class WorkService {
     // bypass RLS and leak a peer's real margin, so it is deliberately NOT used. System
     // SuperAdmin (party-less, sees every leg) reads the full inflow − outflow.
     // clientRate is a client price → gated with the amounts; word_count stays ungated.
-    const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`lg.mynet`;
+    // `mynet` = the caller's OWN net across their RLS-visible legs. It can only ever
+    // include legs the caller is on, so it is inherently opacity-safe and is exposed
+    // to EVERY viewer as `myFee`: a writer sees their own fee (their producer leg)
+    // without ever seeing a client price, margin, or peer cut (§4 — own earnings).
+    const myFeeJoin = sql`left join lateral (
+      select coalesce(sum(case when to_party_id = app_current_party() then amount
+                               when from_party_id = app_current_party() then -amount else 0 end), 0) as mynet
+      from leg where work_item_id = w.id
+    ) mf on true`;
+    const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`mf.mynet`;
     const moneyCols = canSeeMoney
       ? sql`, cl.client_rate as "clientRate", pl.writer_rate as "writerRate",
              round(lg.inflow, 2) as "clientAmount",
@@ -297,9 +306,7 @@ export class WorkService {
       ? sql`left join lateral (
           select
             coalesce(sum(amount) filter (where from_party_id = w.source_party_id), 0) as inflow,
-            coalesce(sum(amount) filter (where to_party_id = w.doer_party_id), 0) as outflow,
-            coalesce(sum(case when to_party_id = app_current_party() then amount
-                              when from_party_id = app_current_party() then -amount else 0 end), 0) as mynet
+            coalesce(sum(amount) filter (where to_party_id = w.doer_party_id), 0) as outflow
           from leg where work_item_id = w.id
         ) lg on true`
       : sql``;
@@ -311,7 +318,8 @@ export class WorkService {
              dp.display_name as "doerName",
              ce.canonical as "courseCode",
              cl.word_count as "wordCount", cl.unit_label as "unitLabel",
-             cl.consumer_line_id as "consumerLineId", pl.producer_line_id as "producerLineId"
+             cl.consumer_line_id as "consumerLineId", pl.producer_line_id as "producerLineId",
+             round(mf.mynet, 2) as "myFee"
              ${moneyCols}
       from work_item w
       left join party dp on dp.id = w.doer_party_id
@@ -324,6 +332,7 @@ export class WorkService {
         select id as producer_line_id, writer_rate from work_line
         where work_item_id = w.id and writer_party_id is not null limit 1
       ) pl on true
+      ${myFeeJoin}
       ${moneyJoin}
       where ${where}
       order by w.updated_at desc
