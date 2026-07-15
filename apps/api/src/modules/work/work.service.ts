@@ -202,6 +202,27 @@ export class WorkService {
   }
 
   /**
+   * Soft-delete a job (handoff's "delete" row action). NEVER a hard delete — the
+   * job is referenced by the money ledger (legs/invoices); archiving just hides it
+   * from the board (`archived_at` filters it out). The legs stay intact.
+   */
+  async archive(tx: Db, principal: SessionPrincipal, id: string) {
+    const [item] = await tx
+      .update(schema.workItem)
+      .set({ archivedAt: new Date(), updatedBy: principal.userId, updatedAt: new Date() })
+      .where(eq(schema.workItem.id, id))
+      .returning({ id: schema.workItem.id });
+    if (!item) throw new NotFoundException("Work item not found");
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.item_archived",
+      entity: "work_item",
+      entityId: id,
+    });
+    return { ok: true, id: item.id };
+  }
+
+  /**
    * Work-state machine: draft→pending→confirmed→delivered (adjacent, forward
    * only). →confirmed is the governance step (claim becomes fact) and needs
    * work:approve; it stamps confirmed_by/at. Independent of money-state.

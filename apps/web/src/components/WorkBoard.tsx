@@ -100,8 +100,35 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
     catch (e) { setActionErr(e instanceof Error ? e.message : "Action failed"); }
   }
 
+  // Bulk-select (the handoff's bulk-action bar) — admin-only, over the filtered rows.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const toggleSel = (id: string) => setSelected((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
+  const labelSpan = canEdit ? 6 : 5; // group/total label spans the checkbox column too
+  async function bulkRun(fn: (id: string) => Promise<unknown>) {
+    setBulkBusy(true); setActionErr("");
+    try { await Promise.all([...selected].map((id) => fn(id).catch(() => null))); clearSel(); await mutate(); }
+    catch (e) { setActionErr(e instanceof Error ? e.message : "Bulk action failed"); }
+    finally { setBulkBusy(false); }
+  }
+  const bulkAdvance = () => bulkRun((id) => {
+    const r = rows.find((x) => x.id === id); const to = r ? NEXT[r.workState] : null;
+    return to ? apiSend(`work/${id}/transition`, "POST", { toState: to }) : Promise.resolve();
+  });
+  const bulkArchive = () => bulkRun((id) => apiSend(`work/${id}/archive`, "POST"));
+
   return (
     <div className="space-y-3">
+      {canEdit && selected.size > 0 && (
+        <div className="flex items-center gap-2 rounded-lg bg-nav-surface px-4 py-2 text-sm">
+          <span className="font-semibold text-nav-bright">{selected.size} selected</span>
+          <div className="flex-1" />
+          <Button variant="secondary" className="min-h-0 px-3 py-1 text-xs" disabled={bulkBusy} onClick={bulkAdvance}>Advance</Button>
+          {canMoney && <Button variant="danger" className="min-h-0 px-3 py-1 text-xs" disabled={bulkBusy} onClick={bulkArchive}>Archive</Button>}
+          <button type="button" onClick={clearSel} className="px-2 text-xs text-slate-400 hover:text-slate-200">Clear</button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search jobs…"
           className="min-h-[38px] w-full max-w-xs rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 sm:w-56" />
@@ -131,6 +158,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
             <table className="w-full text-sm">
               <thead className="border-b border-ink-700 text-left text-xs text-slate-500">
                 <tr>
+                  {canEdit && <th className="w-8 px-2 py-2"><input type="checkbox" aria-label="Select all" checked={rows.length > 0 && selected.size === rows.length} onChange={(e) => setSelected(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} /></th>}
                   <th className="px-3 py-2 font-medium">Course</th>
                   <th className="px-3 py-2 font-medium">Assignment</th>
                   <th className="px-3 py-2 font-medium">Size @ rate</th>
@@ -145,7 +173,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
                 <tbody key={g.id} className="border-b border-ink-800 last:border-0">
                   {groupBy !== "none" && (
                     <tr className="bg-ink-800/60 text-xs font-medium">
-                      <td colSpan={5} className="px-3 py-1.5">
+                      <td colSpan={labelSpan} className="px-3 py-1.5">
                         {groupBy === "course" ? <Chip>{g.label}</Chip> : <PartyName id={g.label} />}
                         <span className="ml-2 text-slate-500">{g.rows.length} job{g.rows.length === 1 ? "" : "s"}</span>
                       </td>
@@ -155,7 +183,8 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
                     </tr>
                   )}
                   {g.rows.map((r) => (
-                    <tr key={r.id} onClick={() => router.push(`/work/${r.id}`)} className="cursor-pointer border-t border-ink-800/60 hover:bg-ink-800/40">
+                    <tr key={r.id} onClick={() => router.push(`/work/${r.id}`)} className={cx("cursor-pointer border-t border-ink-800/60 hover:bg-ink-800/40", selected.has(r.id) && "bg-gold-400/5")}>
+                      {canEdit && <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label="Select row" checked={selected.has(r.id)} onChange={() => toggleSel(r.id)} /></td>}
                       <td className="px-3 py-2">{r.courseCode ? <Chip>{r.courseCode}</Chip> : <span className="text-slate-500">—</span>}</td>
                       <td className="px-3 py-2"><EditCell value={r.title} canEdit={canEdit} onSave={(v) => patchJob(r.id, { title: v })} className="font-medium" /></td>
                       <td className="px-3 py-2 text-xs text-slate-400">
@@ -182,7 +211,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
               {canMoney && (
                 <tfoot className="border-t border-ink-700 bg-ink-800/60 text-sm font-medium">
                   <tr>
-                    <td colSpan={5} className="px-3 py-2 text-right text-xs text-slate-500">Total</td>
+                    <td colSpan={labelSpan} className="px-3 py-2 text-right text-xs text-slate-500">Total</td>
                     <td className="px-3 py-2 text-right tabular-nums"><Money value={sum(rows, (r) => r.clientAmount)} /></td>
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(rows, (r) => r.margin)} /></td>
                   </tr>
@@ -191,7 +220,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
               {!canMoney && (
                 <tfoot className="border-t border-ink-700 bg-ink-800/60 text-sm font-medium">
                   <tr>
-                    <td colSpan={5} className="px-3 py-2 text-right text-xs text-slate-500">You&apos;re owed</td>
+                    <td colSpan={labelSpan} className="px-3 py-2 text-right text-xs text-slate-500">You&apos;re owed</td>
                     <td className="px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(rows, (r) => r.myFee)} /></td>
                   </tr>
                 </tfoot>

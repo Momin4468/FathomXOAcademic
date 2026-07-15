@@ -151,6 +151,17 @@ export class WorkController {
     return this.db.withTenant(ctx, (tx) => this.work.update(tx, principal, id, dto));
   }
 
+  /** Soft-delete (archive) a job — hides it from the board; legs/money stay intact. */
+  @Post(":id/archive")
+  @RequirePermission("work", "approve")
+  archive(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.archive(tx, principal, id));
+  }
+
   /** Work-state machine; →confirmed additionally requires work:approve. */
   @Post(":id/transition")
   @RequirePermission("work", "edit")

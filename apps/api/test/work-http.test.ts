@@ -435,6 +435,24 @@ describe("work_line money redaction — Writer (no approve) cannot see client mo
 
 // ─── Work-state machine + governance (→confirmed needs work:approve) ────────────
 
+describe("archive (soft-delete) a job — hidden from the board, money preserved", () => {
+  it("an approver archives a job; it leaves the list (never a hard delete)", async () => {
+    const wId = await createWorkItem();
+    const before = await api(BASE, "/work", { token: mominToken });
+    assert.ok((before.body as Array<{ id: string }>).some((r) => r.id === wId), "job is listed before archive");
+    const arch = await api(BASE, `/work/${wId}/archive`, { method: "POST", token: mominToken });
+    assert.equal(arch.status, 201, "archive succeeds for an approver");
+    const after = await api(BASE, "/work", { token: mominToken });
+    assert.ok(!(after.body as Array<{ id: string }>).some((r) => r.id === wId), "archived job is hidden from the board");
+  });
+
+  it("a non-approver (Writer) cannot archive (work:approve gated)", async () => {
+    const wId = await createWorkItem();
+    const res = await api(BASE, `/work/${wId}/archive`, { method: "POST", token: writerToken });
+    assert.equal(res.status, 403, "archive requires work:approve");
+  });
+});
+
 describe("work-state machine + governance (CLAUDE.md §3.7/§3.8)", () => {
   it("a non-adjacent transition (draft→delivered) is rejected with 400", async () => {
     const id = await createWorkItem();
