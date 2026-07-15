@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList,
-  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, LayoutDashboard, ListTodo, LogOut, Menu,
+  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, LayoutDashboard, ListTodo, LogOut, Menu,
   PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Share2, Shield, ShieldCheck,
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
 } from "lucide-react";
@@ -66,6 +66,7 @@ const ADMIN_TREE: NavGroup[] = [
     { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },
   ] },
   { title: "Money", items: [
+    { href: "/cashbook", label: "Cashbook", perm: "billing:view", icon: Landmark },
     { href: "/invoices", label: "Invoices", perm: "billing:view", icon: FileText },
     { href: "/payments", label: "Payments", perm: "billing:view", icon: Banknote },
     { href: "/settlement", label: "Settlement", perm: "billing:view", icon: ArrowLeftRight },

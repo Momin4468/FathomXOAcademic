@@ -276,6 +276,42 @@ export class PaymentService {
     return tx.select().from(schema.payment).orderBy(schema.payment.paidAt);
   }
 
+  /**
+   * The unified Cashbook (handoff §7): ONE ledger of every taka in and out —
+   * client payments + writer/vendor payouts (payment rows) and expenses / salaries
+   * / subscriptions (expense rows), unified as in/out lines by category. A
+   * PRESENTATION union over the existing append-only tables — the money model is
+   * untouched (payments/expenses stay their own append-only ledgers). Runs under
+   * the caller's RLS (org-scoped); gated billing:view. KPIs: total in / out / net.
+   */
+  async cashbook(tx: Db) {
+    const res = await tx.execute(sql`
+      select k.* from (
+        select 'payment' as kind, p.id, p.paid_at as date, p.direction,
+               case when p.direction = 'in' then 'Client payment' else 'Writer/vendor payout' end as category,
+               cp.display_name as counterparty, p.medium, p.trx_id as "trxId",
+               p.amount, p.note, (p.reverses_payment_id is not null) as reversal
+        from payment p left join party cp on cp.id = p.counterparty_party_id
+        union all
+        select 'expense' as kind, e.id, e.incurred_at as date, 'out' as direction,
+               initcap(e.category) as category, pp.display_name as counterparty, null as medium, null as "trxId",
+               e.amount, e.note, false as reversal
+        from expense e left join party pp on pp.id = e.payee_party_id
+      ) k order by k.date desc, k.kind
+      limit 500
+    `);
+    const rows = res.rows as Array<{ direction: string; amount: string }>;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    let totalIn = 0;
+    let totalOut = 0;
+    for (const r of rows) {
+      const a = Number(r.amount);
+      if (r.direction === "in") totalIn += a;
+      else totalOut += a;
+    }
+    return { rows: res.rows, totalIn: r2(totalIn), totalOut: r2(totalOut), net: r2(totalIn - totalOut) };
+  }
+
   /** A single payment + its allocations + proofs (the detail view; same shape as
    *  the list row for the payment itself). RLS scopes to the caller's org. */
   async getById(tx: Db, id: string) {

@@ -102,6 +102,13 @@ export class BillingController {
   }
 
   // ── payments ──
+  /** The unified Cashbook — every taka in/out (payments + expenses) as one ledger. */
+  @Get("cashbook")
+  @RequirePermission("billing", "view")
+  cashbook(@CurrentRls() ctx: RlsContext) {
+    return this.db.withTenant(ctx, (tx) => this.payments.cashbook(tx));
+  }
+
   @Post("payments")
   @RequirePermission("billing", "create")
   recordPayment(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: RecordPaymentDto) {

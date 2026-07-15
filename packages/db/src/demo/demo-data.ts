@@ -49,7 +49,7 @@ export async function wipeDemo(client: pg.Client): Promise<void> {
   // Login refresh tokens reference the demo users — clear them before the users.
   await client.query(`delete from auth_refresh_token where user_id in (select id from user_account where org_id = $1)`, [DEMO_ORG]);
   for (const t of [
-    "task", "payment_allocation", "payment", "invoice_line", "invoice", "leg",
+    "task", "payment_allocation", "payment", "expense", "invoice_line", "invoice", "leg",
     "work_line", "work_item", "price_group", "opening_balance", "channel",
     "notification", "audit_log", "user_role", "user_account", "permission",
     "cover_sheet_template", "ref_alias", "party", "ref_entity", "role",
@@ -240,6 +240,20 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await fullJob({ title: "Business Strategy — Essay", clientKey: "emad", doerKey: "w:Nabila", adminKey: "momin", course: "BUS500", workState: "pending", lineStatus: "draft", words: 1500, clientAmount: 3000, writerAmount: 1800, bill: "none" });
   // A cancelled one + a resit-style loss.
   const cancelledJob = await fullJob({ title: "HR Report (withdrawn)", clientKey: "rahim", doerKey: "w:Sadia", adminKey: "momin", course: "ISYS704", workState: "pending", lineStatus: "cancelled", words: 2000, clientAmount: 0, writerAmount: 0, bill: "none" });
+
+  // ─── Operating costs + writer payouts (so the Cashbook shows both sides) ────────
+  const mominP = P.get("momin");
+  for (const [cat, amt, note, days] of [
+    ["subscription", 4500, "Turnitin — annual", 22], ["subscription", 1200, "Grammarly — team", 12],
+    ["promo", 3000, "Facebook ads — July", 8], ["salary", 18000, "Fahim — July salary", 3],
+  ] as const) {
+    await q(`insert into expense (id, org_id, category, amount, incurred_at, cost_bearer, bearer_party_id, note, created_by) values ($1,$2,$3,$4,$5,'party',$6,$7,$8)`,
+      [randomUUID(), DEMO_ORG, cat, String(amt), past(days), mominP, note, mominU]);
+  }
+  for (const [wKey, amt] of [["w:Mitul", 5000], ["w:Khalid", 2200]] as const) {
+    await q(`insert into payment (id, org_id, direction, counterparty_party_id, amount, paid_at, medium, note, created_by) values ($1,$2,'out',$3,$4,$5,'Bank',$6,$7)`,
+      [randomUUID(), DEMO_ORG, P.get(wKey), String(amt), past(9), "Writer payout (demo)", mominU]);
+  }
 
   // ─── Channels + opening balances + tasks ───────────────────────────────────────
   for (const chKey of ["ch:facebook", "ch:web"]) {
