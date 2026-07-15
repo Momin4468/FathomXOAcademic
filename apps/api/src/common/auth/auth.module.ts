@@ -5,6 +5,7 @@ import { PermissionService } from "../authz/permission.service.js";
 import { PermissionGuard } from "../authz/permission.guard.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthGuard } from "./auth.guard.js";
+import { ViewAsGuard } from "./view-as.guard.js";
 import { AuthService } from "./auth.service.js";
 import { PasswordResetService } from "./password-reset.service.js";
 import { PasswordService } from "./password.service.js";
@@ -43,8 +44,12 @@ import { TotpService } from "./totp.service.js";
     PermissionService,
     AuthService,
     PasswordResetService,
-    // Global guards — order matters (auth before authz).
+    // Global guards — order matters. AuthGuard establishes the token identity;
+    // ViewAsGuard then (for a superadmin) SWAPS it to the previewed party + blocks
+    // writes; PermissionGuard finally authorizes against the (possibly swapped)
+    // identity — so a preview is gated exactly as the previewed party.
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: ViewAsGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },
   ],
   exports: [AuthService, TokenService, PermissionService, PasswordService, TotpService, PasswordResetService],

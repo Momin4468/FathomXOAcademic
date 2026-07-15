@@ -25,6 +25,11 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
   const c = await cookies();
   const access = c.get(ACCESS_COOKIE)?.value;
   const refresh = c.get(REFRESH_COOKIE)?.value;
+  // "View as" preview: the SuperAdmin's chosen target party (a plain UI cookie).
+  // Forwarded as x-view-as on EVERY request so the API can scope reads to it AND
+  // reject writes while it's active. The API only honors it for a SuperAdmin, so a
+  // forged cookie from anyone else is inert.
+  const viewAs = c.get("view-as")?.value;
   const bodyText =
     req.method === "GET" || req.method === "HEAD" ? undefined : await req.text();
 
@@ -35,6 +40,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
       headers: {
         "content-type": "application/json",
         ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(viewAs ? { "x-view-as": viewAs } : {}),
       },
       body: bodyText,
       redirect: "manual",

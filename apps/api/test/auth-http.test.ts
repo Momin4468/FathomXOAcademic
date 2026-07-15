@@ -328,6 +328,52 @@ describe("self-service change-password", () => {
   });
 });
 
+describe('"View as" preview — SuperAdmin-only, read-only, no leg-bypass', () => {
+  const EMON_PARTY = "00000000-0000-4000-8000-0000000000c2";
+
+  it("a SuperAdmin GET carrying x-view-as scopes RLS to that party, with the leg-bypass OFF", async () => {
+    const { body } = await login("sysadmin@fathomxo.local", DEV_PASSWORD);
+    const who = await api(BASE, "/platform/whoami", { token: body.accessToken, headers: { "x-view-as": EMON_PARTY } });
+    assert.equal(who.status, 200);
+    assert.equal(who.body.dbSeesContext.party_id, EMON_PARTY, "reads are scoped to the previewed party");
+    assert.equal(who.body.dbSeesContext.is_superadmin, false, "the preview obeys the previewed party's leg-RLS (bypass OFF)");
+  });
+
+  it("the preview SWAPS the full identity + perms (gates follow the previewed party, not the superadmin)", async () => {
+    const { body } = await login("sysadmin@fathomxo.local", DEV_PASSWORD);
+    // Baseline: the real superadmin holds platform:create + the superadmin role.
+    const real = await api(BASE, "/platform/whoami", { token: body.accessToken });
+    assert.ok(real.body.permissions.includes("platform:create"), "sanity: the real superadmin holds platform:create");
+    // Previewing as Emon (Admin, NOT superadmin): identity + perms are Emon's, so
+    // every app-level gate (canSeeMoney/canSeeContact/authz) follows Emon — a
+    // superadmin-only power like platform:create is GONE during the preview.
+    const who = await api(BASE, "/platform/whoami", { token: body.accessToken, headers: { "x-view-as": EMON_PARTY } });
+    assert.equal(who.body.principal.isSystemSuperadmin, false, "not superadmin while previewing");
+    assert.equal(who.body.principal.partyId, EMON_PARTY, "principal is the previewed party");
+    assert.ok(!who.body.roleNames.includes("System SuperAdmin"), "the superadmin role does not carry into the preview");
+    assert.ok(!who.body.permissions.includes("platform:create"), "superadmin-only perms drop — gates follow the previewed party");
+  });
+
+  it("a WRITE carrying x-view-as is rejected — the preview is read-only", async () => {
+    const { body } = await login("sysadmin@fathomxo.local", DEV_PASSWORD);
+    const res = await api(BASE, "/platform/users", {
+      method: "POST",
+      token: body.accessToken,
+      headers: { "x-view-as": EMON_PARTY },
+      body: { email: `va+${randomUUID()}@fathomxo.test`, password: "Password123!" },
+    });
+    assert.equal(res.status, 403, "no state changes while previewing as another user");
+  });
+
+  it("x-view-as from a NON-superadmin is ignored — identity stays token-derived (§4.4)", async () => {
+    const { body } = await login("momin@fathomxo.local", DEV_PASSWORD);
+    const who = await api(BASE, "/platform/whoami", { token: body.accessToken, headers: { "x-view-as": EMON_PARTY } });
+    assert.equal(who.status, 200);
+    assert.notEqual(who.body.dbSeesContext.party_id, EMON_PARTY, "a non-superadmin cannot preview-as (forged header ignored)");
+    assert.equal(who.body.principal.partyId, who.body.dbSeesContext.party_id, "context stays the caller's OWN party");
+  });
+});
+
 describe("login failure modes", () => {
   it("unknown email → 401, no info leak", async () => {
     const res = await login(`nobody+${randomUUID()}@fathomxo.test`, DEV_PASSWORD);

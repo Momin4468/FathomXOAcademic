@@ -4,16 +4,36 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList,
-  Contact, Database, Download, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, LayoutDashboard, ListTodo, LogOut, Menu,
+  Contact, Database, Download, Eye, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, LayoutDashboard, ListTodo, LogOut, Menu,
   PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Share2, Shield, ShieldCheck,
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { apiGet, useApi, logout } from "@/lib/api";
 import { can, type PartyRow, type RefEntity, type WhoAmI } from "@/lib/types";
 import { cx } from "./ui";
+import { EntityPicker, type PickItem } from "./EntityPicker";
 import { Logo } from "./Logo";
 import { NotificationBell } from "./NotificationBell";
 import { ThemeToggle } from "./ThemeToggle";
+
+// ── "View as" cookie helpers (a plain UI cookie the BFF forwards as x-view-as) ──
+const readCookie = (name: string): string | null => {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return m ? decodeURIComponent(m[1]) : null;
+};
+const setViewAsCookie = (id: string) => { document.cookie = `view-as=${encodeURIComponent(id)}; path=/; samesite=lax`; };
+const clearViewAsCookie = () => { document.cookie = "view-as=; path=/; max-age=0"; };
+
+/** Persona for a previewed party — chosen from its type (nav tree re-scopes to it). */
+function personaFromType(types: string[] | undefined): Persona {
+  const t = types ?? [];
+  if (t.includes("vendor")) return "vendor";
+  if (t.includes("partner")) return "partner";
+  if (t.includes("referrer")) return "referrer";
+  if (t.includes("employee")) return "employee";
+  return "writer";
+}
 
 /**
  * App shell. A FIXED dark ink-navy sidebar + header (the `nav` scale — never
@@ -333,13 +353,51 @@ function AvatarMenu({ me }: { me: WhoAmI | undefined }) {
   );
 }
 
+/** SuperAdmin-only "View as" preview control — read-only, enforced server-side. */
+function ViewAsControl({ activeName }: { activeName: string | null }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const f = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", f);
+    return () => document.removeEventListener("mousedown", f);
+  }, []);
+  const search = async (q: string): Promise<PickItem[]> => {
+    const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}`);
+    return rows.filter((r) => !(r.partyType ?? []).includes("client")).slice(0, 8)
+      .map((r) => ({ id: r.id, label: r.displayName, sub: (r.partyType ?? []).join(", ") }));
+  };
+  return (
+    <div ref={ref} className="relative hidden sm:block">
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className={cx("flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs", activeName ? "bg-gold-400/20 text-gold-300" : "text-nav-text hover:bg-nav-hover hover:text-nav-bright")}>
+        <Eye className="h-4 w-4" />{activeName ? `Viewing: ${activeName}` : "View as"}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 z-50 w-64 rounded-xl border border-ink-700 bg-ink-850 p-3 shadow-lg">
+          <p className="mb-2 text-xs text-slate-400">Preview the app as another person — read-only.</p>
+          <EntityPicker placeholder="Search writers, partners…" search={search} onPick={(i) => { if (i) { setViewAsCookie(i.id); window.location.reload(); } }} />
+          {activeName && <button type="button" onClick={() => { clearViewAsCookie(); window.location.reload(); }} className="mt-2 w-full rounded-lg border border-ink-700 px-2 py-1.5 text-xs text-red-400 hover:bg-red-500/10">Exit preview</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const pathname = usePathname() ?? "/";
   const [drawer, setDrawer] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const perms = me?.permissions;
-  const persona = resolvePersona(me);
+  const isSuper = !!me?.principal.isSystemSuperadmin;
+
+  // "View as" preview: read the cookie (client-only), fetch the previewed party so
+  // the nav re-scopes to THEIR persona; data is RLS-scoped server-side + read-only.
+  const [viewAsId, setViewAsId] = useState<string | null>(null);
+  useEffect(() => { setViewAsId(readCookie("view-as")); }, []);
+  const { data: viewedParty } = useApi<{ displayName: string; partyType: string[] }>(viewAsId ? `parties/${viewAsId}` : null);
+  const persona = viewAsId && viewedParty ? personaFromType(viewedParty.partyType) : resolvePersona(me);
 
   // Restore the collapse preference (client-only; avoids a hydration flash).
   useEffect(() => { setCollapsed(localStorage.getItem("xfas-nav-collapsed") === "1"); }, []);
@@ -415,12 +473,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="lg:hidden"><Logo onDark compact /></Link>
           <GlobalSearch />
           <div className="flex-1" />
+          {isSuper && <ViewAsControl activeName={viewAsId ? (viewedParty?.displayName ?? "…") : null} />}
           <QuickAdd />
           <ThemeToggle />
           {can(perms, "notifications:view") && <NotificationBell canBroadcast={can(perms, "notifications:approve")} />}
           <AvatarMenu me={me} />
         </div>
       </header>
+
+      {/* View-as preview banner — the app is read-only while active. */}
+      {viewAsId && (
+        <div className="sticky top-12 z-10 flex flex-wrap items-center justify-center gap-2 bg-gold-400/15 px-4 py-1.5 text-xs text-gold-700 dark:text-gold-300">
+          <Eye className="h-3.5 w-3.5" /> Previewing as <strong>{viewedParty?.displayName ?? "…"}</strong> — read-only.
+          <button type="button" onClick={() => { clearViewAsCookie(); window.location.reload(); }} className="font-semibold underline">Exit preview</button>
+        </div>
+      )}
 
       <div className="flex">
         {/* desktop sidebar (always dark) */}

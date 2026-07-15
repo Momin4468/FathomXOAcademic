@@ -15,6 +15,9 @@ export function extractRlsContext(req: Request): RlsContext {
   if (!principal) {
     throw new Error("No authenticated principal on request (AuthGuard missing or route public?)");
   }
+  // NOTE: the "View as" preview does NOT special-case here. ViewAsGuard (runs
+  // before this) SWAPS req.principal to the previewed party (superadmin OFF), so the
+  // context below is already correctly scoped — one source of truth for the identity.
   return {
     orgId: principal.orgId,
     partyId: principal.partyId,
