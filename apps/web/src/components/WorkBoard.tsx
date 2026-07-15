@@ -57,7 +57,8 @@ function groupRows(rows: WorkListRow[], key: GroupKey) {
 }
 const sum = (rs: WorkListRow[], f: (r: WorkListRow) => number | null | undefined) => rs.reduce((s, r) => s + (Number(f(r)) || 0), 0);
 
-export function WorkBoard() {
+/** `scope` filters the board: "active" = not-yet-delivered (Pending), "done" = delivered (Completed). */
+export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
   const router = useRouter();
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const perms = me?.permissions;
@@ -72,10 +73,12 @@ export function WorkBoard() {
   const [actionErr, setActionErr] = useState("");
 
   const rows = useMemo(() => {
-    const list = data ?? [];
+    let list = data ?? [];
+    if (scope === "active") list = list.filter((r) => r.workState !== "delivered");
+    else if (scope === "done") list = list.filter((r) => r.workState === "delivered");
     const query = q.trim().toLowerCase();
     return query ? list.filter((r) => `${r.title} ${r.courseCode ?? ""} ${r.doerName ?? ""}`.toLowerCase().includes(query)) : list;
-  }, [data, q]);
+  }, [data, q, scope]);
   const groups = useMemo(() => groupRows(rows, groupBy), [rows, groupBy]);
 
   async function patchLine(lineId: string | null | undefined, body: Record<string, unknown>) {

@@ -60,7 +60,9 @@ const I = {
 const ADMIN_TREE: NavGroup[] = [
   { title: "Work", items: [
     I.dashboard,
+    { href: "/pending", label: "Pending", perm: "work:view", icon: Flag },
     { href: "/work", label: "Tasks", perm: "work:view", icon: ListTodo },
+    { href: "/completed", label: "Completed", perm: "work:view", icon: ClipboardCheck },
     { href: "/work/new", label: "New task", perm: "work:create", icon: Plus },
     { href: "/capture", label: "AI capture", perm: "ai_capture:create", icon: Sparkles },
     { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },
@@ -114,7 +116,9 @@ const NAV_BY_ROLE: Record<Persona, NavGroup[]> = {
   writer: [
     { title: "My work", items: [
       I.dashboard,
+      { href: "/pending", label: "Pending", perm: "work:view", icon: Flag },
       { href: "/work", label: "My tasks", perm: "work:view", icon: ListTodo },
+      { href: "/completed", label: "Completed", perm: "work:view", icon: ClipboardCheck },
     ] },
     { title: "Money", items: [
       { href: "/balance", label: "My earnings", perm: null, icon: Wallet },
