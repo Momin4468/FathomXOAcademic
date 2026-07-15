@@ -23,18 +23,20 @@ const LINKS = [
 ];
 
 /**
- * The Personal Finance shell (§11) — a self-contained, visibly-private section
- * with its OWN session. An emerald accent distinguishes it from the business app.
+ * The Personal Finance shell (§11) — a self-contained, visibly-PRIVATE plane with
+ * its OWN session. A distinct teal identity (never the business gold/navy) makes
+ * the walled-off boundary unmistakable: business (even SuperAdmin) reads zero here.
  */
 export function PfShell({ children }: { children: React.ReactNode }) {
   const { data: me } = usePfApi<PfProfile>("auth/me");
   const pathname = usePathname();
   return (
     <div className="min-h-screen bg-ink-900">
-      <header className="sticky top-0 z-10 border-b border-emerald-500/20 bg-ink-850">
+      <header className="sticky top-0 z-10 border-b border-pf-accent/20 bg-gradient-to-r from-pf-900 to-pf-700">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <nav className="flex items-center gap-4 overflow-x-auto whitespace-nowrap text-sm">
-            <Link href="/personal-finance" className="font-semibold tracking-tight text-emerald-700 dark:text-emerald-300">
+            <Link href="/personal-finance" className="flex items-center gap-1.5 font-semibold tracking-tight text-pf-accent">
+              <span aria-hidden className="h-2 w-2 rounded-full bg-pf-accent" />
               Personal Finance
             </Link>
             {LINKS.slice(1).map((l) => (
@@ -43,8 +45,8 @@ export function PfShell({ children }: { children: React.ReactNode }) {
                 href={l.href}
                 aria-current={pathname === l.href ? "page" : undefined}
                 className={cx(
-                  "hover:text-slate-100",
-                  pathname === l.href ? "text-emerald-700 dark:text-emerald-300 font-medium" : "text-slate-400",
+                  "hover:text-pf-accent",
+                  pathname === l.href ? "font-medium text-pf-accent" : "text-pf-accent/60",
                 )}
               >
                 {l.label}
@@ -52,8 +54,8 @@ export function PfShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {me?.displayName && <span className="hidden text-xs text-slate-400 sm:inline">{me.displayName}</span>}
-            <Button variant="ghost" className="px-2 text-xs" onClick={() => pfLogout()}>
+            {me?.displayName && <span className="hidden text-xs text-pf-accent/70 sm:inline">{me.displayName}</span>}
+            <Button variant="ghost" className="px-2 text-xs text-pf-accent/80 hover:text-pf-accent" onClick={() => pfLogout()}>
               Sign out
             </Button>
           </div>
