@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from "@nestjs/common";
@@ -12,7 +13,7 @@ import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.
 import { RequirePermission } from "../../common/authz/require-permission.decorator.js";
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
-import { AddAliasDto, MergeRefDto, ResolveRefDto, SearchRefQueryDto } from "./dto.js";
+import { AddAliasDto, MergeRefDto, ResolveRefDto, SearchRefQueryDto, UpdateRefMetaDto } from "./dto.js";
 import { ReferenceService } from "./reference.service.js";
 
 /** Canonical reference data + governance (DESIGN_SPEC §7). Routes stay /reference. */
@@ -30,10 +31,29 @@ export class ReferenceController {
     return this.db.withTenant(ctx, (tx) => this.reference.search(tx, query.kind, query.q));
   }
 
+  /** The Academic directory: one flat row per course (declared before :id). */
+  @Get("academic")
+  @RequirePermission("reference", "view")
+  academic(@CurrentRls() ctx: RlsContext) {
+    return this.db.withTenant(ctx, (tx) => this.reference.getAcademic(tx));
+  }
+
   @Get(":id")
   @RequirePermission("reference", "view")
   getById(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
     return this.db.withTenant(ctx, (tx) => this.reference.getById(tx, id));
+  }
+
+  /** Inline-edit a course's descriptive meta (name / program / referencing). */
+  @Patch(":id/meta")
+  @RequirePermission("reference", "edit")
+  updateMeta(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: UpdateRefMetaDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.reference.updateMeta(tx, principal, id, dto));
   }
 
   /** Resolve a typed value to its canonical, or create a provisional (capture-first). */

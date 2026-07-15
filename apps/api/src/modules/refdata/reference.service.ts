@@ -67,6 +67,66 @@ export class ReferenceService {
   }
 
   /**
+   * The Academic directory read-model (handoff §13): ONE flat row per course —
+   * code · course name · university · program · referencing format · cover sheet.
+   * Course name / program / referencing live on the course's `meta_json`
+   * (SCHEMA §B sanctions meta_json = "referencing style per programme"); the cover
+   * sheet is the university's template. Runs under the caller's RLS (org-scoped).
+   */
+  async getAcademic(tx: Db): Promise<Array<Record<string, unknown>>> {
+    const res = await tx.execute(sql`
+      select c.id,
+             c.canonical as code,
+             nullif(c.meta_json->>'name', '') as course,
+             u.canonical as university,
+             c.parent_id as "universityId",
+             nullif(c.meta_json->>'program', '') as program,
+             nullif(c.meta_json->>'referencing', '') as reference,
+             (select cs.name from cover_sheet_template cs
+               where cs.university_ref_id = c.parent_id and cs.archived_at is null
+               order by cs.created_at limit 1) as "coverSheet",
+             c.status
+      from ref_entity c
+      left join ref_entity u on u.id = c.parent_id
+      where c.kind = 'course' and c.archived_at is null
+      order by u.canonical nulls last, c.canonical
+    `);
+    return res.rows as Array<Record<string, unknown>>;
+  }
+
+  /**
+   * Patch a course's descriptive meta (name / program / referencing) — a whitelisted
+   * shallow merge into `meta_json`. The canonical (code) is NOT editable here; a
+   * rename is a merge/alias operation (§7). Gated `reference:edit`.
+   */
+  async updateMeta(
+    tx: Db,
+    principal: SessionPrincipal,
+    id: string,
+    patch: { name?: string; program?: string; referencing?: string },
+  ): Promise<RefEntityView> {
+    const clean: Record<string, string> = {};
+    for (const k of ["name", "program", "referencing"] as const) {
+      if (typeof patch[k] === "string") clean[k] = patch[k]!.trim();
+    }
+    await this.getById(tx, id); // 404 / cross-org guard
+    if (Object.keys(clean).length === 0) return this.getById(tx, id);
+    await tx.execute(sql`
+      update ref_entity
+        set meta_json = coalesce(meta_json, '{}'::jsonb) || ${JSON.stringify(clean)}::jsonb
+        where id = ${id} and archived_at is null
+    `);
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "reference.meta_updated",
+      entity: "ref_entity",
+      entityId: id,
+      detail: clean,
+    });
+    return this.getById(tx, id);
+  }
+
+  /**
    * Read-only canonical lookup (the import DRY-RUN path): exact normalized-alias
    * match, NEVER creates. Returns the canonical entity or null. resolveOrCreate
    * is the write path used at commit.

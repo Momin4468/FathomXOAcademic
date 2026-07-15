@@ -31,7 +31,18 @@ const ACTIONS = ["view", "create", "edit", "approve"];
 
 /** Wipe every demo row — business plane by org_id, PF plane by pf_account_id. */
 export async function wipeDemo(client: pg.Client): Promise<void> {
-  for (const t of ["pf_investment_event", "pf_investment", "pf_income", "pf_expense", "pf_category", "pf_audit_log", "pf_refresh_token"]) {
+  // Every pf_* child table (all carry pf_account_id), FK-safe child→parent order so
+  // the final pf_account delete can't be blocked. Includes the later-migration
+  // tables (savings/loans/notes/targets/subscriptions + the 0035 planner tables
+  // pf_preferences/pf_anomaly_notice/pf_ai_usage) — a lazily-created row in any of
+  // them previously blocked the wipe.
+  for (const t of [
+    "pf_investment_event", "pf_investment", "pf_saving_event", "pf_saving",
+    "pf_loan_event", "pf_loan", "pf_note_attachment", "pf_note",
+    "pf_income", "pf_expense", "pf_category", "pf_cash_checkin",
+    "pf_target", "pf_subscription", "pf_anomaly_notice", "pf_ai_usage",
+    "pf_preferences", "pf_audit_log", "pf_refresh_token",
+  ]) {
     await client.query(`delete from ${t} where pf_account_id = $1`, [DEMO_PF_ACCOUNT]);
   }
   await client.query(`delete from pf_account where id = $1`, [DEMO_PF_ACCOUNT]);
@@ -76,11 +87,11 @@ export async function seedDemo(client: pg.Client): Promise<void> {
 
   // ─── Academic directory (pre-filled: universities → courses + referencing style) ─
   const refId = new Map<string, string>();
-  const refEntity = async (key: string, kind: string, canonical: string, parentKey?: string) => {
+  const refEntity = async (key: string, kind: string, canonical: string, parentKey?: string, meta?: Record<string, unknown>) => {
     const id = randomUUID();
     refId.set(key, id);
-    await q(`insert into ref_entity (id, org_id, kind, canonical, parent_id, status) values ($1,$2,$3,$4,$5,'confirmed')`,
-      [id, DEMO_ORG, kind, canonical, parentKey ? refId.get(parentKey) : null]);
+    await q(`insert into ref_entity (id, org_id, kind, canonical, parent_id, status, meta_json) values ($1,$2,$3,$4,$5,'confirmed',$6)`,
+      [id, DEMO_ORG, kind, canonical, parentKey ? refId.get(parentKey) : null, JSON.stringify(meta ?? {})]);
     await q(`insert into ref_alias (id, org_id, ref_id, alias, normalized) values ($1,$2,$3,$4,$5)`,
       [randomUUID(), DEMO_ORG, id, canonical, norm(canonical)]);
     return id;
@@ -101,8 +112,26 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     ["BUS500", "victoria", "Business Strategy"], ["ISYS704", "anglia", "Information Systems"], ["MBA701", "diu", "Research Methods"],
   ];
   const courseName = new Map<string, string>();
-  for (const [code, uni, name] of courses) { await refEntity(`c:${code}`, "course", code, `u:${uni}`); courseName.set(code, name); }
+  // Course descriptive meta lives on meta_json (name/program/referencing) — powers
+  // the flat Academic grid + task auto-fill (handoff §13).
+  const REFS = ["APA 7th", "Harvard", "IEEE"];
+  const PROGRAM: Record<string, string> = {
+    uwe: "MBA", londonmet: "MSc Computer Science", coventry: "MBA Finance", bathspa: "MSc Computing",
+    uwtsd: "MBA Cyber Security", koi: "Graduate Diploma of IT", victoria: "MBA", anglia: "MSc Information Systems", diu: "MBA",
+  };
+  let ci = 0;
+  for (const [code, uni, name] of courses) {
+    await refEntity(`c:${code}`, "course", code, `u:${uni}`, { name, program: PROGRAM[uni] ?? "Postgraduate", referencing: REFS[ci % REFS.length] });
+    courseName.set(code, name);
+    ci++;
+  }
   for (const s of ["APA 7th", "IEEE", "Harvard"]) await refEntity(`rs:${s}`, "referencing_style", s);
+  // A couple of university cover-sheet templates (metadata only; no file) so the
+  // Academic grid's Cover-sheet column is populated for the demo.
+  for (const [uniKey, nm] of [["uwe", "UWE Bristol — Coursework Cover"], ["koi", "KOI Assignment Cover Sheet"]] as const) {
+    await q(`insert into cover_sheet_template (id, org_id, name, university_ref_id) values ($1,$2,$3,$4)`,
+      [randomUUID(), DEMO_ORG, nm, refId.get(`u:${uniKey}`)]);
+  }
 
   // ─── Parties ──────────────────────────────────────────────────────────────────
   const P = new Map<string, string>();

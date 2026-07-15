@@ -10,6 +10,13 @@ import {
 } from "class-validator";
 import { PARTY_TYPES, REF_KINDS, type PartyType, type RefKind } from "@business-os/shared";
 
+/** Patch a course's descriptive meta (Academic directory inline edit). */
+export class UpdateRefMetaDto {
+  @IsOptional() @IsString() @MaxLength(200) name?: string;
+  @IsOptional() @IsString() @MaxLength(120) program?: string;
+  @IsOptional() @IsString() @MaxLength(120) referencing?: string;
+}
+
 // ─── Reference ───────────────────────────────────────────────────────────────
 
 export class SearchRefQueryDto {
