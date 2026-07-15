@@ -91,6 +91,27 @@ export class InvoiceService {
     return this.addLine(tx, principal, invoiceId, workLineId);
   }
 
+  /**
+   * Build a NEW invoice from a set of billable work lines (the Client-360 "make an
+   * invoice from the selected ledger lines" popup, handoff §11). Composes the
+   * existing createInvoice + addLine (each re-validates the line is the client's,
+   * unbilled, consumer-side) so the money model is untouched. Returns the full
+   * invoice for the screenshot popup.
+   */
+  async createInvoiceFromLines(
+    tx: Db,
+    principal: SessionPrincipal,
+    clientPartyId: string,
+    workLineIds: string[],
+  ) {
+    if (!workLineIds?.length) throw new BadRequestException("Select at least one line to invoice");
+    const inv = await this.createInvoice(tx, principal, clientPartyId, false);
+    for (const workLineId of workLineIds) {
+      await this.addLine(tx, principal, inv.id, workLineId);
+    }
+    return this.getInvoice(tx, inv.id);
+  }
+
   /** Add a line to a SPECIFIC invoice (e.g. an estimate). */
   addLineToInvoice(tx: Db, principal: SessionPrincipal, invoiceId: string, workLineId: string) {
     return this.addLine(tx, principal, invoiceId, workLineId);

@@ -16,6 +16,8 @@ import { Badge, Button, Card, Chip, EmptyState, ErrorNote, Money, MoneyInput, Sp
 
 interface ClientAr { billed: number; collected: number; outstanding: number; openLines: Array<{ invoiceLineId: string; due: number }> }
 interface PaymentRow { id: string; direction: string; amount: string; paidAt: string; medium: string | null; reversesPaymentId?: string | null }
+interface BillableLine { id: string; workItemId: string; title: string; courseCode: string | null; amount: number }
+interface InvoiceModalLine { id: string; note: string | null; amount: string | number }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -37,15 +39,37 @@ export default function ClientDetailPage() {
   const { data: party, error, isLoading } = useApi<PartyDetail>(`parties/${id}`);
   const { data: accounts } = useApi<Array<{ id: string; partyId: string; loginId: string; status: string }>>(canPortal ? "client-portal/accounts" : null);
   const portal = (accounts ?? []).find((a) => a.partyId === id);
-  const { data: jobs } = useApi<WorkListRow[]>(can(perms, "work:view") ? `work?sourcePartyId=${id}` : null);
+  const { data: jobs, mutate: mutateJobs } = useApi<WorkListRow[]>(can(perms, "work:view") ? `work?sourcePartyId=${id}` : null);
   const { data: ar, mutate: mutateAr } = useApi<ClientAr>(canMoney ? `billing/client/${id}/ar` : null);
   const { data: payments, mutate: mutatePayments } = useApi<PaymentRow[]>(canMoney ? `payments?counterpartyPartyId=${id}` : null);
+  const { data: billable, mutate: mutateBillable } = useApi<BillableLine[]>(canBill ? `invoices/billable?clientPartyId=${id}` : null);
   const { data: creds } = useApi<VaultItem[]>(can(perms, "credential_vault:view") ? `vault/items?clientPartyId=${id}` : null);
 
   const [amount, setAmount] = useState("");
   const [medium, setMedium] = useState("Bank");
   const [busy, setBusy] = useState(false);
   const [payErr, setPayErr] = useState("");
+  // Invoice-from-lines popup (handoff §11): pick billable lines → one invoice → a
+  // screenshot-ready document.
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [invModal, setInvModal] = useState<{ lines: InvoiceModalLine[]; total: number } | null>(null);
+  const [genBusy, setGenBusy] = useState(false);
+  const toggleSel = (lineId: string) => setSel((p) => { const n = new Set(p); if (n.has(lineId)) n.delete(lineId); else n.add(lineId); return n; });
+
+  async function genInvoice() {
+    if (sel.size === 0) return;
+    setGenBusy(true);
+    setPayErr("");
+    try {
+      const inv = await apiSend<{ lines: InvoiceModalLine[] }>("invoices/from-lines", "POST", { clientPartyId: id, workLineIds: [...sel] });
+      const total = round2(inv.lines.reduce((a, l) => a + Number(l.amount), 0));
+      setInvModal({ lines: inv.lines, total });
+      setSel(new Set());
+      await Promise.all([mutateAr(), mutateBillable(), mutateJobs(), mutatePayments()]);
+    } catch (e) {
+      setPayErr(e instanceof Error ? e.message : "Could not generate invoice");
+    } finally { setGenBusy(false); }
+  }
 
   async function addPayment(e: React.FormEvent) {
     e.preventDefault();
@@ -184,6 +208,26 @@ export default function ClientDetailPage() {
                     <p className="mt-3 text-[11px] text-slate-500">Created records are <strong>appended (never edited)</strong> — corrections are reversals only.</p>
                   </Card>
                 )}
+
+                {canBill && billable && billable.length > 0 && (
+                  <Card>
+                    <h2 className="mb-1 text-sm font-semibold">Bill from the pool</h2>
+                    <p className="mb-2 text-[11px] text-slate-500">Tick the delivered work to invoice, then generate a screenshot-ready invoice.</p>
+                    <ul className="space-y-1.5">
+                      {billable.map((l) => (
+                        <li key={l.id} className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="accent-gold-500" aria-label={`Select ${l.title}`} />
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            {l.courseCode && <Chip>{l.courseCode}</Chip>}
+                            <span className="truncate">{l.title}</span>
+                          </span>
+                          <span className="shrink-0 tabular-nums"><Money value={l.amount} /></span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button className="mt-3 w-full" disabled={genBusy || sel.size === 0} onClick={genInvoice}>{genBusy ? "Generating…" : `Generate invoice (${sel.size})`}</Button>
+                  </Card>
+                )}
               </section>
             )}
           </div>
@@ -226,6 +270,33 @@ export default function ClientDetailPage() {
               </ul>
             </Card>
           )}
+        </div>
+      )}
+
+      {/* Screenshot-ready invoice popup (a document — stays light in both themes). */}
+      {invModal && (
+        <div onClick={() => setInvModal(null)} className="fixed inset-0 z-[120] flex items-start justify-center bg-black/55 p-4 pt-[8vh]">
+          <div onClick={(e) => e.stopPropagation()} className="w-[460px] max-w-full overflow-hidden rounded-2xl bg-white text-ink-950 shadow-2xl">
+            <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
+              <span className="font-display text-base font-semibold">X-Factor AS · Invoice</span>
+              <span className="text-xs text-gray-500">{party?.displayName}</span>
+              <div className="flex-1" />
+              <button type="button" onClick={() => setInvModal(null)} aria-label="Close" className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="px-5 py-2">
+              {invModal.lines.map((l) => (
+                <div key={l.id} className="flex items-baseline justify-between gap-3 border-b border-gray-50 py-2 text-sm">
+                  <span>{l.note ?? "Billable line"}</span>
+                  <span className="font-medium tabular-nums"><Money value={Number(l.amount)} /></span>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-baseline justify-between px-5 py-4">
+              <span className="text-sm font-semibold">Total due</span>
+              <span className="font-display text-xl font-semibold"><Money value={invModal.total} /></span>
+            </div>
+            <p className="px-5 pb-4 text-xs text-gray-400">Screenshot this and send it on WhatsApp — only the selected work is shown.</p>
+          </div>
         </div>
       )}
     </AppShell>

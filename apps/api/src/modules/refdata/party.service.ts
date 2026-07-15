@@ -53,6 +53,57 @@ export class PartyService {
       .limit(limit);
   }
 
+  /**
+   * Batched Clients directory (handoff §10): every client party with university
+   * name, added-by (the creating user's person/email), a display Contact that is
+   * server-side MASKED unless `canSeeContact`, and derived expected/paid/remaining
+   * (AR rolled up per client from non-void invoices − allocations). Runs under the
+   * caller's RLS (org-scoped); money is derived at read time, never stored.
+   */
+  async listClients(tx: Db, canSeeContact: boolean) {
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const res = await tx.execute(sql`
+      select p.id, p.display_name as "displayName", p.external_ref as "externalRef",
+             p.programme, u.canonical as university, p.university_id as "universityId",
+             coalesce(cp.display_name, uc.email) as "addedBy",
+             p.contact_json as contact,
+             coalesce(ar.billed, 0) as expected,
+             coalesce(ar.paid, 0) as paid
+      from party p
+      left join ref_entity u on u.id = p.university_id
+      left join user_account uc on uc.id = p.created_by
+      left join party cp on cp.id = uc.party_id
+      left join lateral (
+        select sum(il.amount) as billed,
+               sum(coalesce((select sum(pa.amount) from payment_allocation pa where pa.invoice_line_id = il.id), 0)) as paid
+        from invoice i join invoice_line il on il.invoice_id = i.id
+        where i.client_party_id = p.id and i.status <> 'void'
+      ) ar on true
+      where p.party_type @> array['client']::text[] and p.archived_at is null
+      order by p.display_name
+    `);
+    return (res.rows as Array<Record<string, unknown>>).map((row) => {
+      const c = (row.contact ?? {}) as { email?: string; phone?: string };
+      const expected = r2(Number(row.expected ?? 0));
+      const paid = r2(Number(row.paid ?? 0));
+      return {
+        id: row.id as string,
+        displayName: row.displayName as string,
+        externalRef: (row.externalRef as string | null) ?? null,
+        programme: (row.programme as string | null) ?? null,
+        university: (row.university as string | null) ?? null,
+        universityId: (row.universityId as string | null) ?? null,
+        addedBy: (row.addedBy as string | null) ?? null,
+        // Masked contact never leaves the server as the real value.
+        contact: canSeeContact ? [c.phone, c.email].filter(Boolean).join(" · ") || null : null,
+        contactMasked: !canSeeContact,
+        expected,
+        paid,
+        remaining: r2(expected - paid),
+      };
+    });
+  }
+
   /** Detail incl. resolved university canonical + referred-by name. */
   async getById(tx: Db, id: string) {
     const res = await tx.execute(sql`

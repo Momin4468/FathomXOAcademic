@@ -40,6 +40,10 @@ export class MoveLineDto {
   @IsUUID() invoiceLineId!: string;
   @IsUUID() targetInvoiceId!: string;
 }
+export class InvoiceFromLinesDto {
+  @IsUUID() clientPartyId!: string;
+  @IsArray() @ArrayMinSize(1) @IsUUID("all", { each: true }) workLineIds!: string[];
+}
 export class ListInvoicesQueryDto {
   @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsString() status?: string;

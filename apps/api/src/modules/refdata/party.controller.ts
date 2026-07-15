@@ -10,6 +10,8 @@ import {
 } from "@nestjs/common";
 import type { RlsContext, SessionPrincipal } from "@business-os/shared";
 import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.js";
+import { CurrentPermissions } from "../../common/authz/current-permissions.decorator.js";
+import type { EffectivePermissions } from "../../common/authz/permission.service.js";
 import { RequirePermission } from "../../common/authz/require-permission.decorator.js";
 import { DbService } from "../../common/db/db.service.js";
 import { CurrentRls } from "../../common/rls/rls-context.js";
@@ -28,6 +30,22 @@ export class PartyController {
   @RequirePermission("reference", "view")
   list(@CurrentRls() ctx: RlsContext, @Query() query: ListPartyQueryDto) {
     return this.db.withTenant(ctx, (tx) => this.parties.search(tx, query.q, query.type));
+  }
+
+  /**
+   * The Clients directory (declared before :id). Contact is server-side MASKED
+   * unless the caller may see it (SuperAdmin or `reference:edit` — admins/owner);
+   * a plain `reference:view` holder gets a masked contact, never the real value.
+   */
+  @Get("clients")
+  @RequirePermission("reference", "view")
+  listClients(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @CurrentPermissions() perms: EffectivePermissions,
+  ) {
+    const canSeeContact = principal.isSystemSuperadmin || perms.perms.has("reference:edit");
+    return this.db.withTenant(ctx, (tx) => this.parties.listClients(tx, canSeeContact));
   }
 
   @Get(":id")

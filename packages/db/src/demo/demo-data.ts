@@ -52,7 +52,7 @@ export async function wipeDemo(client: pg.Client): Promise<void> {
     "task", "payment_allocation", "payment", "invoice_line", "invoice", "leg",
     "work_line", "work_item", "price_group", "opening_balance", "channel",
     "notification", "audit_log", "user_role", "user_account", "permission",
-    "ref_alias", "party", "ref_entity", "role",
+    "cover_sheet_template", "ref_alias", "party", "ref_entity", "role",
   ]) {
     await client.query(`delete from ${t} where org_id = $1`, [DEMO_ORG]);
   }
@@ -151,7 +151,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     ["karim", "Karim Uddin", "londonmet", "LM-7007", "IT"], ["aditta", "Aditta", "londonmet", "LM-7008", "IT"],
     ["abir", "Abir Ulster", "coventry", "COV-3009", "BBA"], ["emad", "Emad", "victoria", "VU-8010", "MBA"],
   ];
-  for (const [k, name, uni, id, prog] of clients) await party(k, name, ["client"], { ref: id, uni, programme: prog });
+  // Universities are keyed `u:<k>` in refId — pass the prefixed key so the client's
+  // university_id actually links (was silently null: bare key ≠ stored key).
+  for (const [k, name, uni, id, prog] of clients) await party(k, name, ["client"], { ref: id, uni: `u:${uni}`, programme: prog });
   const writers = ["Humaira", "Mitul", "Khalid", "Rafsan", "Durjoy", "Fatin", "Fahim", "Ishaan", "Nabila", "Sadia"];
   for (const w of writers) await party(`w:${w}`, w, ["writer"]);
   for (const v of ["Toma Apu", "Imu", "Sohel"]) await party(`v:${v}`, v, ["vendor"]);
@@ -172,6 +174,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await q(`insert into user_account (id, org_id, email, password_hash, status, party_id) values ($1,$2,$3,$4,'active',$5)`,
     [mominU, DEMO_ORG, "momin@demo.local", pw, P.get("momin")]);
   for (const r of [ROLE.admin, ROLE.writer]) await q(`insert into user_role (org_id, user_id, role_id) values ($1,$2,$3)`, [DEMO_ORG, mominU, r]);
+  // Stamp "added by" on the demo clients (created_by is set at real create time; the
+  // seed backfills it so the Clients directory's admin-only Added-by column shows data).
+  await q(`update party set created_by = $1 where org_id = $2 and party_type @> array['client']::text[]`, [mominU, DEMO_ORG]);
   await user("emon@demo.local", "emon", [ROLE.admin, ROLE.writer]);
   await user("humaira@demo.local", "w:Humaira", [ROLE.writer]);
   await user("mitul@demo.local", "w:Mitul", [ROLE.writer]);

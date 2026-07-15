@@ -13,6 +13,7 @@ import {
   CreateChargeDto,
   CreateInvoiceDto,
   CreateOtherIncomeDto,
+  InvoiceFromLinesDto,
   ListChargesQueryDto,
   ListInvoicesQueryDto,
   ListPaymentsQueryDto,
@@ -52,6 +53,13 @@ export class BillingController {
         ? this.invoices.addLineToInvoice(tx, p, dto.invoiceId, dto.workLineId)
         : this.invoices.attachLine(tx, p, dto.workLineId),
     );
+  }
+
+  /** Build a new invoice from selected billable lines (Client-360 invoice popup). */
+  @Post("invoices/from-lines")
+  @RequirePermission("billing", "create")
+  invoiceFromLines(@CurrentRls() ctx: RlsContext, @CurrentPrincipal() p: SessionPrincipal, @Body() dto: InvoiceFromLinesDto) {
+    return this.db.withTenant(ctx, (tx) => this.invoices.createInvoiceFromLines(tx, p, dto.clientPartyId, dto.workLineIds));
   }
 
   @Post("invoices/move-line")
