@@ -63,6 +63,7 @@ const ADMIN_TREE: NavGroup[] = [
     { href: "/pending", label: "Pending", perm: "work:view", icon: Flag },
     { href: "/work", label: "Tasks", perm: "work:view", icon: ListTodo },
     { href: "/completed", label: "Completed", perm: "work:view", icon: ClipboardCheck },
+    { href: "/approvals", label: "Approvals", perm: "reference:view", icon: ClipboardCheck },
     { href: "/work/new", label: "New task", perm: "work:create", icon: Plus },
     { href: "/capture", label: "AI capture", perm: "ai_capture:create", icon: Sparkles },
     { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },

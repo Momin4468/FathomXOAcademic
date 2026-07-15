@@ -67,6 +67,24 @@ export class ReferenceService {
   }
 
   /**
+   * The reference-governance approvals queue (handoff §5): every provisional
+   * canonical entity (a code/university/etc. someone captured on the fly) awaiting
+   * a steward's confirm or merge. Org-scoped by RLS.
+   */
+  async getProvisional(tx: Db): Promise<Array<Record<string, unknown>>> {
+    const res = await tx.execute(sql`
+      select e.id, e.kind, e.canonical,
+             (select canonical from ref_entity p where p.id = e.parent_id) as parent,
+             e.created_at as "createdAt"
+      from ref_entity e
+      where e.status = 'provisional' and e.archived_at is null
+      order by e.created_at desc
+      limit 200
+    `);
+    return res.rows as Array<Record<string, unknown>>;
+  }
+
+  /**
    * The Academic directory read-model (handoff §13): ONE flat row per course —
    * code · course name · university · program · referencing format · cover sheet.
    * Course name / program / referencing live on the course's `meta_json`

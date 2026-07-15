@@ -38,6 +38,13 @@ export class ReferenceController {
     return this.db.withTenant(ctx, (tx) => this.reference.getAcademic(tx));
   }
 
+  /** Provisional entities awaiting a steward (the reference-governance approvals queue). */
+  @Get("provisional")
+  @RequirePermission("reference", "view")
+  provisional(@CurrentRls() ctx: RlsContext) {
+    return this.db.withTenant(ctx, (tx) => this.reference.getProvisional(tx));
+  }
+
   @Get(":id")
   @RequirePermission("reference", "view")
   getById(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
