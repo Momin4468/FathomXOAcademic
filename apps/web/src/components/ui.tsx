@@ -282,6 +282,10 @@ const BADGE_TONES: Record<string, string> = {
   amber: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   green: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
   red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
+  // Partner / cut / loan accent (design purple #6D3FC4).
+  purple: "bg-plum-bg text-plum-500 dark:bg-plum-500/15 dark:text-plum-500",
+  // The owner's PRIVATE (parchment) treatment — real charge / extra margin.
+  private: "bg-parchment border border-parchment-border text-parchment-text dark:bg-parchment-text/15 dark:text-parchment-border",
 };
 /** A compact monospace chip for codes / linked records (course code, IDs). */
 export function Chip({ children, className }: { children: ReactNode; className?: string }) {

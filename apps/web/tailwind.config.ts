@@ -50,6 +50,28 @@ const config: Config = {
           500: "#D9A23A",
           600: "#B6822A", // legible gold for text/links on a LIGHT surface
         },
+        // Warm "parchment" — the owner's PRIVATE columns (real charge + extra
+        // margin). Fixed (semantic private highlight), not themed. (handoff §Design tokens)
+        parchment: {
+          DEFAULT: "#FBF7EC",
+          surface: "#FFFDF6",
+          border: "#EAD9AE",
+          text: "#8A5F1D",
+        },
+        // Partner / cut / loan accent (design purple #6D3FC4). Named `plum` so it
+        // does NOT clobber Tailwind's built-in `purple-*` (used raw on some pages).
+        plum: {
+          500: "#6D3FC4",
+          bg: "#F0E9FB",
+        },
+        // Personal-Finance plane identity (teal). Named `pf` to avoid clobbering
+        // Tailwind's default `teal-*`. Reinforces the walled-off PF boundary.
+        pf: {
+          900: "#0B3B33",
+          700: "#0E5C50",
+          600: "#0E7C6B",
+          accent: "#7FE3CE",
+        },
       },
       fontFamily: {
         display: ["var(--font-display)", "Fraunces", "Georgia", "serif"],
