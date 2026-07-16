@@ -70,6 +70,8 @@ export interface WorkListRow {
   // Enriched, non-money (all viewers):
   clientPartyId?: string | null;
   courseRefId?: string | null;
+  projectId?: string | null; // parent bundle (course/thesis/project), if any
+  projectTitle?: string | null;
   doerName?: string | null;
   courseCode?: string | null; // canonical course code (e.g. UMKCQT)
   wordCount?: number | null; // primary consumer line

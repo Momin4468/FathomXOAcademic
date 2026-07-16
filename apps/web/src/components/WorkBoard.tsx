@@ -6,7 +6,7 @@ import { can, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { PartyName } from "./PartyName";
 import { Badge, Button, Card, Chip, EmptyState, ErrorNote, Money, Select, Spinner, StateBadge, cx } from "./ui";
 
-type GroupKey = "none" | "course" | "client" | "writer";
+type GroupKey = "none" | "course" | "client" | "writer" | "bundle";
 type View = "grid" | "board";
 const WORK_STATES = ["draft", "pending", "confirmed", "delivered"] as const;
 const NEXT: Record<string, string | undefined> = { draft: "pending", pending: "confirmed", confirmed: "delivered" };
@@ -50,7 +50,10 @@ function groupRows(rows: WorkListRow[], key: GroupKey) {
   if (key === "none") return [{ id: "all", label: "", rows }];
   const map = new Map<string, WorkListRow[]>();
   for (const r of rows) {
-    const gid = key === "course" ? (r.courseCode ?? "—") : key === "client" ? (r.clientPartyId ?? r.sourcePartyId ?? "—") : (r.doerPartyId ?? "—");
+    const gid = key === "course" ? (r.courseCode ?? "—")
+      : key === "client" ? (r.clientPartyId ?? r.sourcePartyId ?? "—")
+      : key === "bundle" ? (r.projectTitle ?? "— (standalone)")
+      : (r.doerPartyId ?? "—");
     (map.get(gid) ?? map.set(gid, []).get(gid)!).push(r);
   }
   return [...map.entries()].map(([id, rs]) => ({ id, label: id, rows: rs, key }));
@@ -134,7 +137,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
           className="min-h-[38px] w-full max-w-xs rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 sm:w-56" />
         <label className="flex items-center gap-1.5 text-xs text-slate-400">Group
           <Select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupKey)} className="min-h-[38px] w-auto">
-            <option value="course">Course</option><option value="client">Client</option><option value="writer">Writer</option><option value="none">None</option>
+            <option value="course">Course</option><option value="client">Client</option><option value="writer">Writer</option><option value="bundle">Bundle</option><option value="none">None</option>
           </Select>
         </label>
         <div className="ml-auto flex items-center gap-1 rounded-lg border border-ink-700 p-0.5">
@@ -174,7 +177,7 @@ export function WorkBoard({ scope }: { scope?: "active" | "done" } = {}) {
                   {groupBy !== "none" && (
                     <tr className="bg-ink-800/60 text-xs font-medium">
                       <td colSpan={labelSpan} className="px-3 py-1.5">
-                        {groupBy === "course" ? <Chip>{g.label}</Chip> : <PartyName id={g.label} />}
+                        {groupBy === "course" ? <Chip>{g.label}</Chip> : groupBy === "bundle" ? <span className="text-slate-200">{g.label}</span> : <PartyName id={g.label} />}
                         <span className="ml-2 text-slate-500">{g.rows.length} job{g.rows.length === 1 ? "" : "s"}</span>
                       </td>
                       {!canMoney && <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400"><Money value={sum(g.rows, (r) => r.myFee)} /></td>}

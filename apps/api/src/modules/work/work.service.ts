@@ -406,6 +406,7 @@ export class WorkService {
       select w.id, w.title, w.work_state as "workState", w.money_state as "moneyState",
              w.doer_party_id as "doerPartyId", w.source_party_id as "sourcePartyId",
              w.client_party_id as "clientPartyId", w.course_ref_id as "courseRefId",
+             w.project_id as "projectId", pr.title as "projectTitle",
              w.updated_at as "updatedAt",
              dp.display_name as "doerName",
              ce.canonical as "courseCode",
@@ -416,6 +417,7 @@ export class WorkService {
       from work_item w
       left join party dp on dp.id = w.doer_party_id
       left join ref_entity ce on ce.id = w.course_ref_id
+      left join project pr on pr.id = w.project_id
       left join lateral (
         select id as consumer_line_id, word_count, unit_label, client_rate from work_line
         where work_item_id = w.id and consumer_party_id is not null limit 1
