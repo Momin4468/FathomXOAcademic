@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList,
-  Contact, Database, Download, Eye, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, LayoutDashboard, ListTodo, LogOut, Menu,
+  Contact, Database, Download, Eye, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, Layers, LayoutDashboard, ListTodo, LogOut, Menu,
   PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Settings, Share2, Shield, ShieldCheck,
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
 } from "lucide-react";
@@ -85,6 +85,7 @@ const ADMIN_TREE: NavGroup[] = [
     { href: "/completed", label: "Completed", perm: "work:view", icon: ClipboardCheck },
     { href: "/approvals", label: "Approvals", perm: "reference:view", icon: ClipboardCheck },
     { href: "/work/new", label: "New task", perm: "work:create", icon: Plus },
+    { href: "/work/bundle", label: "New bundle", perm: "work:create", icon: Layers },
     { href: "/capture", label: "AI capture", perm: "ai_capture:create", icon: Sparkles },
     { href: "/resit", label: "Resit", perm: "work:approve", icon: RotateCcw },
   ] },

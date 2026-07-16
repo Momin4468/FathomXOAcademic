@@ -50,6 +50,7 @@ let clientPartyId = ""; // a pure-source client party for the chain top
 const createdUserIds: string[] = [];
 const createdPartyIds: string[] = [];
 const createdWorkItemIds: string[] = [];
+const createdProjectIds: string[] = [];
 const createdDealTermIds: string[] = [];
 
 async function startServer(): Promise<void> {
@@ -129,6 +130,11 @@ after(async () => {
     await admin.query("delete from leg where work_item_id=$1", [id]);
     await admin.query("delete from work_line where work_item_id=$1", [id]);
     await admin.query("delete from work_item where id=$1", [id]);
+  }
+  // Projects (bundle parents) reference the client party — delete after their work
+  // items so the party cleanup below doesn't FK-fail.
+  for (const id of createdProjectIds) {
+    await admin.query("delete from project where id=$1", [id]);
   }
   for (const id of createdDealTermIds) {
     await admin.query("delete from deal_term where id=$1", [id]);
@@ -453,6 +459,39 @@ describe("work_line money redaction — Writer (no approve) cannot see client mo
 });
 
 // ─── Work-state machine + governance (→confirmed needs work:approve) ────────────
+
+describe("course/thesis/project bundle — one parent + N priced parts, money derives", () => {
+  it("an admin creates a 2-part course bundle; each part carries its derived margin", async () => {
+    const res = await api(BASE, "/work/bundle", {
+      method: "POST",
+      token: mominToken,
+      body: {
+        kind: "course",
+        title: "MBA Term 1 — bundle",
+        clientPartyId,
+        doerPartyId: writerPartyId,
+        parts: [
+          { detail: "Bundle A1", wordCount: 3000, clientAmount: 6000, writerAmount: 3500 },
+          { detail: "Bundle A2", wordCount: 2000, clientAmount: 4000, writerAmount: 2200 },
+        ],
+      },
+    });
+    assert.equal(res.status, 201, `bundle create should succeed (${JSON.stringify(res.body)})`);
+    assert.ok(res.body.projectId, "a parent project id is returned");
+    assert.equal(res.body.parts.length, 2, "two parts created under the project");
+    createdProjectIds.push(res.body.projectId);
+    createdWorkItemIds.push(...(res.body.parts as string[]));
+
+    // Each part shows the admin's derived money (client price + margin) from its legs.
+    const list = await api(BASE, "/work", { token: mominToken });
+    const rows = (list.body as Array<{ id: string; title: string; clientAmount: string | number; margin: string | number }>)
+      .filter((r) => (res.body.parts as string[]).includes(r.id));
+    assert.equal(rows.length, 2, "both parts are on the board");
+    const a1 = rows.find((r) => r.title === "Bundle A1")!;
+    assert.equal(Number(a1.clientAmount), 6000, "part 1 client price derives from its legs");
+    assert.equal(Number(a1.margin), 2500, "part 1 margin = 6000−3500 (derived)");
+  });
+});
 
 describe("archive (soft-delete) a job — hidden from the board, money preserved", () => {
   it("an approver archives a job; it leaves the list (never a hard delete)", async () => {

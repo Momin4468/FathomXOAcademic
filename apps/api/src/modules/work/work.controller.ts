@@ -20,6 +20,7 @@ import {
   AddLineDto,
   AppendLegsDto,
   CreatePriceGroupDto,
+  CreateBundleDto,
   CreateWorkItemDto,
   FanOutDto,
   ListWorkQueryDto,
@@ -81,6 +82,17 @@ export class WorkController {
     // logs the job (course + their fee); the admin assigns the referral later.
     if (!canSeeMoney(principal, perms)) dto.sourcePartyId = undefined;
     return this.db.withTenant(ctx, (tx) => this.work.create(tx, principal, dto));
+  }
+
+  /** "Add course / thesis / project" — one parent + N priced parts in one entry. */
+  @Post("bundle")
+  @RequirePermission("work", "create")
+  createBundle(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Body() dto: CreateBundleDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.createBundle(tx, principal, dto));
   }
 
   @Get()

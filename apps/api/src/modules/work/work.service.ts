@@ -18,7 +18,7 @@ import { resolveUserNames } from "../../common/user-names.js";
 import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
-import type { CreateWorkItemDto, UpdateWorkItemDto } from "./dto.js";
+import type { AddLineDto, CreateBundleDto, CreateWorkItemDto, UpdateWorkItemDto } from "./dto.js";
 
 @Injectable()
 export class WorkService {
@@ -106,6 +106,69 @@ export class WorkService {
             title: item!.title,
           });
     return { ...item!, possibleDuplicates };
+  }
+
+  /**
+   * "Add course / thesis / project" (handoff §3) — one PARENT + N priced parts in a
+   * single entry, instead of N separate logs. Creates a `project` (the parent, its
+   * kind on custom_json) then, per part, a work_item under it + a producer line
+   * (writer fee) + a consumer line (client price) + the money chain
+   * (client→admin→writer, mirroring a single job) so each part's margin derives
+   * correctly. All in ONE transaction. The admin (caller) sits atop the chain; a
+   * party-less System SuperAdmin creating a bundle just skips the legs (no party to
+   * anchor the chain — it can be priced afterward like any job).
+   */
+  async createBundle(tx: Db, principal: SessionPrincipal, dto: CreateBundleDto) {
+    const [proj] = await tx
+      .insert(schema.project)
+      .values({
+        orgId: principal.orgId,
+        title: dto.title,
+        clientPartyId: dto.clientPartyId ?? null,
+        customJson: { kind: dto.kind },
+        createdBy: principal.userId,
+      })
+      .returning({ id: schema.project.id });
+    const source = principal.partyId; // the creating admin anchors the leg chain
+    const partIds: string[] = [];
+    for (const p of dto.parts) {
+      const item = await this.create(tx, principal, {
+        title: p.detail,
+        projectId: proj!.id,
+        courseRefId: dto.courseRefId,
+        clientPartyId: dto.clientPartyId,
+        doerPartyId: dto.doerPartyId,
+        sourcePartyId: dto.clientPartyId, // top of the chain = the client (as in a single job)
+        wordCount: p.wordCount,
+      } as CreateWorkItemDto);
+      if (dto.doerPartyId && p.writerAmount != null) {
+        await this.lines.addLine(tx, principal, item.id, {
+          lineKind: "part", writerPartyId: dto.doerPartyId, fixedAmount: p.writerAmount, wordCount: p.wordCount,
+        } as AddLineDto);
+      }
+      if (dto.clientPartyId && p.clientAmount != null) {
+        await this.lines.addLine(tx, principal, item.id, {
+          lineKind: "copy", consumerPartyId: dto.clientPartyId, fixedAmount: p.clientAmount, wordCount: p.wordCount,
+        } as AddLineDto);
+      }
+      if (source && dto.clientPartyId && dto.doerPartyId && p.clientAmount != null && p.writerAmount != null) {
+        await this.legs.appendLegs(tx, principal, item.id, {
+          legs: [
+            { seq: 1, fromPartyId: dto.clientPartyId, toPartyId: source, amount: p.clientAmount },
+            { seq: 2, fromPartyId: source, toPartyId: dto.doerPartyId, amount: p.writerAmount },
+          ],
+        });
+      }
+      partIds.push(item.id);
+    }
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.bundle_created",
+      entity: "project",
+      entityId: proj!.id,
+      detail: { kind: dto.kind, parts: partIds.length },
+    });
+    return { projectId: proj!.id, kind: dto.kind, parts: partIds };
   }
 
   async getRaw(tx: Db, id: string) {

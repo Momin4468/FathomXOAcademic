@@ -104,6 +104,24 @@ export class ListWorkQueryDto {
   @IsOptional() @IsString() includeArchived?: string; // "true" to include
 }
 
+/** One part (assignment/tutorial/chapter) of a course/thesis/project bundle. */
+export class BundlePartDto {
+  @IsString() @MinLength(1) @MaxLength(300) detail!: string;
+  @IsOptional() @IsInt() @Min(0) wordCount?: number;
+  @IsOptional() @IsNumber() @Min(0) clientAmount?: number;
+  @IsOptional() @IsNumber() @Min(0) writerAmount?: number;
+}
+
+/** "Add course / thesis / project" — one parent + N priced parts in one entry. */
+export class CreateBundleDto {
+  @IsIn(["course", "thesis", "project"]) kind!: "course" | "thesis" | "project";
+  @IsString() @MinLength(1) @MaxLength(300) title!: string;
+  @IsOptional() @IsUUID() courseRefId?: string;
+  @IsOptional() @IsUUID() clientPartyId?: string;
+  @IsOptional() @IsUUID() doerPartyId?: string;
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => BundlePartDto) parts!: BundlePartDto[];
+}
+
 export class AddLineDto {
   @IsIn(LINE_KINDS) lineKind!: LineKind;
   @IsOptional() @IsUUID() consumerPartyId?: string;
