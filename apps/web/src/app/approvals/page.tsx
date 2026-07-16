@@ -4,10 +4,10 @@ import { useSWRConfig } from "swr";
 import { Check } from "lucide-react";
 import { apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { can, type WhoAmI } from "@/lib/types";
+import { can, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { DataGrid, type DataGridColumn } from "@/components/DataGrid";
-import { Badge, Card, Chip } from "@/components/ui";
+import { Badge, Button, Card, Chip, EmptyState } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
 interface ProvisionalRow { id: string; kind: string; canonical: string; parent: string | null; createdAt: string }
@@ -24,13 +24,23 @@ export default function ApprovalsPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const canApproveRef = can(me?.permissions, "reference:approve");
 
+  const canApproveWork = can(me?.permissions, "work:approve");
   const key = "reference/provisional";
+  const workKey = "work?workState=pending";
   const { data: rows, isLoading } = useApi<ProvisionalRow[]>(can(me?.permissions, "reference:view") ? key : null);
+  // Work awaiting a governance confirm (draft/pending → confirmed is the "claim
+  // becomes fact" step; §3.8). An approver confirms it here.
+  const { data: pendingWork } = useApi<WorkListRow[]>(canApproveWork ? workKey : null);
 
   async function confirm(r: ProvisionalRow) {
     await apiSend(`reference/${r.id}/confirm`, "POST");
     await mutate(key);
     toast({ title: `Confirmed ${r.canonical}`, variant: "success" });
+  }
+  async function confirmWork(id: string) {
+    await apiSend(`work/${id}/transition`, "POST", { toState: "confirmed" });
+    await mutate(workKey);
+    toast({ title: "Job confirmed", variant: "success" });
   }
 
   const columns: DataGridColumn<ProvisionalRow>[] = [
@@ -60,6 +70,32 @@ export default function ApprovalsPage() {
         rowActions={canApproveRef ? () => [{ icon: Check, label: "Confirm", tone: "blue", onClick: confirm }] : undefined}
         stats={[{ label: "Awaiting a steward", value: (rows ?? []).length, tone: (rows ?? []).length ? "gold" : "neutral" }]}
       />
+
+      {canApproveWork && (
+        <Card className="mt-4 p-0">
+          <div className="flex items-center justify-between border-b border-ink-700 px-4 py-2.5">
+            <h2 className="text-sm font-semibold">Work awaiting confirmation</h2>
+            <Badge tone={(pendingWork ?? []).length ? "amber" : "gray"}>{(pendingWork ?? []).length}</Badge>
+          </div>
+          {!pendingWork || pendingWork.length === 0 ? (
+            <div className="p-4"><EmptyState title="Nothing pending" hint="Logged work becomes a fact once an approver confirms it." /></div>
+          ) : (
+            <ul className="divide-y divide-ink-800">
+              {pendingWork.map((w) => (
+                <li key={w.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <Link href={`/work/${w.id}`} className="flex min-w-0 items-center gap-2 text-sm hover:underline">
+                    {w.courseCode && <Chip>{w.courseCode}</Chip>}
+                    <span className="truncate font-medium">{w.title}</span>
+                    {w.doerName && <span className="shrink-0 text-xs text-slate-500">· {w.doerName}</span>}
+                  </Link>
+                  <Button variant="secondary" className="min-h-0 shrink-0 px-3 py-1 text-xs" onClick={() => void confirmWork(w.id)}>Confirm</Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
       {otherQueues.length > 0 && (
         <Card className="mt-4">
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Other approval queues</h2>
