@@ -307,20 +307,28 @@ export class WorkService {
     // bypass RLS and leak a peer's real margin, so it is deliberately NOT used. System
     // SuperAdmin (party-less, sees every leg) reads the full inflow − outflow.
     // clientRate is a client price → gated with the amounts; word_count stays ungated.
-    // `mynet` = the caller's OWN net across their RLS-visible legs. It can only ever
-    // include legs the caller is on, so it is inherently opacity-safe and is exposed
-    // to EVERY viewer as `myFee`: a writer sees their own fee (their producer leg)
-    // without ever seeing a client price, margin, or peer cut (§4 — own earnings).
+    // `myin`/`myout` = the amounts flowing INTO / OUT OF the caller across their
+    // RLS-visible legs only. They can never include a leg the caller isn't on, so
+    // they are inherently opacity-safe: on a shared job you see only YOUR hop, never
+    // a peer's real client price (§4.4). This is also what makes the OWNER's private
+    // margin work — Momin's own client→him leg (real price) and him→pool leg
+    // (declared) are both his, so his myin/myout reflect the real economics, while a
+    // downstream partner's reflect only the pool figure. `mynet` = myin − myout is
+    // exposed to every viewer as `myFee` (a writer's own fee; opacity-safe, ungated).
     const myFeeJoin = sql`left join lateral (
-      select coalesce(sum(case when to_party_id = app_current_party() then amount
-                               when from_party_id = app_current_party() then -amount else 0 end), 0) as mynet
+      select coalesce(sum(amount) filter (where to_party_id = app_current_party()), 0) as myin,
+             coalesce(sum(amount) filter (where from_party_id = app_current_party()), 0) as myout
       from leg where work_item_id = w.id
     ) mf on true`;
-    const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`mf.mynet`;
+    // A party sees THEIR OWN inbound/outbound/net (correct at any chain depth); a
+    // party-less System SuperAdmin sees the whole chain (source→...→doer).
+    const clientAmountExpr = isSuperadmin ? sql`lg.inflow` : sql`mf.myin`;
+    const writerAmountExpr = isSuperadmin ? sql`lg.outflow` : sql`mf.myout`;
+    const marginExpr = isSuperadmin ? sql`lg.inflow - lg.outflow` : sql`mf.myin - mf.myout`;
     const moneyCols = canSeeMoney
       ? sql`, cl.client_rate as "clientRate", pl.writer_rate as "writerRate",
-             round(lg.inflow, 2) as "clientAmount",
-             round(lg.outflow, 2) as "writerAmount",
+             round(${clientAmountExpr}, 2) as "clientAmount",
+             round(${writerAmountExpr}, 2) as "writerAmount",
              round(${marginExpr}, 2) as "margin"`
       : sql``;
     const moneyJoin = canSeeMoney
@@ -340,7 +348,7 @@ export class WorkService {
              ce.canonical as "courseCode",
              cl.word_count as "wordCount", cl.unit_label as "unitLabel",
              cl.consumer_line_id as "consumerLineId", pl.producer_line_id as "producerLineId",
-             round(mf.mynet, 2) as "myFee"
+             round(mf.myin - mf.myout, 2) as "myFee"
              ${moneyCols}
       from work_item w
       left join party dp on dp.id = w.doer_party_id

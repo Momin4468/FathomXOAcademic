@@ -303,6 +303,25 @@ describe("leg chain + derived margins — RLS-filtered per caller (SCHEMA §D)",
     assert.deepEqual((res.body.legs as Array<any>).map((l) => l.seq), [3]);
     assert.deepEqual(res.body.margins, [], "a terminal node has no derivable margin");
   });
+
+  it("the LIST read-model is CALLER-BASED — Momin sees his real ৳6000, Emon only the declared ৳5000 (§4.4 declared-vs-real)", async () => {
+    const rowFor = (body: unknown, id: string) => (body as Array<{ id: string }>).find((r) => r.id === id);
+    // Momin sourced it → his own legs are client→Momin (6000) + Momin→Emon (5000):
+    // he sees his REAL client price and his PRIVATE margin.
+    const m = await api(BASE, "/work", { token: mominToken });
+    const mRow = rowFor(m.body, workId) as { clientAmount: string | number; margin: string | number } | undefined;
+    assert.ok(mRow, "Momin sees the job");
+    assert.equal(Number(mRow!.clientAmount), 6000, "Momin (source) sees his REAL client price 6000");
+    assert.equal(Number(mRow!.margin), 1000, "Momin's private margin = 6000−5000");
+    // Emon is downstream → his legs are Momin→Emon (5000) + Emon→Writer (3000):
+    // he sees ONLY the declared pool figure, never Momin's real 6000.
+    const e = await api(BASE, "/work", { token: emonToken });
+    const eRow = rowFor(e.body, workId) as { clientAmount: string | number; margin: string | number } | undefined;
+    assert.ok(eRow, "Emon sees the shared job");
+    assert.equal(Number(eRow!.clientAmount), 5000, "Emon sees the DECLARED pool price 5000, NOT Momin's real 6000");
+    assert.equal(Number(eRow!.margin), 2000, "Emon's margin = 5000−3000");
+    assert.ok(!JSON.stringify(eRow).includes("6000"), "Momin's real 6000 never appears in Emon's row (§4.4)");
+  });
 });
 
 // ─── 🔴 MANDATORY leg-leak (HTTP) ───────────────────────────────────────────────
