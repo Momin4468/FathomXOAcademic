@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList,
   Contact, Database, Download, Eye, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, LayoutDashboard, ListTodo, LogOut, Menu,
-  PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Share2, Shield, ShieldCheck,
+  PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Settings, Share2, Shield, ShieldCheck,
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { apiGet, useApi, logout } from "@/lib/api";
@@ -125,6 +125,7 @@ const ADMIN_TREE: NavGroup[] = [
     { href: "/custom-fields", label: "Custom fields", perm: "custom_fields:view", icon: SlidersHorizontal },
     { href: "/users", label: "Users", perm: "platform:view", icon: UserCog },
     { href: "/roles", label: "Roles", perm: "platform:view", icon: Shield },
+    { href: "/settings", label: "Settings", perm: "rules:view", icon: Settings },
   ] },
   { title: "Private", items: [
     { href: "/personal-finance", label: "Personal finance", perm: null, icon: PieChart },

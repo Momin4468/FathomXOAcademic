@@ -50,7 +50,7 @@ export async function wipeDemo(client: pg.Client): Promise<void> {
   await client.query(`delete from auth_refresh_token where user_id in (select id from user_account where org_id = $1)`, [DEMO_ORG]);
   for (const t of [
     "task", "payment_allocation", "payment", "expense", "invoice_line", "invoice", "leg",
-    "work_line", "work_item", "price_group", "opening_balance", "channel",
+    "work_line", "work_item", "price_group", "deal_term", "opening_balance", "channel",
     "notification", "audit_log", "user_role", "user_account", "permission",
     "cover_sheet_template", "ref_alias", "party", "ref_entity", "role",
   ]) {
@@ -259,6 +259,14 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   for (const chKey of ["ch:facebook", "ch:web"]) {
     await q(`insert into channel (id, org_id, party_id, controller_party_id, medium, is_active, created_by) values ($1,$2,$3,null,$4,true,$5)`,
       [randomUUID(), DEMO_ORG, P.get(chKey), chKey === "ch:facebook" ? "facebook" : "web", mominU]);
+  }
+  // Effective-dated split terms (the Settings page): a co-admin split, a referral %,
+  // and a per-word writer rate. Append-only — a change is a new dated term.
+  for (const [fromKey, toKey, type, val, basis] of [
+    [null, "emon", "split_pct", 50, null], [null, "r:Lemon", "referral_pct", 10, "revenue"], [null, "w:Humaira", "per_word", 1.2, null],
+  ] as const) {
+    await q(`insert into deal_term (id, org_id, from_party_id, to_party_id, applies_to, term_type, basis, value, effective_from, created_by) values ($1,$2,$3,$4,'default',$5,$6,$7,$8,$9)`,
+      [randomUUID(), DEMO_ORG, fromKey ? P.get(fromKey) : null, P.get(toKey), type, basis, String(val), past(180), mominU]);
   }
   for (const [wKey, amt] of [["w:Humaira", 2000], ["w:Khalid", 1500], ["w:Fatin", -500]] as const) {
     await q(`insert into opening_balance (id, org_id, party_id, amount, currency, as_of, note, created_by) values ($1,$2,$3,$4,'BDT',$5,$6,$7)`,
