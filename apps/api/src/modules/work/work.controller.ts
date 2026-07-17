@@ -28,6 +28,7 @@ import {
   RepriceLegDto,
   ResitDto,
   SetLineStatusDto,
+  ShareDto,
   TransitionDto,
   UpdateLineDto,
   UpdateWorkItemDto,
@@ -189,6 +190,37 @@ export class WorkController {
     @Body() dto: HandoffDto,
   ) {
     return this.db.withTenant(ctx, (tx) => this.work.handoff(tx, principal, id, dto));
+  }
+
+  /** Who this job is shared with (owner/SuperAdmin only; via the owner-gated definer). */
+  @Get(":id/shares")
+  @RequirePermission("work", "approve")
+  listShares(@CurrentRls() ctx: RlsContext, @Param("id", ParseUUIDPipe) id: string) {
+    return this.db.withTenant(ctx, (tx) => this.work.listShares(tx, id));
+  }
+
+  /** Share a job (visibility only, no money) with another admin. */
+  @Post(":id/share")
+  @RequirePermission("work", "approve")
+  share(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: ShareDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.shareJob(tx, principal, id, dto.granteePartyId));
+  }
+
+  /** Stop sharing a job with an admin (revokes the job + client grant). */
+  @Post(":id/unshare")
+  @RequirePermission("work", "approve")
+  unshare(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: ShareDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.unshareJob(tx, principal, id, dto.granteePartyId));
   }
 
   /** Work-state machine; →confirmed additionally requires work:approve. */

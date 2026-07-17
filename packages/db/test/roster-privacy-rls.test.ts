@@ -317,6 +317,36 @@ describe("roster_grant shares a private client/job, and revoke removes it", () =
   });
 });
 
+// ─── Manage definers (0052): owner-gated list + revoke ───────────────────────
+describe("🔴 roster_grant manage definers — only the owner can list/revoke shares", () => {
+  it("owner lists the grantee; non-owner + grantee see nothing; only the owner's revoke works", async () => {
+    await admin.query(
+      `insert into roster_grant (id, org_id, subject_type, subject_id, party_id, reason) values ($1,$2,'work_item',$3,$4,'shared')`,
+      [randomUUID(), orgA, jobOfEmon, momin],
+    );
+    const listAs = (partyId: string | null, isSuperadmin: boolean) =>
+      withRlsTransaction(appPool, { orgId: orgA, partyId, isSuperadmin }, async (tx) => {
+        const res = await tx.execute(sql`select party_id as "partyId" from roster_grant_list('work_item', ${jobOfEmon})`);
+        return (res.rows as Array<{ partyId: string }>).map((r) => r.partyId);
+      });
+    assert.deepEqual(await listAs(emon, false), [momin], "the OWNER sees the grantee");
+    assert.deepEqual(await listAs(momin, false), [], "a NON-owner (even the grantee) gets nothing from the definer");
+
+    // A non-owner's revoke is a no-op (definer enforces owner) — the grant persists.
+    await withRlsTransaction(appPool, { orgId: orgA, partyId: momin, isSuperadmin: false }, async (tx) => {
+      await tx.execute(sql`select roster_grant_revoke('work_item', ${jobOfEmon}, ${momin}, ${randomUUID()})`);
+    });
+    assert.deepEqual(await listAs(emon, false), [momin], "a non-owner revoke did nothing — still shared");
+
+    // The owner revokes → gone, and Momin loses visibility of the job.
+    await withRlsTransaction(appPool, { orgId: orgA, partyId: emon, isSuperadmin: false }, async (tx) => {
+      await tx.execute(sql`select roster_grant_revoke('work_item', ${jobOfEmon}, ${momin}, ${randomUUID()})`);
+    });
+    assert.deepEqual(await listAs(emon, false), [], "after the owner revokes, no grantees remain");
+    assert.ok(!(await jobsVisibleTo(momin, false)).has(jobOfEmon), "and Momin can no longer see the job");
+  });
+});
+
 // ─── Append-only: the app role may INSERT + SELECT grants, never UPDATE/DELETE ─
 describe("app-role grants — roster_grant is append-only (no update/delete)", () => {
   it("🔴 rejects DELETE on roster_grant by the app role", async () => {

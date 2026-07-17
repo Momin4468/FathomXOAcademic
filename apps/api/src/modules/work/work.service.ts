@@ -286,6 +286,67 @@ export class WorkService {
   }
 
   /**
+   * Who this job is currently shared with (0052). Reads via the owner-gated
+   * roster_grant_list definer — roster_grant's RLS only shows the GRANTEE their own
+   * grant, so the OWNER needs the definer to see the full list. Returns [] for a
+   * non-owner (the definer enforces owner/SuperAdmin).
+   */
+  async listShares(tx: Db, workItemId: string) {
+    const res = await tx.execute(
+      sql`select id, party_id as "partyId", party_name as "partyName", reason, granted_at as "grantedAt"
+          from roster_grant_list('work_item', ${workItemId})`,
+    );
+    return res.rows as Array<{ id: string; partyId: string; partyName: string; reason: string | null; grantedAt: string }>;
+  }
+
+  /**
+   * Share a job with another admin — VISIBILITY only, no money leg (unlike a
+   * handoff). Grants the job + its client so the grantee can see it. Owner-only.
+   */
+  async shareJob(tx: Db, principal: SessionPrincipal, workItemId: string, granteePartyId: string) {
+    const item = await this.getRaw(tx, workItemId);
+    if (!item.ownerPartyId) throw new BadRequestException("Set an owning admin on this job before sharing it");
+    if (!principal.isSystemSuperadmin && principal.partyId !== item.ownerPartyId) {
+      throw new ForbiddenException("Only the owning admin may share this job");
+    }
+    if (granteePartyId === item.ownerPartyId) throw new BadRequestException("That admin already owns this job");
+    await this.grantRoster(tx, principal, "work_item", workItemId, granteePartyId, "shared");
+    if (item.clientPartyId) await this.grantRoster(tx, principal, "party", item.clientPartyId, granteePartyId, "shared");
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.shared",
+      entity: "work_item",
+      entityId: workItemId,
+      detail: { granteePartyId },
+    });
+    return { workItemId, granteePartyId, shared: true };
+  }
+
+  /**
+   * Stop sharing a job with an admin (0052) — revokes the job + its client grant
+   * via the owner-gated roster_grant_revoke definer (roster_grant is un-updatable by
+   * the app role, and only the owner may revoke). Idempotent.
+   */
+  async unshareJob(tx: Db, principal: SessionPrincipal, workItemId: string, granteePartyId: string) {
+    const item = await this.getRaw(tx, workItemId);
+    if (!principal.isSystemSuperadmin && principal.partyId !== item.ownerPartyId) {
+      throw new ForbiddenException("Only the owning admin may change who this job is shared with");
+    }
+    await tx.execute(sql`select roster_grant_revoke('work_item', ${workItemId}, ${granteePartyId}, ${principal.userId})`);
+    if (item.clientPartyId) {
+      await tx.execute(sql`select roster_grant_revoke('party', ${item.clientPartyId}, ${granteePartyId}, ${principal.userId})`);
+    }
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.unshared",
+      entity: "work_item",
+      entityId: workItemId,
+      detail: { granteePartyId },
+    });
+    return { workItemId, granteePartyId, revoked: true };
+  }
+
+  /**
    * Possible duplicate/overlap work items (P1 item 10) — a capture-first, NEVER
    * blocking heuristic reusing pg_trgm `similarity()` (0004). Requires the strong
    * pair (same source party + same course) to even consider a match, then either

@@ -302,6 +302,7 @@ export default function JobDetailPage() {
               </Card>
             )}
             {canConfirm && <HandoffAction workItemId={id} onDone={() => void mutate()} />}
+            {canConfirm && <SharesPanel workItemId={id} />}
           </section>
 
           {can(me?.permissions, "capture:view") && (
@@ -370,6 +371,77 @@ function HandoffAction({ workItemId, onDone }: { workItemId: string; onDone: () 
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
         </div>
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Who this job is shared with (0052). The owner sees the grantee list (via the
+ * owner-gated definer), can share it with another admin (visibility only, no
+ * money), and can revoke a share. Non-owners get an empty list from the server.
+ */
+function SharesPanel({ workItemId }: { workItemId: string }) {
+  const { data: shares, mutate } = useApi<Array<{ id: string; partyId: string; partyName: string; reason: string | null }>>(`work/${workItemId}/shares`);
+  const [adding, setAdding] = useState(false);
+  const [grantee, setGrantee] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const list = shares ?? [];
+
+  async function share() {
+    if (!grantee) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await apiSend(`work/${workItemId}/share`, "POST", { granteePartyId: grantee });
+      setAdding(false);
+      setGrantee(null);
+      void mutate();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not share");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function revoke(partyId: string) {
+    try {
+      await apiSend(`work/${workItemId}/unshare`, "POST", { granteePartyId: partyId });
+      void mutate();
+    } catch {
+      /* surfaced on next load */
+    }
+  }
+
+  return (
+    <Card>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Shared with</h3>
+        <button onClick={() => setAdding((v) => !v)} className="text-xs font-medium text-plum-500 hover:underline">
+          {adding ? "Cancel" : "Share…"}
+        </button>
+      </div>
+      {adding && (
+        <div className="mb-3 space-y-2">
+          {err && <ErrorNote message={err} />}
+          <EntityPicker placeholder="Search admin / partner…" search={searchAdmin} onPick={(i) => setGrantee(i?.id ?? null)} />
+          <Button onClick={share} disabled={busy || !grantee}>{busy ? "Sharing…" : "Share job (visibility only)"}</Button>
+        </div>
+      )}
+      {list.length === 0 ? (
+        <p className="text-sm text-slate-500">Not shared with anyone.</p>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {list.map((s) => (
+            <li key={s.id} className="flex items-center justify-between">
+              <span className="text-slate-300">
+                {s.partyName}
+                {s.reason ? <span className="ml-1 text-xs text-slate-500">· {s.reason}</span> : null}
+              </span>
+              <button onClick={() => revoke(s.partyId)} className="text-xs text-red-400 hover:underline">Revoke</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

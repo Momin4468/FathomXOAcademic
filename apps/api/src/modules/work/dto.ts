@@ -227,6 +227,11 @@ export class HandoffDto {
   @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
 
+/** Share / unshare a job with another admin (0052 — visibility only, no money). */
+export class ShareDto {
+  @IsUUID() granteePartyId!: string;
+}
+
 // ─── Resit / fail handling (§3/§6/§8) ────────────────────────────────────────
 export class ResitWriterDto {
   @IsUUID() partyId!: string; // the resit (second) writer
