@@ -37,9 +37,18 @@ export default function OutcomesPage() {
   );
 
   const cols: DCol<Outcome>[] = [
-    { label: "Writer", render: (o) => cell(o.writerPartyId ? <PartyName id={o.writerPartyId} /> : "—", { weight: 600 }) },
+    { label: "Writer", text: (o) => o.writerPartyId ?? "", render: (o) => cell(o.writerPartyId ? <PartyName id={o.writerPartyId} /> : "—", { weight: 600 }) },
     {
-      label: "Result", render: (o) => (
+      label: "Result",
+      text: (o) => [
+        o.onTime === false ? `late${o.daysLate ? ` ${o.daysLate}d` : ""}` : "",
+        o.onTime === true ? "on-time" : "",
+        o.failed ? "failed" : "",
+        o.complaint ? "complaint" : "",
+        o.revisionCount > 0 ? `${o.revisionCount} rev${o.revisionFault ? ` (${o.revisionFault})` : ""}` : "",
+        o.satisfaction ?? "",
+      ].filter(Boolean).join(" "),
+      render: (o) => (
         <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {o.onTime === false && <Badge tone="amber">late{o.daysLate ? ` ${o.daysLate}d` : ""}</Badge>}
           {o.onTime === true && <Badge tone="green">on-time</Badge>}
@@ -50,9 +59,9 @@ export default function OutcomesPage() {
         </span>
       ),
     },
-    { label: "Grade", render: (o) => o.grade ?? "—" },
-    { label: "Rework", align: "right", render: (o) => money(o.reworkCost) },
-    { label: "Recorded", render: (o) => cell(fmtDay(o.recordedAt), { color: T.muted2 }) },
+    { label: "Grade", text: (o) => o.grade ?? "", render: (o) => o.grade ?? "—" },
+    { label: "Rework", align: "right", text: (o) => (o.reworkCost == null ? 0 : Number(o.reworkCost)), render: (o) => money(o.reworkCost) },
+    { label: "Recorded", text: (o) => o.recordedAt, render: (o) => cell(fmtDay(o.recordedAt), { color: T.muted2 }) },
   ];
 
   return (
@@ -79,7 +88,7 @@ export default function OutcomesPage() {
         {outcomes && (outcomes.length === 0 ? (
           <EmptyBox title="No outcomes yet" />
         ) : (
-          <DGrid cols={cols} rows={outcomes} keyOf={(o) => o.id} minWidth={620} />
+          <DGrid cols={cols} rows={outcomes} keyOf={(o) => o.id} minWidth={620} search exportName="outcomes" />
         ))}
       </Page>
     </AppShell>

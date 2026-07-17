@@ -167,15 +167,18 @@ export default function InvoicesPage() {
           <DGrid<Invoice>
             rows={data}
             keyOf={(inv) => inv.id}
+            search
+            exportName="invoices"
             cols={[
-              { label: "Client", render: (inv) => <PartyName id={inv.clientPartyId} /> },
-              { label: "Status", align: "center", render: (inv) => <Badge tone={STATUS_TONE[inv.status] ?? "gray"}>{inv.status}</Badge> },
+              { label: "Client", text: (inv) => inv.clientPartyId, render: (inv) => <PartyName id={inv.clientPartyId} /> },
+              { label: "Status", align: "center", text: (inv) => inv.status, render: (inv) => <Badge tone={STATUS_TONE[inv.status] ?? "gray"}>{inv.status}</Badge> },
               {
                 label: "Estimate",
                 align: "center",
+                text: (inv) => (inv.isEstimate ? "estimate" : inv.supersedesInvoiceId ? "final" : ""),
                 render: (inv) => (inv.isEstimate ? <Badge tone="amber">estimate</Badge> : inv.supersedesInvoiceId ? <Badge tone="gray">final</Badge> : <span style={{ color: T.muted2 }}>—</span>),
               },
-              { label: "Date", render: (inv) => <span style={{ color: T.muted2 }}>{fmtDay(inv.createdAt)}</span> },
+              { label: "Date", text: (inv) => inv.createdAt, render: (inv) => <span style={{ color: T.muted2 }}>{fmtDay(inv.createdAt)}</span> },
             ]}
             actions={[{ label: "open →", onClick: () => {}, href: (inv) => `/invoices/${inv.id}` }]}
             empty="No invoices. Bill a job line to start a client's invoice."

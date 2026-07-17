@@ -55,8 +55,8 @@ export default function CoverSheetsPage() {
   }
 
   const cols: DCol<CoverSheet>[] = [
-    { label: "Name", render: (cs) => cell(cs.name, { weight: 600, sub: cs.notes || undefined }) },
-    { label: "Updated", render: (cs) => cell(fmtDay(cs.updatedAt), { color: T.muted2 }) },
+    { label: "Name", text: (cs) => cs.name, render: (cs) => cell(cs.name, { weight: 600, sub: cs.notes || undefined }) },
+    { label: "Updated", text: (cs) => cs.updatedAt, render: (cs) => cell(fmtDay(cs.updatedAt), { color: T.muted2 }) },
     {
       label: "File", align: "right", render: (cs) =>
         cs.fileObjectId ? (
@@ -109,7 +109,7 @@ export default function CoverSheetsPage() {
         {data && (data.length === 0 ? (
           <EmptyBox title="No cover sheets yet" />
         ) : (
-          <DGrid cols={cols} rows={data} keyOf={(cs) => cs.id} minWidth={480} />
+          <DGrid cols={cols} rows={data} keyOf={(cs) => cs.id} minWidth={480} search exportName="cover-sheets" />
         ))}
       </Page>
     </AppShell>

@@ -86,14 +86,21 @@ export default function CustomFieldsPage() {
             rows={defs}
             keyOf={(d) => d.id}
             minWidth={520}
+            search
+            exportName="custom-fields"
             cols={[
               {
                 label: "Field",
+                text: (d) => d.fieldName,
                 render: (d) => cell(d.fieldName, { sub: d.fieldType === "select" && d.optionsJson ? d.optionsJson.join(" · ") : undefined }),
               },
-              { label: "Type", render: (d) => <Badge tone="blue">{TYPE_LABEL[d.fieldType] ?? d.fieldType}</Badge> },
+              { label: "Type", text: (d) => TYPE_LABEL[d.fieldType] ?? d.fieldType, render: (d) => <Badge tone="blue">{TYPE_LABEL[d.fieldType] ?? d.fieldType}</Badge> },
               {
                 label: "Flags",
+                text: (d) => {
+                  const scoped = d.scopeJson && Object.keys(d.scopeJson).length > 0;
+                  return `${d.required ? "required " : ""}${scoped ? "scoped" : "global"}`.trim();
+                },
                 render: (d) => {
                   const scoped = d.scopeJson && Object.keys(d.scopeJson).length > 0;
                   return (

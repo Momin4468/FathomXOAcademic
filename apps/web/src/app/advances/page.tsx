@@ -78,13 +78,15 @@ export default function AdvancesPage() {
           <DGrid<AdvanceRow>
             rows={data}
             keyOf={(a) => a.id}
+            search
+            exportName="advances"
             cols={[
-              { label: "Counterparty", render: (a) => cell(a.counterpartyName ?? a.counterpartyPartyId, { weight: 500, sub: a.note ?? undefined }) },
-              { label: "Direction", render: (a) => <Badge tone={a.direction === "given" ? "amber" : "gray"}>{a.direction}</Badge> },
-              { label: "Principal", align: "right", render: (a) => cell(money(a.principal), { nums: true }) },
-              { label: "Started", render: (a) => <span style={{ color: T.muted2 }}>{fmtDay(a.startedOn)}</span> },
-              { label: "Due", render: (a) => <span style={{ color: T.muted2 }}>{a.dueOn ? fmtDay(a.dueOn) : "—"}</span> },
-              { label: "Outstanding", align: "right", render: (a) => cell(money(a.outstanding), { nums: true, weight: 700, color: T.ink }) },
+              { label: "Counterparty", text: (a) => a.counterpartyName ?? a.counterpartyPartyId, render: (a) => cell(a.counterpartyName ?? a.counterpartyPartyId, { weight: 500, sub: a.note ?? undefined }) },
+              { label: "Direction", text: (a) => a.direction, render: (a) => <Badge tone={a.direction === "given" ? "amber" : "gray"}>{a.direction}</Badge> },
+              { label: "Principal", align: "right", text: (a) => Number(a.principal), render: (a) => cell(money(a.principal), { nums: true }) },
+              { label: "Started", text: (a) => a.startedOn, render: (a) => <span style={{ color: T.muted2 }}>{fmtDay(a.startedOn)}</span> },
+              { label: "Due", text: (a) => a.dueOn ?? "", render: (a) => <span style={{ color: T.muted2 }}>{a.dueOn ? fmtDay(a.dueOn) : "—"}</span> },
+              { label: "Outstanding", align: "right", text: (a) => Number(a.outstanding), render: (a) => cell(money(a.outstanding), { nums: true, weight: 700, color: T.ink }) },
             ]}
             actions={actions.length ? actions : undefined}
             empty="No advances yet. Record one above."

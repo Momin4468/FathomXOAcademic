@@ -14,20 +14,25 @@ import { AppShell } from "@/components/AppShell";
  * bills the selected client. Styling uses the handoff's exact tokens.
  */
 
-// ── design tokens (exact from design_handoff_business_os/README.md) ──────────
+// ── design tokens — surfaces/text as CSS vars (flip with the theme, light values
+// are the exact handoff hexes); accents/semantics fixed. Mirrors dc.tsx. ───────
 const T = {
   gold: "#E8B64C", goldHover: "#F0D08C", goldDeep: "#B6822A",
-  ink: "#0E1524", ink2: "#45506A", muted: "#667085", muted2: "#8A93A6",
-  card: "#FFFFFF", border: "#E2E6EC", hair: "#F3F5F8", eyebrow: "#EEF1F5", rowHover: "#FAFBFC",
+  ink: "var(--dc-ink)", ink2: "var(--dc-ink2)", muted: "var(--dc-muted)", muted2: "var(--dc-muted2)",
+  card: "var(--dc-card)", border: "var(--dc-border)", hair: "var(--dc-hair)", eyebrow: "var(--dc-eyebrow)", rowHover: "var(--dc-rowhover)",
   mono: "ui-monospace, SFMono-Regular, Menlo, monospace",
-  codeBg: "#EEF1F5", codeText: "#26304A",
-  parch: "#FBF7EC", parchIn: "#FFFDF6", parchBorder: "#EAD9AE", parchText: "#8A5F1D",
+  codeBg: "var(--dc-codebg)", codeText: "var(--dc-codetext)",
+  parch: "var(--dc-parch)", parchIn: "var(--dc-parchin)", parchBorder: "var(--dc-parchborder)", parchText: "var(--dc-parchtext)",
   green: "#157F3D", greenBg: "#E4F3EA", red: "#B42318", redBg: "#FBE9E7",
   amber: "#8A5F1D", amberBg: "#FCF6E8", blue: "#3353C4", purple: "#6D3FC4",
 };
 const inputBase: React.CSSProperties = {
   border: `1px solid ${T.border}`, borderRadius: 7, padding: "8px 9px",
   fontSize: 12.5, fontFamily: "Inter, sans-serif", outlineColor: T.gold, background: T.card,
+};
+const filterSelect: React.CSSProperties = {
+  border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 9px", fontSize: 12,
+  fontFamily: "Inter, sans-serif", color: T.ink2, background: T.card, cursor: "pointer", textTransform: "capitalize",
 };
 const bdt = (n: number | string | null | undefined) => {
   const v = Number(n ?? 0);
@@ -54,8 +59,30 @@ export default function TasksPage() {
   const isOwner = !!me?.principal?.isSystemSuperadmin || canBill; // sees the parchment "actual / your extra"
   const { data: rows, mutate } = useApi<WorkListRow[]>("work");
 
-  const pending = useMemo(() => (rows ?? []).filter((r) => r.workState !== "delivered"), [rows]);
-  const done = useMemo(() => (rows ?? []).filter((r) => r.workState === "delivered"), [rows]);
+  // ── filters (client-side; the list is already the caller's RLS-scoped set) ──
+  const [q, setQ] = useState("");
+  const [fState, setFState] = useState("");
+  const [fWriter, setFWriter] = useState("");
+  const [fClient, setFClient] = useState("");
+  const writers = useMemo(() => Array.from(new Set((rows ?? []).map((r) => r.doerName).filter(Boolean))).sort() as string[], [rows]);
+  const clients = useMemo(() => Array.from(new Set((rows ?? []).map((r) => r.clientName).filter(Boolean))).sort() as string[], [rows]);
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    return (rows ?? []).filter((r) => {
+      if (fState && r.workState !== fState) return false;
+      if (fWriter && r.doerName !== fWriter) return false;
+      if (fClient && r.clientName !== fClient) return false;
+      if (term) {
+        const hay = [r.courseCode, r.title, r.clientName, r.doerName, r.ownerName].filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [rows, q, fState, fWriter, fClient]);
+  const anyFilter = !!(q || fState || fWriter || fClient);
+
+  const pending = useMemo(() => filtered.filter((r) => r.workState !== "delivered"), [filtered]);
+  const done = useMemo(() => filtered.filter((r) => r.workState === "delivered"), [filtered]);
 
   const sub = canBill
     ? "writers log; you add client price, vendor, invoice, paid — the owner also sees the real price"
@@ -77,6 +104,36 @@ export default function TasksPage() {
         </div>
 
         <LogBar canBill={canBill} onLogged={() => void mutate()} />
+
+        {/* filter bar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 10px", width: 240, maxWidth: "100%" }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted2} strokeWidth="2" strokeLinecap="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.3-4.3" /></svg>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search code, task, client…" style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 12.5, fontFamily: "Inter, sans-serif", color: T.ink }} />
+            {q && <span onClick={() => setQ("")} style={{ cursor: "pointer", color: T.muted2, fontSize: 14 }}>×</span>}
+          </div>
+          <select value={fState} onChange={(e) => setFState(e.target.value)} style={{ ...filterSelect }}>
+            <option value="">All states</option>
+            {["draft", "pending", "confirmed", "delivered"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {writers.length > 0 && (
+            <select value={fWriter} onChange={(e) => setFWriter(e.target.value)} style={{ ...filterSelect }}>
+              <option value="">All writers</option>
+              {writers.map((w) => <option key={w} value={w}>{w}</option>)}
+            </select>
+          )}
+          {canBill && clients.length > 0 && (
+            <select value={fClient} onChange={(e) => setFClient(e.target.value)} style={{ ...filterSelect }}>
+              <option value="">All clients</option>
+              {clients.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
+          {anyFilter && (
+            <span onClick={() => { setQ(""); setFState(""); setFWriter(""); setFClient(""); }} style={{ fontSize: 11.5, fontWeight: 600, color: T.goldDeep, cursor: "pointer" }}>Clear</span>
+          )}
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 11.5, color: T.muted2 }}>{filtered.length} shown</span>
+        </div>
 
         <TaskTable
           title="Task pending"

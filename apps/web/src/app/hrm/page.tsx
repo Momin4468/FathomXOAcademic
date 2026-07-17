@@ -57,15 +57,18 @@ export default function HrmPage() {
             rows={data}
             keyOf={(l) => l.id}
             minWidth={640}
+            search
+            exportName="work-logs"
             empty="No work logs — employee-logged work will appear here."
             cols={[
-              { label: "Title", render: (l) => cell(l.title, { sub: l.description ?? undefined }) },
-              { label: "Employee", render: (l) => cell(l.employeeName ?? l.employeePartyId) },
-              { label: "Qty", align: "right", render: (l) => cell(l.quantity ?? "—", { nums: true }) },
-              { label: "Date", render: (l) => cell(formatDate(l.loggedOn)) },
+              { label: "Title", text: (l) => l.title, render: (l) => cell(l.title, { sub: l.description ?? undefined }) },
+              { label: "Employee", text: (l) => l.employeeName ?? l.employeePartyId, render: (l) => cell(l.employeeName ?? l.employeePartyId) },
+              { label: "Qty", align: "right", text: (l) => (l.quantity ? Number(l.quantity) : ""), render: (l) => cell(l.quantity ?? "—", { nums: true }) },
+              { label: "Date", text: (l) => l.loggedOn, render: (l) => cell(formatDate(l.loggedOn)) },
               {
                 label: "Status",
                 align: "center",
+                text: (l) => l.status,
                 render: (l) =>
                   l.status === "draft"
                     ? <Badge tone="amber">draft</Badge>

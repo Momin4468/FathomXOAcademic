@@ -104,6 +104,7 @@ export class ListWorkQueryDto {
   @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsIn(WORK_STATES) workState?: WorkState;
   @IsOptional() @IsString() includeArchived?: string; // "true" to include
+  @IsOptional() @IsString() @MaxLength(120) q?: string; // free-text: title or course code
 }
 
 /** One part (assignment/tutorial/chapter) of a course/thesis/project bundle. */

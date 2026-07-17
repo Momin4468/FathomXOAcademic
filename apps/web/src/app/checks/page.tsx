@@ -108,12 +108,12 @@ export default function ChecksPage() {
 
   // The board: recent batches.
   const cols: DCol<CheckBatchRow>[] = [
-    { label: "Channel", render: (b) => cell(b.channelLabel, { sub: b.customerPartyId ? <PartyName id={b.customerPartyId} /> : undefined }) },
-    { label: "Date", render: (b) => cell(fmtDay(b.periodDate), { color: T.muted2 }) },
-    { label: "Checked", align: "right", render: (b) => b.filesChecked },
-    { label: "Paid", align: "right", render: (b) => b.filesPaid },
-    { label: "Collected", align: "right", render: (b) => money(b.amountCollected) },
-    { label: "State", align: "center", render: (b) => <Badge tone={b.status === "confirmed" ? "green" : b.status === "proposed" ? "amber" : "gray"}>{b.status}</Badge> },
+    { label: "Channel", text: (b) => b.channelLabel, render: (b) => cell(b.channelLabel, { sub: b.customerPartyId ? <PartyName id={b.customerPartyId} /> : undefined }) },
+    { label: "Date", text: (b) => b.periodDate, render: (b) => cell(fmtDay(b.periodDate), { color: T.muted2 }) },
+    { label: "Checked", align: "right", text: (b) => b.filesChecked, render: (b) => b.filesChecked },
+    { label: "Paid", align: "right", text: (b) => b.filesPaid, render: (b) => b.filesPaid },
+    { label: "Collected", align: "right", text: (b) => Number(b.amountCollected), render: (b) => money(b.amountCollected) },
+    { label: "State", align: "center", text: (b) => b.status, render: (b) => <Badge tone={b.status === "confirmed" ? "green" : b.status === "proposed" ? "amber" : "gray"}>{b.status}</Badge> },
     {
       label: "", align: "right", render: (b) =>
         canApprove && b.status === "proposed" ? (
@@ -193,7 +193,7 @@ export default function ChecksPage() {
         {boardErr && <div style={{ marginBottom: 8 }}><Note>{boardErr}</Note></div>}
         {isLoading && <Loading />}
         {error && <Note>{error.message}</Note>}
-        {batches && <DGrid cols={cols} rows={batches} keyOf={(b) => b.id} empty="No batches yet." minWidth={620} />}
+        {batches && <DGrid cols={cols} rows={batches} keyOf={(b) => b.id} empty="No batches yet." minWidth={620} search exportName="checks" />}
 
         {/* Admin setup: channels, tool accounts + credits, top-ups. */}
         {canApprove && (

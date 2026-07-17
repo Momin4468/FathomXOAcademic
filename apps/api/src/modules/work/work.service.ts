@@ -521,7 +521,7 @@ export class WorkService {
    */
   async list(
     tx: Db,
-    filters: { doerPartyId?: string; sourcePartyId?: string; clientPartyId?: string; workState?: WorkState; includeArchived?: boolean },
+    filters: { doerPartyId?: string; sourcePartyId?: string; clientPartyId?: string; workState?: WorkState; includeArchived?: boolean; q?: string },
     canSeeMoney = false,
     isSuperadmin = false,
   ) {
@@ -531,6 +531,10 @@ export class WorkService {
     if (filters.sourcePartyId) conds.push(sql`w.source_party_id = ${filters.sourcePartyId}`);
     if (filters.clientPartyId) conds.push(sql`w.client_party_id = ${filters.clientPartyId}`);
     if (filters.workState) conds.push(sql`w.work_state = ${filters.workState}`);
+    if (filters.q?.trim()) {
+      const like = `%${filters.q.trim()}%`;
+      conds.push(sql`(w.title ilike ${like} or exists (select 1 from ref_entity ce2 where ce2.id = w.course_ref_id and ce2.canonical ilike ${like}))`);
+    }
     const where = sql.join(conds, sql` and `);
     // Money is derived from the caller's RLS-VISIBLE legs, so partner opacity holds:
     // you see the real economics on YOUR OWN jobs (you're on both the client and the

@@ -9,7 +9,7 @@ import {
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
 } from "lucide-react";
 import { apiGet, useApi, logout } from "@/lib/api";
-import { can, type PartyRow, type RefEntity, type WhoAmI } from "@/lib/types";
+import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { cx } from "./ui";
 import { EntityPicker, type PickItem } from "./EntityPicker";
 import { Logo } from "./Logo";
@@ -247,17 +247,19 @@ function GlobalSearch() {
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
-        const [parties, courses] = await Promise.all([
+        const [parties, courses, jobs] = await Promise.all([
           apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(term)}`).catch(() => [] as PartyRow[]),
           apiGet<RefEntity[]>(`reference?kind=course&q=${encodeURIComponent(term)}`).catch(() => [] as RefEntity[]),
+          apiGet<WorkListRow[]>(`work?q=${encodeURIComponent(term)}`).catch(() => [] as WorkListRow[]),
         ]);
         if (cancelled) return;
         const next: Hit[] = [
-          ...parties.slice(0, 6).map((p) => {
+          ...jobs.slice(0, 5).map((j) => ({ href: `/work/${j.id}`, label: j.title, sub: [j.courseCode, j.clientName].filter(Boolean).join(" · ") || "task" })),
+          ...parties.slice(0, 5).map((p) => {
             const isClient = (p.partyType ?? []).includes("client");
             return { href: isClient ? `/clients/${p.id}` : `/people/${p.id}`, label: p.displayName, sub: (p.partyType ?? []).join(", ") || "party" };
           }),
-          ...courses.slice(0, 5).map((c) => ({ href: `/reference-data`, label: c.canonical, sub: "course code" })),
+          ...courses.slice(0, 4).map((c) => ({ href: `/reference-data`, label: c.canonical, sub: "course code" })),
         ];
         setHits(next);
       } catch { /* non-fatal */ }

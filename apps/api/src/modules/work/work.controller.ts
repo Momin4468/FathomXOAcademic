@@ -114,6 +114,7 @@ export class WorkController {
           clientPartyId: query.clientPartyId,
           workState: query.workState,
           includeArchived: query.includeArchived === "true",
+          q: query.q,
         },
         canSeeMoney(principal, perms),
         principal.isSystemSuperadmin,

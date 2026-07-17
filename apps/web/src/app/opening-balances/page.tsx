@@ -88,7 +88,9 @@ export default function OpeningBalancesPage() {
 
   const cols: DCol<OpeningBalanceRow>[] = [
     {
-      label: "Party", render: (r) => (
+      label: "Party",
+      text: (r) => [r.partyId ? "" : "Business overall", r.reversesId ? "reversal" : "", r.note ?? ""].filter(Boolean).join(" "),
+      render: (r) => (
         <span>
           <span style={{ fontWeight: 600 }}>{r.partyId ? <PartyName id={r.partyId} /> : "Business overall"}</span>
           {r.reversesId && <span style={{ marginLeft: 8 }}><Badge tone="gray">reversal</Badge></span>}
@@ -96,8 +98,8 @@ export default function OpeningBalancesPage() {
         </span>
       ),
     },
-    { label: "As of", render: (r) => cell(fmtDay(r.asOf), { color: T.muted2 }) },
-    { label: "Amount", align: "right", render: (r) => cell(fmtSigned(r.amount, r.currency), { nums: true, weight: 600, color: Number(r.amount) < 0 ? T.red : undefined }) },
+    { label: "As of", text: (r) => r.asOf, render: (r) => cell(fmtDay(r.asOf), { color: T.muted2 }) },
+    { label: "Amount", align: "right", text: (r) => Number(r.amount), render: (r) => cell(fmtSigned(r.amount, r.currency), { nums: true, weight: 600, color: Number(r.amount) < 0 ? T.red : undefined }) },
     {
       label: "", align: "right", render: (r) =>
         !r.reversesId ? (
@@ -166,7 +168,7 @@ export default function OpeningBalancesPage() {
         {data && (data.length === 0 ? (
           <EmptyBox title="No opening balances yet" hint="Record one above to seed a starting position." />
         ) : (
-          <DGrid cols={cols} rows={data} keyOf={(r) => r.id} minWidth={520} />
+          <DGrid cols={cols} rows={data} keyOf={(r) => r.id} minWidth={520} search exportName="opening-balances" />
         ))}
       </Page>
     </AppShell>

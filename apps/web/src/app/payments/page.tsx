@@ -149,9 +149,12 @@ export default function PaymentsPage() {
           <DGrid<Payment>
             rows={data}
             keyOf={(p) => p.id}
+            search
+            exportName="payments"
             cols={[
               {
                 label: "Dir",
+                text: (p) => (p.reversesPaymentId ? `${p.direction} rev` : p.direction),
                 render: (p) => (
                   <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                     <Badge tone={p.direction === "in" ? "green" : "gray"}>{p.direction}</Badge>
@@ -159,11 +162,11 @@ export default function PaymentsPage() {
                   </span>
                 ),
               },
-              { label: "Counterparty", render: (p) => (p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span style={{ color: T.muted2 }}>—</span>) },
-              { label: "Amount", align: "right", render: (p) => cell(money(p.amount), { nums: true, weight: 600, color: p.direction === "in" ? T.green : T.ink2 }) },
-              { label: "Date", render: (p) => <span style={{ color: T.muted2 }}>{fmtDay(p.paidAt)}</span> },
-              { label: "Medium", render: (p) => p.medium ?? "—" },
-              { label: "Trx", render: (p) => (p.trxId ? cell(p.trxId, { mono: true }) : <span style={{ color: T.muted2 }}>—</span>) },
+              { label: "Counterparty", text: (p) => p.counterpartyPartyId ?? "", render: (p) => (p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span style={{ color: T.muted2 }}>—</span>) },
+              { label: "Amount", align: "right", text: (p) => (p.amount == null ? "" : Number(p.amount)), render: (p) => cell(money(p.amount), { nums: true, weight: 600, color: p.direction === "in" ? T.green : T.ink2 }) },
+              { label: "Date", text: (p) => p.paidAt, render: (p) => <span style={{ color: T.muted2 }}>{fmtDay(p.paidAt)}</span> },
+              { label: "Medium", text: (p) => p.medium ?? "", render: (p) => p.medium ?? "—" },
+              { label: "Trx", text: (p) => p.trxId ?? "", render: (p) => (p.trxId ? cell(p.trxId, { mono: true }) : <span style={{ color: T.muted2 }}>—</span>) },
             ]}
             actions={[{ label: "open →", onClick: () => {}, href: (p) => `/payments/${p.id}` }]}
             empty="No payments. Record a client collection or a writer payout."

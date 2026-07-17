@@ -89,15 +89,19 @@ export default function PeoplePage() {
             rows={data}
             keyOf={(p) => p.id}
             empty={`No ${type}s found`}
+            search
+            exportName="people"
             cols={[
               {
                 label: "Name",
+                text: (p) => p.displayName,
                 render: (p) => (
                   <Link href={`/people/${p.id}`} style={{ color: T.goldDeep, fontWeight: 600, textDecoration: "none" }}>{p.displayName}</Link>
                 ),
               },
               {
                 label: "Type",
+                text: (p) => (p.partyType ?? []).join(", "),
                 render: (p) => (
                   <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {(p.partyType ?? []).map((t) => <Badge key={t} tone="gray">{t}</Badge>)}
@@ -106,6 +110,7 @@ export default function PeoplePage() {
               },
               {
                 label: "Ref",
+                text: (p) => p.externalRef ?? "",
                 render: (p) => (p.externalRef ? cell(p.externalRef, { mono: true }) : <span style={{ color: T.muted2 }}>—</span>),
               },
             ]}

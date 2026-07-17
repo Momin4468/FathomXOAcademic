@@ -106,9 +106,12 @@ export default function UsersPage() {
               <DGrid<AdminUserRow>
                 rows={users}
                 keyOf={(u) => u.id}
+                search
+                exportName="users"
                 cols={[
                   {
                     label: "Person",
+                    text: (u) => [u.displayName, u.email].filter(Boolean).join(" — "),
                     render: (u) => (
                       <span>
                         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -125,6 +128,7 @@ export default function UsersPage() {
                   },
                   {
                     label: "Roles",
+                    text: (u) => u.roleNames.join(", "),
                     render: (u) => (
                       <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {u.roleNames.length === 0
@@ -136,6 +140,7 @@ export default function UsersPage() {
                   {
                     label: "Status",
                     align: "center",
+                    text: (u) => u.status,
                     render: (u) => (u.status === "active" ? <Badge tone="green">active</Badge> : <Badge tone="red">disabled</Badge>),
                   },
                 ]}

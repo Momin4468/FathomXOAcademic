@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 
 /**
@@ -10,15 +11,20 @@ import type { CSSProperties, ReactNode } from "react";
  * StatCards + DGrid (the handoff's one "generic grid" that powers most modules).
  */
 
-// ── exact tokens (design_handoff_business_os/README.md · Design Tokens) ───────
+// ── tokens (design_handoff_business_os/README.md). Surfaces + text are CSS vars
+// (defined in globals.css) so the whole design system flips with the app's
+// light/dark toggle — :root values are the EXACT handoff light hexes (light is
+// unchanged), `.dark` supplies the dark equivalents. Accents/semantic colors stay
+// fixed (they read on both surfaces). This is what makes dark mode consistent
+// across the dc screens + the themed shared widgets. ─────────────────────────
 export const T = {
   gold: "#E8B64C", goldHover: "#F0D08C", goldDeep: "#B6822A", goldInk: "#070A14",
-  ink: "#0E1524", ink2: "#45506A", muted: "#667085", muted2: "#8A93A6",
-  canvas: "#F6F7F9", card: "#FFFFFF", border: "#E2E6EC", hair: "#F3F5F8", eyebrow: "#EEF1F5", rowHover: "#FAFBFC",
+  ink: "var(--dc-ink)", ink2: "var(--dc-ink2)", muted: "var(--dc-muted)", muted2: "var(--dc-muted2)",
+  canvas: "var(--dc-canvas)", card: "var(--dc-card)", border: "var(--dc-border)", hair: "var(--dc-hair)", eyebrow: "var(--dc-eyebrow)", rowHover: "var(--dc-rowhover)",
   navy: "#0B1020", navy2: "#141B33",
   mono: "ui-monospace, SFMono-Regular, Menlo, monospace",
-  codeBg: "#EEF1F5", codeText: "#26304A",
-  parch: "#FBF7EC", parchIn: "#FFFDF6", parchBorder: "#EAD9AE", parchText: "#8A5F1D",
+  codeBg: "var(--dc-codebg)", codeText: "var(--dc-codetext)",
+  parch: "var(--dc-parch)", parchIn: "var(--dc-parchin)", parchBorder: "var(--dc-parchborder)", parchText: "var(--dc-parchtext)",
   green: "#157F3D", greenBg: "#E4F3EA", red: "#B42318", redBg: "#FBE9E7",
   amber: "#8A5F1D", amberBg: "#FCF6E8", amberBg2: "#FCF1DC", blue: "#3353C4", blueBg: "#E8EDFB",
   purple: "#6D3FC4", purpleBg: "#F0E9FB",
@@ -26,7 +32,7 @@ export const T = {
 
 export type Tone = "gray" | "green" | "amber" | "red" | "blue" | "purple" | "gold";
 const TONES: Record<Tone, { bg: string; color: string; border: string; labelColor: string }> = {
-  gray: { bg: "#F4F6F9", color: T.ink, border: T.border, labelColor: T.muted },
+  gray: { bg: "var(--dc-eyebrow)", color: T.ink, border: T.border, labelColor: T.muted },
   green: { bg: T.greenBg, color: T.green, border: "#CFEBD9", labelColor: T.green },
   amber: { bg: T.amberBg, color: T.amber, border: "#EAD9AE", labelColor: T.amber },
   red: { bg: T.redBg, color: T.red, border: "#F3C9C3", labelColor: T.red },
@@ -155,7 +161,8 @@ export function EmptyBox({ title, hint }: { title: string; hint?: string }) {
 
 // ── DGrid: the handoff's generic module table (config-driven) ────────────────
 export type Align = "left" | "right" | "center";
-export type DCol<R> = { label: string; align?: Align; width?: number; render: (row: R) => ReactNode };
+// `text` (raw value) opts a column into search / sort / CSV; `render` stays for display.
+export type DCol<R> = { label: string; align?: Align; width?: number; render: (row: R) => ReactNode; text?: (row: R) => string | number };
 export type DAction<R> = { label: string; onClick?: (row: R) => void; icon?: ReactNode; color?: string; href?: (row: R) => string };
 
 export function cell(text: ReactNode, opts?: { sub?: ReactNode; mono?: boolean; weight?: number; color?: string; nums?: boolean }): ReactNode {
@@ -167,30 +174,98 @@ export function cell(text: ReactNode, opts?: { sub?: ReactNode; mono?: boolean; 
   );
 }
 
+function csvCell(v: string | number) {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export function DGrid<R>({
-  cols, rows, keyOf, actions, minWidth = 560, empty = "Nothing here yet.", foot,
+  cols, rows, keyOf, actions, minWidth = 560, empty = "Nothing here yet.", foot, search, exportName, toolbarRight,
 }: {
   cols: DCol<R>[]; rows: R[]; keyOf: (r: R) => string; actions?: DAction<R>[];
   minWidth?: number; empty?: string; foot?: ReactNode;
+  /** show a search box (filters across columns that declare `text`) */
+  search?: boolean;
+  /** show a CSV export button; the file is named `<exportName>.csv` */
+  exportName?: string;
+  /** extra controls (e.g. filter chips) rendered in the toolbar, right of search */
+  toolbarRight?: ReactNode;
 }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ i: number; dir: 1 | -1 } | null>(null);
   const th: CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: T.muted, padding: "9px 12px", borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" };
   const td: CSSProperties = { padding: "8px 12px", borderBottom: `1px solid ${T.hair}`, verticalAlign: "top" };
+
+  const view = useMemo(() => {
+    let rs = rows;
+    const term = q.trim().toLowerCase();
+    if (term) rs = rs.filter((r) => cols.some((c) => c.text && String(c.text(r)).toLowerCase().includes(term)));
+    if (sort) {
+      const c = cols[sort.i];
+      if (c?.text) {
+        rs = [...rs].sort((a, b) => {
+          const av = c.text!(a), bv = c.text!(b);
+          const cmp = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { numeric: true });
+          return cmp * sort.dir;
+        });
+      }
+    }
+    return rs;
+  }, [rows, q, sort, cols]);
+
+  function toggleSort(i: number) {
+    if (!cols[i]?.text) return;
+    setSort((s) => (s && s.i === i ? (s.dir === 1 ? { i, dir: -1 } : null) : { i, dir: 1 }));
+  }
+  function exportCsv() {
+    const c = cols.filter((x) => x.text);
+    const lines = [c.map((x) => csvCell(x.label)).join(",")];
+    for (const r of view) lines.push(c.map((x) => csvCell(x.text!(r))).join(","));
+    const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `${exportName ?? "export"}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const showToolbar = search || exportName || toolbarRight;
   return (
     <>
+      {showToolbar && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+          {search && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 10px", width: 260, maxWidth: "100%" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={T.muted2} strokeWidth="2" strokeLinecap="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.3-4.3" /></svg>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" style={{ flex: 1, border: "none", outline: "none", background: "transparent", fontSize: 12.5, fontFamily: "Inter, sans-serif", color: T.ink }} />
+              {q && <span onClick={() => setQ("")} style={{ cursor: "pointer", color: T.muted2, fontSize: 14 }}>×</span>}
+            </div>
+          )}
+          {toolbarRight}
+          <div style={{ flex: 1 }} />
+          {exportName && (
+            <span onClick={exportCsv} style={{ fontSize: 12, fontWeight: 600, color: T.ink2, background: T.card, border: `1px solid ${T.border}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer" }}>Export CSV</span>
+          )}
+        </div>
+      )}
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflowX: "auto" }}>
         <table style={{ width: "100%", minWidth, borderCollapse: "collapse", fontSize: 12.5 }}>
           <thead>
             <tr>
-              {cols.map((c, i) => (
-                <th key={i} style={{ ...th, textAlign: c.align ?? "left", width: c.width }}>{c.label}</th>
-              ))}
+              {cols.map((c, i) => {
+                const sortable = !!c.text;
+                const active = sort?.i === i;
+                return (
+                  <th key={i} onClick={() => toggleSort(i)} style={{ ...th, textAlign: c.align ?? "left", width: c.width, cursor: sortable ? "pointer" : "default", userSelect: "none" }}>
+                    {c.label}{active ? (sort!.dir === 1 ? " ▲" : " ▼") : sortable ? "" : ""}
+                  </th>
+                );
+              })}
               {actions && <th style={{ ...th, width: 74 }} />}
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={cols.length + (actions ? 1 : 0)} style={{ ...td, textAlign: "center", color: T.muted2, padding: "24px 12px" }}>{empty}</td></tr>
-            ) : rows.map((r) => (
+            {view.length === 0 ? (
+              <tr><td colSpan={cols.length + (actions ? 1 : 0)} style={{ ...td, textAlign: "center", color: T.muted2, padding: "24px 12px" }}>{q ? "No matches." : empty}</td></tr>
+            ) : view.map((r) => (
               <tr key={keyOf(r)} style={{ background: "transparent" }}>
                 {cols.map((c, i) => (
                   <td key={i} style={{ ...td, textAlign: c.align ?? "left", fontVariantNumeric: c.align === "right" ? "tabular-nums" : undefined }}>{c.render(r)}</td>

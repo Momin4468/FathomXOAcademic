@@ -224,9 +224,12 @@ export default function ExpensesPage() {
           <DGrid<Expense>
             rows={data.expenses}
             keyOf={(x) => x.id}
+            search
+            exportName="expenses"
             cols={[
               {
                 label: "Category",
+                text: (x) => (x.campaignTag ? `${x.category} #${x.campaignTag}` : x.category),
                 render: (x) => (
                   <span>
                     <span style={{ textTransform: "capitalize" }}>{x.category}</span>
@@ -237,12 +240,13 @@ export default function ExpensesPage() {
               {
                 label: "Amount",
                 align: "right",
+                text: (x) => Number(x.amount),
                 // Expenses can be non-BDT; show the code + amount so currencies aren't mixed.
                 render: (x) => cell(x.currency && x.currency !== "BDT" ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}` : money(x.amount), { nums: true, weight: 600 }),
               },
-              { label: "Bearer", render: (x) => <span style={{ textTransform: "capitalize" }}>{x.costBearer}</span> },
-              { label: "Date", render: (x) => <span style={{ color: T.muted2 }}>{fmtDay(x.incurredAt)}</span> },
-              { label: "Note", render: (x) => x.note ?? <span style={{ color: T.muted2 }}>—</span> },
+              { label: "Bearer", text: (x) => x.costBearer, render: (x) => <span style={{ textTransform: "capitalize" }}>{x.costBearer}</span> },
+              { label: "Date", text: (x) => x.incurredAt, render: (x) => <span style={{ color: T.muted2 }}>{fmtDay(x.incurredAt)}</span> },
+              { label: "Note", text: (x) => x.note ?? "", render: (x) => x.note ?? <span style={{ color: T.muted2 }}>—</span> },
             ]}
             empty="No expenses yet."
           />
