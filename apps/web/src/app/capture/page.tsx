@@ -80,7 +80,7 @@ export default function CapturePage() {
         <h1 className="text-lg font-semibold tracking-tight">AI capture</h1>
         <Badge tone="blue">added by AI → you confirm</Badge>
       </div>
-      <p className="mb-4 text-xs text-gray-500">
+      <p className="mb-4 text-xs text-slate-400">
         Paste a chat / notes, or upload an image or voice note. The assistant proposes drafts — nothing is saved until you accept each one.
       </p>
 
@@ -95,7 +95,7 @@ export default function CapturePage() {
             </Field>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button onClick={submitText} disabled={busy || !text.trim()}>{busy ? "Extracting…" : "Extract proposals"}</Button>
-              <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-800 hover:bg-gray-50">
+              <label className="inline-flex min-h-[44px] cursor-pointer items-center rounded-lg border border-ink-700 px-4 text-sm font-medium text-slate-200 hover:bg-ink-800">
                 Upload image / voice
                 <input type="file" accept="image/*,audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void submitFile(f); }} />
               </label>
@@ -173,7 +173,7 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
             <Badge tone={TARGET_TONE[proposal.targetType] ?? "gray"}>{proposal.targetType}</Badge>
             <span className="ml-2">{proposal.label}</span>
           </span>
-          {conf != null && <span className="text-xs text-gray-400">{conf}% sure</span>}
+          {conf != null && <span className="text-xs text-slate-500">{conf}% sure</span>}
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -212,7 +212,7 @@ function ProposalCard({ proposal, onResolved }: { proposal: Proposal; onResolved
         <div className="mt-3 flex items-center gap-2">
           <Button onClick={accept} disabled={busy || !canAccept}>{busy ? "…" : "Accept"}</Button>
           <Button variant="danger" className="px-3" onClick={reject} disabled={busy}>Reject</Button>
-          <span className="ml-auto text-xs text-gray-400">Accepting creates a draft you can still review.</span>
+          <span className="ml-auto text-xs text-slate-500">Accepting creates a draft you can still review.</span>
         </div>
       </Card>
     </li>

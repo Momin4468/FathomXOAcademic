@@ -65,14 +65,14 @@ function NoteCard({ note }: { note: PfNote }) {
   const snippet = (note.body ?? "").trim().slice(0, 140);
   return (
     <Link href={`/personal-finance/notes/${note.id}`} className="block">
-      <Card className="flex gap-3 transition hover:border-gray-300">
+      <Card className="flex gap-3 transition hover:border-ink-700">
         <div className={`w-1.5 shrink-0 rounded-full ${NOTE_COLOR_BG[note.color ?? "default"] ?? NOTE_COLOR_BG.default}`} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate text-sm font-medium">{note.title?.trim() || "(untitled)"}</span>
             {note.pinned && <Pin aria-label="Pinned" className="h-4 w-4 shrink-0 fill-amber-400 text-amber-500" />}
           </div>
-          {snippet && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{snippet}</p>}
+          {snippet && <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{snippet}</p>}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {items.length > 0 && <Badge tone="gray">{done}/{items.length} done</Badge>}
             {note.remindOn && <Badge tone="amber">remind {formatDate(note.remindOn)}</Badge>}

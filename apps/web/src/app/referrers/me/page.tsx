@@ -24,34 +24,34 @@ export default function MyReferralsPage() {
       {data && (
         <>
           <Card className="mb-5">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Referral income</h2>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Referral income</h2>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <div className="text-xs text-gray-500">earned</div>
+                <div className="text-xs text-slate-400">earned</div>
                 <div className="font-semibold"><Money value={earnings?.owed} /></div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">paid out</div>
+                <div className="text-xs text-slate-400">paid out</div>
                 <div className="font-medium"><Money value={earnings?.paid} /></div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">outstanding</div>
+                <div className="text-xs text-slate-400">outstanding</div>
                 <div className="font-medium"><Money value={earnings?.outstanding} /></div>
               </div>
             </div>
           </Card>
 
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Works you referred</h2>
+          <h2 className="mb-2 text-sm font-semibold text-slate-200">Works you referred</h2>
           {data.works.length === 0 ? (
             <EmptyState title="No referral income yet" hint="Referrals attached to jobs you brought in will appear here." />
           ) : (
-            <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+            <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
               {data.works.map((w) => (
                 <li key={w.workItemId} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="text-sm">
                     <span className="font-medium">{w.title}</span>
-                    {w.clientName && <span className="ml-2 text-xs text-gray-500">· {w.clientName}</span>}
-                    <div className="mt-0.5 text-xs text-gray-500">{formatDate(w.referralAt)}</div>
+                    {w.clientName && <span className="ml-2 text-xs text-slate-400">· {w.clientName}</span>}
+                    <div className="mt-0.5 text-xs text-slate-400">{formatDate(w.referralAt)}</div>
                   </div>
                   <div className="text-sm font-medium tabular-nums"><Money value={w.referralAmount} /></div>
                 </li>

@@ -67,7 +67,7 @@ export default function PfSubscriptionsPage() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Subscriptions</h1>
-          <p className="text-xs text-gray-500">An email reminder fires 3 days before each next due date.</p>
+          <p className="text-xs text-slate-400">An email reminder fires 3 days before each next due date.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={runReminders}>Run reminders</Button>
@@ -117,7 +117,7 @@ export default function PfSubscriptionsPage() {
               key: "nextDueDate",
               header: "Next due",
               sortable: true,
-              render: (s) => (s.nextDueDate ? <Badge tone="amber">{formatDate(s.nextDueDate)}</Badge> : <span className="text-gray-400">—</span>),
+              render: (s) => (s.nextDueDate ? <Badge tone="amber">{formatDate(s.nextDueDate)}</Badge> : <span className="text-slate-500">—</span>),
               value: (s) => s.nextDueDate ?? "",
             },
             { key: "note", header: "Note", filter: "text", value: (s) => s.note ?? "" },

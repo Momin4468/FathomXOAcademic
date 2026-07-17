@@ -122,16 +122,16 @@ function SavingRow({ saving, onChanged }: { saving: PfSaving; onChanged: () => v
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-medium">{saving.name}</div>
           <div className="text-right">
-            <div className="text-xs text-gray-500">balance</div>
+            <div className="text-xs text-slate-400">balance</div>
             <div className="font-semibold tabular-nums">{pfMoney(saving.balance, saving.currency)}</div>
           </div>
         </div>
         {pct !== null && (
           <div className="mt-2">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800">
               <div className="h-full rounded-full bg-emerald-500" style={{ width: `${pct}%` }} />
             </div>
-            <div className="mt-1 text-xs text-gray-400">{pct}% of {pfMoney(saving.targetAmount, saving.currency)} target</div>
+            <div className="mt-1 text-xs text-slate-500">{pct}% of {pfMoney(saving.targetAmount, saving.currency)} target</div>
           </div>
         )}
         <div className="mt-2 flex justify-end">
@@ -141,10 +141,10 @@ function SavingRow({ saving, onChanged }: { saving: PfSaving; onChanged: () => v
         {open && (
           <div className="mt-3 space-y-3">
             {events && events.length > 0 && (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-ink-800">
                 {events.map((ev) => (
                   <li key={ev.id} className={`flex items-center justify-between py-1.5 text-sm ${ev.reversesId ? "opacity-50" : ""}`}>
-                    <span><Badge tone={ev.kind === "deposit" ? "green" : "gray"}>{ev.kind}</Badge> <span className="ml-1 text-xs text-gray-500">{formatDate(ev.occurredOn)}</span></span>
+                    <span><Badge tone={ev.kind === "deposit" ? "green" : "gray"}>{ev.kind}</Badge> <span className="ml-1 text-xs text-slate-400">{formatDate(ev.occurredOn)}</span></span>
                     <span className="flex items-center gap-3">
                       <span className="tabular-nums">{pfMoney(ev.amount, saving.currency)}</span>
                       {!ev.reversesId && <button type="button" aria-label="Reverse movement" className="text-xs text-red-600 hover:underline" onClick={() => reverse(ev.id)}>reverse</button>}

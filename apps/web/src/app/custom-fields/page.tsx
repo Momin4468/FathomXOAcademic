@@ -66,12 +66,12 @@ export default function CustomFieldsPage() {
 
       {canManage && <CreateField target={target} onCreated={mutate} />}
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-gray-700">Fields on {TARGET_LABEL[target]}</h2>
+      <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-200">Fields on {TARGET_LABEL[target]}</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {defs && defs.length === 0 && <EmptyState title="No custom fields yet" hint={canManage ? "Define one above." : undefined} />}
       {defs && defs.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {defs.map((d) => (
             <FieldRow key={d.id} def={d} canManage={canManage} onChanged={mutate} />
           ))}
@@ -128,7 +128,7 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
 
   return (
     <Card>
-      <p className="mb-2 text-sm font-semibold text-gray-700">Define a field on {TARGET_LABEL[target]}</p>
+      <p className="mb-2 text-sm font-semibold text-slate-200">Define a field on {TARGET_LABEL[target]}</p>
       <form onSubmit={add} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Field label="Field name" error={fieldErrs.fieldName}><Input placeholder="e.g. WhatsApp Reference" value={form.fieldName} onChange={(e) => setForm({ ...form, fieldName: e.target.value })} /></Field>
@@ -138,7 +138,7 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
             </Select>
           </Field>
           <Field label="Required" error={fieldErrs.required}>
-            <label className="flex h-[44px] items-center gap-2 text-sm text-gray-700">
+            <label className="flex h-[44px] items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} /> required (hard at gate)
             </label>
           </Field>
@@ -188,7 +188,7 @@ function FieldRow({ def, canManage, onChanged }: { def: CustomFieldDef; canManag
           {scoped ? <Badge tone="gray">scoped</Badge> : <Badge tone="gray">global</Badge>}
         </span>
         {def.fieldType === "select" && def.optionsJson && (
-          <div className="mt-0.5 text-xs text-gray-500">{def.optionsJson.join(" · ")}</div>
+          <div className="mt-0.5 text-xs text-slate-400">{def.optionsJson.join(" · ")}</div>
         )}
       </div>
       {canManage && (
@@ -229,7 +229,7 @@ function SearchByField({ target, defs }: { target: string; defs: CustomFieldDef[
 
   return (
     <Card className="mt-6">
-      <p className="mb-2 text-sm font-semibold text-gray-700">Search {TARGET_LABEL[target]} by a custom field</p>
+      <p className="mb-2 text-sm font-semibold text-slate-200">Search {TARGET_LABEL[target]} by a custom field</p>
       <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
           <option value="">Field…</option>
@@ -241,9 +241,9 @@ function SearchByField({ target, defs }: { target: string; defs: CustomFieldDef[
       {err && <div className="mt-2"><ErrorNote message={err} /></div>}
       {rows && (
         rows.length === 0 ? (
-          <p className="mt-3 text-xs text-gray-400">No matches.</p>
+          <p className="mt-3 text-xs text-slate-500">No matches.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-gray-100">
+          <ul className="mt-3 divide-y divide-ink-800">
             {rows.map((r) => (
               <li key={r.id} className="py-2 text-sm">{r.label}</li>
             ))}

@@ -27,7 +27,7 @@ function Attachment({ f }: { f: FileMeta }) {
         src={fileSrc(f.id)}
         alt={f.filename ?? ""}
         onError={() => setImgFailed(true)}
-        className="max-h-80 max-w-full rounded-lg border border-gray-200"
+        className="max-h-80 max-w-full rounded-lg border border-ink-700"
       />
     );
   }
@@ -44,7 +44,7 @@ export default function ArticlePage() {
 
   return (
     <AppShell>
-      <Link href="/knowledge" className="mb-3 inline-block text-xs text-gray-500 hover:underline">
+      <Link href="/knowledge" className="mb-3 inline-block text-xs text-slate-400 hover:underline">
         ← Knowledge base
       </Link>
       {isLoading && <Spinner />}
@@ -56,7 +56,7 @@ export default function ArticlePage() {
               <h1 className="text-lg font-semibold tracking-tight">{data.article.title}</h1>
               <Badge tone="blue">{TYPE_LABEL[data.article.type] ?? data.article.type}</Badge>
             </div>
-            <p className="text-xs text-gray-500">updated {formatDate(data.article.updatedAt)}</p>
+            <p className="text-xs text-slate-400">updated {formatDate(data.article.updatedAt)}</p>
             {data.article.universityRefId && (
               <Link href={`/universities/${data.article.universityRefId}`} className="text-xs text-blue-700 hover:underline">
                 <RefName id={data.article.universityRefId} /> hub →
@@ -66,12 +66,12 @@ export default function ArticlePage() {
 
           {data.article.body && (
             <Card>
-              <div className="whitespace-pre-wrap text-sm text-gray-800">{data.article.body}</div>
+              <div className="whitespace-pre-wrap text-sm text-slate-200">{data.article.body}</div>
             </Card>
           )}
 
           <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-700">Attachments</h2>
+            <h2 className="text-sm font-semibold text-slate-200">Attachments</h2>
             {data.attachments.length === 0 ? (
               <EmptyState title="No attachments" />
             ) : (

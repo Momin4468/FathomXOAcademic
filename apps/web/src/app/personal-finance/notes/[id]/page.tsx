@@ -18,7 +18,7 @@ export default function PfNoteEditorPage() {
   return (
     <PfShell>
       <div className="mb-4">
-        <Link href="/personal-finance/notes" className="text-xs text-gray-500 hover:underline">← All notes</Link>
+        <Link href="/personal-finance/notes" className="text-xs text-slate-400 hover:underline">← All notes</Link>
       </div>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
@@ -124,7 +124,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
                 />
                 <input
                   aria-label="Checklist item"
-                  className={cx("min-h-[44px] flex-1 rounded-md border border-gray-200 px-2 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900", it.done && "text-gray-400 line-through")}
+                  className={cx("min-h-[44px] flex-1 rounded-md border border-ink-700 px-2 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900", it.done && "text-slate-500 line-through")}
                   value={it.text}
                   onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                 />
@@ -184,7 +184,7 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
               {note.archivedAt ? "Restore" : "Archive"}
             </Button>
           </div>
-          <p className="text-xs text-gray-400">Updated {formatDateTime(note.updatedAt)}</p>
+          <p className="text-xs text-slate-500">Updated {formatDateTime(note.updatedAt)}</p>
         </div>
       </Card>
 
@@ -244,7 +244,7 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
   return (
     <Card>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-700">Attachments</p>
+        <p className="text-sm font-semibold text-slate-200">Attachments</p>
         <div className="flex items-center gap-2">
           <Button variant="ghost" className="px-2 text-xs" onClick={() => setLinkOpen((o) => !o)}>{linkOpen ? "Cancel" : "+ Link"}</Button>
           <Button variant="secondary" className="px-2 text-xs" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "…" : "Upload file"}</Button>
@@ -262,18 +262,18 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
       {err && <div className="mt-2"><ErrorNote message={err} /></div>}
 
       {attachments.length === 0 ? (
-        <p className="mt-3 text-xs text-gray-400">No attachments. Add a link or upload a file (large files → link).</p>
+        <p className="mt-3 text-xs text-slate-500">No attachments. Add a link or upload a file (large files → link).</p>
       ) : (
-        <ul className="mt-3 divide-y divide-gray-100">
+        <ul className="mt-3 divide-y divide-ink-800">
           {attachments.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span className="min-w-0 truncate">
                 {a.isLink ? (
                   <a href={a.url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{a.filename || a.url}</a>
                 ) : (
-                  <a href={pfAttachmentDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="text-gray-800 hover:underline">{a.filename || "file"}</a>
+                  <a href={pfAttachmentDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="text-slate-200 hover:underline">{a.filename || "file"}</a>
                 )}
-                <span className="ml-2 text-xs text-gray-400">{a.isLink ? "link" : a.mime ?? "file"}</span>
+                <span className="ml-2 text-xs text-slate-500">{a.isLink ? "link" : a.mime ?? "file"}</span>
               </span>
               <button type="button" className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => remove(a.id)}>remove</button>
             </li>

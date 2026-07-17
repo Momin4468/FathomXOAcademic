@@ -39,7 +39,7 @@ export default function PfOverviewPage() {
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Overview</h1>
-          {data && <p className="text-xs text-gray-500">This {data.period.label}, in {base}</p>}
+          {data && <p className="text-xs text-slate-400">This {data.period.label}, in {base}</p>}
         </div>
         {data && !data.linked && (
           <Link href="/personal-finance/connect" className="shrink-0 text-xs font-medium text-emerald-800 hover:underline">
@@ -50,20 +50,20 @@ export default function PfOverviewPage() {
 
       {/* Period selector — drives KPIs, charts AND the anomaly comparison alike */}
       <div className="mb-4 flex items-center gap-2">
-        <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-sm">
+        <div className="inline-flex rounded-lg bg-ink-800 p-0.5 text-sm">
           {(["week", "month", "custom"] as const).map((k) => (
             <button
               key={k}
               type="button"
               onClick={() => setSel(k)}
-              className={cx("rounded-md px-3 py-1 font-medium capitalize", activeKind === k ? "bg-white text-gray-900 shadow-sm" : "text-gray-500")}
+              className={cx("rounded-md px-3 py-1 font-medium capitalize", activeKind === k ? "bg-ink-850 text-slate-100 shadow-sm" : "text-slate-400")}
             >
               {k}
             </button>
           ))}
         </div>
         {activeKind === "custom" && (
-          <label className="flex items-center gap-1 text-xs text-gray-500">
+          <label className="flex items-center gap-1 text-xs text-slate-400">
             <input
               type="number"
               min={1}
@@ -73,7 +73,7 @@ export default function PfOverviewPage() {
                 setSel("custom");
                 setCustomDays(Math.max(1, Math.min(366, Number(e.target.value) || 30)));
               }}
-              className="w-16 rounded-lg border border-gray-200 px-2 py-1 text-xs tabular-nums"
+              className="w-16 rounded-lg border border-ink-700 px-2 py-1 text-xs tabular-nums"
             />
             days
           </label>
@@ -107,9 +107,9 @@ export default function PfOverviewPage() {
           {/* Net worth headline (a stock: assets − liabilities). Run-rates below are FLOWS. */}
           {dash && (
             <Card className="mb-4">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Net worth</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Net worth</h2>
               <div className="mt-1 text-2xl font-semibold tabular-nums">{pfMoney(dash.netWorth.value, base)}</div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-slate-400">
                 Savings {pfMoney(dash.netWorth.assets.savings, base)} · Investments {pfMoney(dash.netWorth.assets.investments, base)} ·
                 Owed to you {pfMoney(dash.netWorth.assets.receivable, base)} · Cash {pfMoney(dash.netWorth.assets.cash, base)} · You owe {pfMoney(dash.netWorth.liabilities.owed, base)}
               </p>
@@ -130,7 +130,7 @@ export default function PfOverviewPage() {
           {/* Charts */}
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Card>
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Spending by category</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Spending by category</h2>
               {data.spendingByCategory.length === 0 ? (
                 <EmptyState title="No spending this period" />
               ) : (
@@ -140,8 +140,8 @@ export default function PfOverviewPage() {
                     {data.spendingByCategory.slice(0, 6).map((c, i) => (
                       <li key={c.categoryId ?? c.name} className="flex items-center gap-2">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PF_PALETTE[i % PF_PALETTE.length] }} />
-                        <span className="truncate text-gray-700">{c.name}</span>
-                        <span className="ml-auto shrink-0 tabular-nums text-gray-500">{pfMoney(c.amount, base)}</span>
+                        <span className="truncate text-slate-200">{c.name}</span>
+                        <span className="ml-auto shrink-0 tabular-nums text-slate-400">{pfMoney(c.amount, base)}</span>
                       </li>
                     ))}
                   </ul>
@@ -150,18 +150,18 @@ export default function PfOverviewPage() {
             </Card>
 
             <Card>
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Income vs expense</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Income vs expense</h2>
               <IncomeExpenseBars data={data.series} />
-              <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+              <div className="mt-2 flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-emerald-600" /> Income</span>
                 <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-rose-500" /> Expense</span>
               </div>
             </Card>
 
             <Card className="sm:col-span-2">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Net trend</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Net trend</h2>
               {data.series.length < 2 ? (
-                <p className="py-4 text-center text-xs text-gray-400">Not enough history yet — this fills in as more periods pass.</p>
+                <p className="py-4 text-center text-xs text-slate-500">Not enough history yet — this fills in as more periods pass.</p>
               ) : (
                 <NetTrend data={data.series} />
               )}
@@ -171,7 +171,7 @@ export default function PfOverviewPage() {
           {/* Budgets / targets */}
           {data.targets.length > 0 && (
             <section className="mt-6">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Budgets &amp; goals</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Budgets &amp; goals</h2>
               <div className="space-y-2">
                 {data.targets.slice(0, 6).map((t) => {
                   const pct = Number(t.amount) > 0 ? Math.min(100, (Number(t.current) / Number(t.amount)) * 100) : 0;
@@ -180,11 +180,11 @@ export default function PfOverviewPage() {
                     <Card key={t.id}>
                       <div className="flex items-center justify-between text-sm">
                         <span className="font-medium capitalize">{t.kind.replace("_", " ")}</span>
-                        <span className={cx("tabular-nums", over ? "text-rose-700" : "text-gray-600")}>
+                        <span className={cx("tabular-nums", over ? "text-rose-700" : "text-slate-300")}>
                           {pfMoney(t.current, t.currency)} / {pfMoney(t.amount, t.currency)}
                         </span>
                       </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink-800">
                         <div className={cx("h-full rounded-full", over ? "bg-rose-500" : t.kind === "budget_cap" ? "bg-emerald-500" : "bg-sky-500")} style={{ width: `${pct}%` }} />
                       </div>
                     </Card>
@@ -196,11 +196,11 @@ export default function PfOverviewPage() {
 
           {/* Upcoming subscriptions / future expenses */}
           <section className="mt-6">
-            <h2 className="mb-2 text-sm font-semibold text-gray-700">Upcoming &amp; future expenses</h2>
+            <h2 className="mb-2 text-sm font-semibold text-slate-200">Upcoming &amp; future expenses</h2>
             {data.upcomingSubscriptions.length === 0 ? (
               <EmptyState title="Nothing due in the next 30 days" />
             ) : (
-              <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+              <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
                 {data.upcomingSubscriptions.map((s) => (
                   <li key={s.id} className="flex items-center justify-between px-4 py-3 text-sm">
                     <span className="font-medium">{s.name}</span>
@@ -222,8 +222,8 @@ export default function PfOverviewPage() {
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <Card>
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${tone ?? "text-gray-900"}`}>{value || "—"}</div>
+      <div className="text-xs text-slate-400">{label}</div>
+      <div className={`mt-1 text-lg font-semibold tabular-nums ${tone ?? "text-slate-100"}`}>{value || "—"}</div>
     </Card>
   );
 }

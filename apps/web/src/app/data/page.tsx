@@ -20,7 +20,7 @@ export default function DataPage() {
   return (
     <AppShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Data — import · export · archive</h1>
-      <p className="mb-4 text-xs text-gray-500">
+      <p className="mb-4 text-xs text-slate-400">
         Three paths into the system: manual template · preprocess script · AI capture. Imports preview before they commit; nothing is created until you confirm.
       </p>
 
@@ -90,7 +90,7 @@ function ImportTab() {
             </Select>
           </Field>
           <Field label="1. Get the template" hint="Exact headers + a sample row.">
-            <a href={`/api/import/template/${entity}`} className="inline-flex min-h-[44px] items-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-800 hover:bg-gray-50">Download {entity} template ↓</a>
+            <a href={`/api/import/template/${entity}`} className="inline-flex min-h-[44px] items-center rounded-lg border border-ink-700 px-4 text-sm font-medium text-slate-200 hover:bg-ink-800">Download {entity} template ↓</a>
           </Field>
         </div>
         <div className="mt-3">
@@ -106,7 +106,7 @@ function ImportTab() {
       {result && (
         <Card>
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-700">
+            <p className="text-sm font-semibold text-slate-200">
               {committed ? "Committed" : "Preview"} — {result.batch.entityType.replace("_", " ")}
             </p>
             <div className="flex items-center gap-2 text-xs">
@@ -116,14 +116,14 @@ function ImportTab() {
               {committed && result.batch.failedCount > 0 && <Badge tone="red">{result.batch.failedCount} failed</Badge>}
             </div>
           </div>
-          <ul className="divide-y divide-gray-100 overflow-hidden rounded-lg border border-gray-200">
+          <ul className="divide-y divide-ink-800 overflow-hidden rounded-lg border border-ink-700">
             {result.rows.map((r) => (
               <li key={r.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
-                <span className="text-gray-400">#{r.rowNumber}</span>
+                <span className="text-slate-500">#{r.rowNumber}</span>
                 <div className="min-w-0 flex-1">
                   <StatusBadge status={r.status} />
                   {r.resolutionJson && (
-                    <span className="ml-2 text-xs text-gray-500">
+                    <span className="ml-2 text-xs text-slate-400">
                       {Object.entries(r.resolutionJson).map(([k, v]) => `${k}: ${v}`).join(" · ")}
                     </span>
                   )}
@@ -137,7 +137,7 @@ function ImportTab() {
           {!committed && result.batch.validCount > 0 && (
             <div className="mt-3 flex items-center gap-3">
               <Button onClick={commit} disabled={busy}>{busy ? "Committing…" : `Commit ${result.batch.validCount} valid row(s)`}</Button>
-              <span className="text-xs text-gray-400">Creates records through the normal validation + governance, marked "added by import".</span>
+              <span className="text-xs text-slate-500">Creates records through the normal validation + governance, marked "added by import".</span>
             </div>
           )}
         </Card>
@@ -157,7 +157,7 @@ function ExportTab() {
   const [format, setFormat] = useState<"csv" | "xlsx">("csv");
   return (
     <Card>
-      <p className="mb-3 text-sm text-gray-600">Export reflects exactly what you can see in the app — figures you aren&rsquo;t permitted to see are never included.</p>
+      <p className="mb-3 text-sm text-slate-300">Export reflects exactly what you can see in the app — figures you aren&rsquo;t permitted to see are never included.</p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Dataset"><Select value={dataset} onChange={(e) => setDataset(e.target.value)}>{EXPORT_DATASETS.map((d) => <option key={d} value={d}>{d}</option>)}</Select></Field>
         <Field label="Format"><Select value={format} onChange={(e) => setFormat(e.target.value as "csv" | "xlsx")}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option></Select></Field>
@@ -231,14 +231,14 @@ function ArchiveTab() {
       {error && <ErrorNote message={error.message} />}
       {data && data.length === 0 && <EmptyState title="No archived files" hint="Add old sheets, the 2025 file, references." />}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {data.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div className="min-w-0">
                 <span className="font-medium">{a.title}</span>
-                {a.docDate && <span className="ml-2 text-xs text-gray-400">{formatDate(a.docDate)}</span>}
+                {a.docDate && <span className="ml-2 text-xs text-slate-500">{formatDate(a.docDate)}</span>}
                 {a.tags?.length > 0 && <span className="ml-2">{a.tags.map((t) => <Badge key={t} tone="gray">{t}</Badge>)}</span>}
-                {a.description && <div className="mt-0.5 truncate text-xs text-gray-500">{a.description}</div>}
+                {a.description && <div className="mt-0.5 truncate text-xs text-slate-400">{a.description}</div>}
               </div>
               {a.fileObjectId && (
                 <a

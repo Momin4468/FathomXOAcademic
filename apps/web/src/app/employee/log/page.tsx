@@ -30,13 +30,13 @@ export default function EmployeeLogPage() {
       {error && <ErrorNote message={error.message} />}
       {data && data.length === 0 && <EmptyState title="No work logged yet" hint="Log what you did above." />}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {data.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <div>
                 <span className="font-medium">{l.title}</span>
-                {l.quantity && <span className="ml-2 text-xs text-gray-500">{l.quantity} hrs/units</span>}
-                <div className="mt-0.5 text-xs text-gray-400">{formatDate(l.loggedOn)}</div>
+                {l.quantity && <span className="ml-2 text-xs text-slate-400">{l.quantity} hrs/units</span>}
+                <div className="mt-0.5 text-xs text-slate-500">{formatDate(l.loggedOn)}</div>
               </div>
               <Badge tone={l.status === "converted" ? "green" : l.status === "rejected" ? "red" : "amber"}>{l.status}</Badge>
             </li>
@@ -80,7 +80,7 @@ function LogForm({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Log work</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Log work</h2>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="What did you do?">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Wrote chapter 2" />

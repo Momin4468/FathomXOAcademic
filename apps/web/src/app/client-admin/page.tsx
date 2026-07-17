@@ -87,7 +87,7 @@ function AutoProvision() {
 
   return (
     <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Auto-provision from student ID + name</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Auto-provision from student ID + name</h2>
       <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Student ID" error={fieldErrs.studentId}>
           <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. ICT-701" />
@@ -153,7 +153,7 @@ function Provision() {
 
   return (
     <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Give a client a portal login</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Give a client a portal login</h2>
       <form onSubmit={provision} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Client" error={fieldErrs.partyId}>
           <EntityPicker key={resetSeq} placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
@@ -188,7 +188,7 @@ function Accounts() {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Logins</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Logins</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {accounts && accounts.length === 0 && <EmptyState title="No client logins yet" hint="Create one above." />}
@@ -199,7 +199,7 @@ function Accounts() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{a.partyName ?? a.partyId}</span>
-                  <span className="text-xs text-gray-400">{a.loginId}</span>
+                  <span className="text-xs text-slate-500">{a.loginId}</span>
                   <Badge tone={a.status === "active" ? "green" : a.status === "deactivated" ? "red" : "gray"}>{a.status}</Badge>
                 </div>
                 <Button
@@ -243,7 +243,7 @@ function Messages() {
 
   return (
     <section>
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Client messages</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Client messages</h2>
       <Card>
         <Field label="Client">
           <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
@@ -256,7 +256,7 @@ function Messages() {
                   <div
                     className={cx(
                       "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                      m.sender === "admin" ? "bg-gray-800 text-white" : "bg-gray-50 text-gray-800 ring-1 ring-gray-100",
+                      m.sender === "admin" ? "bg-gray-800 text-white" : "bg-ink-800 text-slate-200 ring-1 ring-gray-100",
                     )}
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>
@@ -264,7 +264,7 @@ function Messages() {
                   </div>
                 </div>
               ))}
-              {thread && thread.length === 0 && <p className="text-xs text-gray-400">No messages with this client yet.</p>}
+              {thread && thread.length === 0 && <p className="text-xs text-slate-500">No messages with this client yet.</p>}
             </div>
             <form onSubmit={reply} className="flex gap-2">
               <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Reply…" />
@@ -274,7 +274,7 @@ function Messages() {
           </>
         )}
       </Card>
-      <p className="mt-3 text-xs text-gray-400">
+      <p className="mt-3 text-xs text-slate-500">
         Client-submitted requests appear as drafts in <a className="underline" href="/work">Work</a> — confirm and price them there.
       </p>
     </section>

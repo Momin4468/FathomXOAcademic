@@ -75,7 +75,7 @@ export default function CoverSheetsPage() {
             </div>
             <Field label="Template file" error={fieldErrs.fileObjectId}>
               <FileUpload kind="cover_sheet" label={file ? "Replace file" : "Upload template"} onUploaded={setFile} />
-              {file && <p className="mt-1 text-xs text-gray-600">📎 {file.filename ?? file.id}</p>}
+              {file && <p className="mt-1 text-xs text-slate-300">📎 {file.filename ?? file.id}</p>}
             </Field>
             <Field label="Notes" error={fieldErrs.notes}>
               <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -92,13 +92,13 @@ export default function CoverSheetsPage() {
       {error && <ErrorNote message={error.message} />}
       {data && data.length === 0 && <EmptyState title="No cover sheets yet" />}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {data.map((cs) => (
             <li key={cs.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="text-sm">
                 <span className="font-medium">{cs.name}</span>
-                {cs.notes ? <div className="mt-0.5 text-xs text-gray-500">{cs.notes}</div> : null}
-                <div className="mt-0.5 text-xs text-gray-400">updated {formatDate(cs.updatedAt)}</div>
+                {cs.notes ? <div className="mt-0.5 text-xs text-slate-400">{cs.notes}</div> : null}
+                <div className="mt-0.5 text-xs text-slate-500">updated {formatDate(cs.updatedAt)}</div>
               </div>
               {cs.fileObjectId && (
                 <a href={fileSrc(cs.fileObjectId)} target="_blank" rel="noreferrer" className="text-sm text-blue-700 hover:underline">

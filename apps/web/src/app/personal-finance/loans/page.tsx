@@ -140,27 +140,27 @@ function LoanRow({ loan, onChanged }: { loan: PfLoan; onChanged: () => void }) {
           <div className="text-sm">
             <span className="font-medium">{loan.counterpartyName}</span>
             <span className="ml-2"><Badge tone={loan.direction === "given" ? "blue" : "amber"}>{loan.direction === "given" ? "lent" : "borrowed"}</Badge></span>
-            <div className="mt-0.5 text-xs text-gray-500">
+            <div className="mt-0.5 text-xs text-slate-400">
               started {formatDate(loan.startedOn)}{loan.dueOn ? ` · due ${formatDate(loan.dueOn)}` : ""}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-gray-500">outstanding</div>
+            <div className="text-xs text-slate-400">outstanding</div>
             <div className="font-semibold tabular-nums">{pfMoney(loan.outstanding, loan.currency)}</div>
           </div>
         </div>
         <div className="mt-2 flex items-center justify-between">
-          <span className="text-xs text-gray-400">of {pfMoney(loan.principal, loan.currency)} principal</span>
+          <span className="text-xs text-slate-500">of {pfMoney(loan.principal, loan.currency)} principal</span>
           <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Events"}</Button>
         </div>
 
         {open && (
           <div className="mt-3 space-y-3">
             {events && events.length > 0 && (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-ink-800">
                 {events.map((ev) => (
                   <li key={ev.id} className={`flex items-center justify-between py-1.5 text-sm ${ev.reversesId ? "opacity-50" : ""}`}>
-                    <span><Badge tone="gray">{ev.kind}</Badge> <span className="ml-1 text-xs text-gray-500">{formatDate(ev.occurredOn)}</span></span>
+                    <span><Badge tone="gray">{ev.kind}</Badge> <span className="ml-1 text-xs text-slate-400">{formatDate(ev.occurredOn)}</span></span>
                     <span className="flex items-center gap-3">
                       <span className="tabular-nums">{pfMoney(ev.amount, loan.currency)}</span>
                       {!ev.reversesId && <button type="button" aria-label="Reverse loan event" className="text-xs text-red-600 hover:underline" onClick={() => reverse(ev.id)}>reverse</button>}

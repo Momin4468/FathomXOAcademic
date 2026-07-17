@@ -43,7 +43,7 @@ export default function PfCategoriesPage() {
   return (
     <PfShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Categories</h1>
-      <p className="mb-4 text-xs text-gray-500">Your own income & expense categories — add, rename, or archive freely.</p>
+      <p className="mb-4 text-xs text-slate-400">Your own income & expense categories — add, rename, or archive freely.</p>
 
       <Card className="mb-5">
         <form onSubmit={add} className="flex flex-col gap-3 sm:flex-row sm:items-end">

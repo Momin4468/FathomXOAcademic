@@ -18,22 +18,22 @@ export default function PfCashPage() {
     <PfShell>
       <div className="mb-1">
         <h1 className="text-lg font-semibold tracking-tight">Cash check-in</h1>
-        <p className="text-xs text-gray-500">Declare your cash-on-hand; we compare it with what your ledger implies. Nothing is auto-recorded.</p>
+        <p className="text-xs text-slate-400">Declare your cash-on-hand; we compare it with what your ledger implies. Nothing is auto-recorded.</p>
       </div>
 
       {rec && <ReconcileCard rec={rec} onAdjusted={refresh} />}
 
       <RecordCheckin onDone={refresh} />
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-gray-700">History</h2>
+      <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-200">History</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {history && history.length === 0 && <EmptyState title="No check-ins yet" hint="Record your cash-on-hand to start reconciling." />}
       {history && history.length > 0 && (
-        <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 rounded-xl border border-ink-700 bg-ink-850">
           {history.map((c) => (
             <li key={c.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-              <span className="text-gray-600">{formatDate(c.asOf)}{c.note ? ` · ${c.note}` : ""}</span>
+              <span className="text-slate-300">{formatDate(c.asOf)}{c.note ? ` · ${c.note}` : ""}</span>
               <span className="font-medium tabular-nums">{pfMoney(c.declaredAmount, c.currency)}</span>
             </li>
           ))}
@@ -52,7 +52,7 @@ function ReconcileCard({ rec, onAdjusted }: { rec: PfReconcile; onAdjusted: () =
     return (
       <Card className="mb-5">
         <p className="text-sm">First check-in recorded — the next one will reconcile against it.</p>
-        {rec.latest && <p className="mt-1 text-xs text-gray-500">Declared {pfMoney(rec.latest.declaredAmount, rec.latest.currency)} on {formatDate(rec.latest.asOf)}.</p>}
+        {rec.latest && <p className="mt-1 text-xs text-slate-400">Declared {pfMoney(rec.latest.declaredAmount, rec.latest.currency)} on {formatDate(rec.latest.asOf)}.</p>}
       </Card>
     );
   }
@@ -60,7 +60,7 @@ function ReconcileCard({ rec, onAdjusted }: { rec: PfReconcile; onAdjusted: () =
     return (
       <Card className="mb-5 border-emerald-200">
         <p className="text-sm font-medium text-emerald-800">Reconciled ✓</p>
-        <p className="mt-1 text-xs text-gray-500">Your declared cash matches what the ledger implies since your last check-in.</p>
+        <p className="mt-1 text-xs text-slate-400">Your declared cash matches what the ledger implies since your last check-in.</p>
       </Card>
     );
   }
@@ -95,13 +95,13 @@ function ReconcileCard({ rec, onAdjusted }: { rec: PfReconcile; onAdjusted: () =
           <p className="text-sm font-medium">
             <Badge tone="amber">{rec.status === "over" ? "more cash than expected" : "less cash than expected"}</Badge>
           </p>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-slate-400">
             You declared <span className="tabular-nums">{pfMoney(rec.latest?.declaredAmount, currency)}</span>; your ledger implies{" "}
             <span className="tabular-nums">{pfMoney(rec.expected, currency)}</span> since {rec.prior ? formatDate(rec.prior.asOf) : "your last check-in"}.
           </p>
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-500">unexplained</div>
+          <div className="text-xs text-slate-400">unexplained</div>
           <div className="font-semibold tabular-nums">{pfMoney(Math.abs(rec.discrepancy ?? 0), currency)}</div>
         </div>
       </div>
@@ -110,7 +110,7 @@ function ReconcileCard({ rec, onAdjusted }: { rec: PfReconcile; onAdjusted: () =
           <Button variant="secondary" disabled={busy} onClick={logAdjustment}>
             {busy ? "Logging…" : `Log ${pfMoney(sug.amount, currency)} ${sug.kind}`}
           </Button>
-          <span className="text-xs text-gray-400">Optional — reconcile by recording the missing {sug.kind}.</span>
+          <span className="text-xs text-slate-500">Optional — reconcile by recording the missing {sug.kind}.</span>
         </div>
       )}
       {err && <div className="mt-2"><ErrorNote message={err} /></div>}
@@ -147,7 +147,7 @@ function RecordCheckin({ onDone }: { onDone: () => void }) {
   return (
     <Card className="mb-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-700">Record a check-in</h2>
+        <h2 className="text-sm font-semibold text-slate-200">Record a check-in</h2>
         <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "New"}</Button>
       </div>
       {open && (

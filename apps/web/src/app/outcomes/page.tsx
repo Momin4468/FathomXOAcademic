@@ -36,7 +36,7 @@ export default function OutcomesPage() {
   return (
     <AppShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Outcomes</h1>
-      <p className="mb-4 text-xs text-gray-500">{canSeeAll ? "All writers" : "Your own work"} · reputation is derived, never hand-edited.</p>
+      <p className="mb-4 text-xs text-slate-400">{canSeeAll ? "All writers" : "Your own work"} · reputation is derived, never hand-edited.</p>
 
       {canSeeAll && (
         <ReputationCard defaultPartyId={me?.party?.id ?? null} />
@@ -53,12 +53,12 @@ export default function OutcomesPage() {
         </Card>
       )}
 
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Recorded outcomes</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Recorded outcomes</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {outcomes && outcomes.length === 0 && <EmptyState title="No outcomes yet" />}
       {outcomes && outcomes.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {outcomes.map((o) => (
             <li key={o.id} className="px-4 py-3 text-sm">
               <div className="flex items-center justify-between gap-2">
@@ -72,7 +72,7 @@ export default function OutcomesPage() {
                   {o.satisfaction && <Badge tone={o.satisfaction === "high" ? "green" : o.satisfaction === "low" ? "red" : "gray"}>{o.satisfaction}</Badge>}
                 </span>
               </div>
-              <div className="mt-0.5 text-xs text-gray-500">
+              <div className="mt-0.5 text-xs text-slate-400">
                 {formatDate(o.recordedAt)}{o.grade ? ` · grade ${o.grade}` : ""}{o.reworkCost ? <> · rework <Money value={o.reworkCost} /></> : null}
               </div>
             </li>
@@ -90,7 +90,7 @@ function ReputationCard({ defaultPartyId, lockSelf }: { defaultPartyId: string |
   return (
     <Card className="mb-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Reputation</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reputation</h2>
         {!lockSelf && (
           <div className="w-full sm:w-56"><EntityPicker placeholder="Pick a writer…" search={searchWriters} onPick={(i) => setPartyId(i?.id ?? defaultPartyId)} /></div>
         )}
@@ -109,7 +109,7 @@ function ReputationCard({ defaultPartyId, lockSelf }: { defaultPartyId: string |
             <Stat label="open jobs" value={`${card.load.openJobs}`} />
           </div>
           {card.courseHistory.length > 0 && (
-            <div className="mt-3 text-xs text-gray-500">
+            <div className="mt-3 text-xs text-slate-400">
               Courses: {card.courseHistory.slice(0, 6).map((c) => `${c.courseName ?? c.courseRefId.slice(0, 6)} (${c.jobCount})`).join(" · ")}
             </div>
           )}
@@ -121,7 +121,7 @@ function ReputationCard({ defaultPartyId, lockSelf }: { defaultPartyId: string |
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div><div className="text-xs text-gray-500">{label}</div><div className="font-medium">{value}</div></div>
+    <div><div className="text-xs text-slate-400">{label}</div><div className="font-medium">{value}</div></div>
   );
 }
 
@@ -169,7 +169,7 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
   return (
     <Card className="mb-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-700">Record an outcome</p>
+        <p className="text-sm font-semibold text-slate-200">Record an outcome</p>
         <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</Button>
       </div>
       {open && (

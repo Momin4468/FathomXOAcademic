@@ -163,7 +163,7 @@ export default function PaymentsPage() {
             {
               key: "counterparty",
               header: "Counterparty",
-              render: (p) => (p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span className="text-gray-400">—</span>),
+              render: (p) => (p.counterpartyPartyId ? <PartyName id={p.counterpartyPartyId} /> : <span className="text-slate-500">—</span>),
               value: (p) => p.counterpartyPartyId ?? "",
             },
             { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (p) => (p.amount == null ? "" : Number(p.amount)) },

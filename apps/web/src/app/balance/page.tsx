@@ -89,7 +89,7 @@ export default function BalancePage() {
 
       {/* The viewer's own two-way position (universal). */}
       <section className="mb-8 space-y-2">
-        <h2 className="text-sm font-semibold text-gray-700">My position</h2>
+        <h2 className="text-sm font-semibold text-slate-200">My position</h2>
         {!myPartyId ? (
           <EmptyState title="No personal balance" hint="Your account isn't linked to a party." />
         ) : myLoading ? (
@@ -105,7 +105,7 @@ export default function BalancePage() {
       {/* Admin: look up any party's balance + manage its charges. */}
       {isAdmin && (
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-700">Look up a party</h2>
+          <h2 className="text-sm font-semibold text-slate-200">Look up a party</h2>
           <Card>
             <Field label="Party">
               <EntityPicker placeholder="Search party…" search={searchParties} onPick={(i) => setLookupId(i?.id ?? null)} />
@@ -120,7 +120,7 @@ export default function BalancePage() {
               {actionError && <ErrorNote message={actionError} />}
               {canCreate && (
                 <Card>
-                  <p className="mb-2 text-sm font-semibold text-gray-700">Add a charge (party owes the business)</p>
+                  <p className="mb-2 text-sm font-semibold text-slate-200">Add a charge (party owes the business)</p>
                   <form onSubmit={addCharge} className="space-y-3">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label="Category">

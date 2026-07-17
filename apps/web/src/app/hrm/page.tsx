@@ -28,7 +28,7 @@ export default function HrmPage() {
   return (
     <AppShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Work logs</h1>
-      <p className="mb-5 text-xs text-gray-500">
+      <p className="mb-5 text-xs text-slate-400">
         Convert a log onto a job (it becomes a producer line you price there) or reject it.
       </p>
 

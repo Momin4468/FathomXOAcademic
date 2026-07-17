@@ -119,7 +119,7 @@ export default function ExpensesPage() {
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Expenses</h1>
           {data && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-slate-400">
               Total: <Money value={data.total} />
             </p>
           )}
@@ -182,7 +182,7 @@ export default function ExpensesPage() {
                       />
                       <button
                         type="button"
-                        className="text-xs text-gray-500 hover:underline"
+                        className="text-xs text-slate-400 hover:underline"
                         onClick={() => setSplitRows(splitRows.filter((_, j) => j !== i))}
                       >
                         remove
@@ -250,7 +250,7 @@ export default function ExpensesPage() {
               render: (x) => (
                 <span>
                   <span className="capitalize">{x.category}</span>
-                  {x.campaignTag ? <span className="ml-2 text-xs text-gray-400">#{x.campaignTag}</span> : null}
+                  {x.campaignTag ? <span className="ml-2 text-xs text-slate-500">#{x.campaignTag}</span> : null}
                 </span>
               ),
               value: (x) => x.category,

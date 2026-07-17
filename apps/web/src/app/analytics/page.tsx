@@ -38,7 +38,7 @@ export default function AnalyticsPage() {
     <AppShell>
       <div className="mb-4">
         <h1 className="text-lg font-semibold tracking-tight">Analytics</h1>
-        <p className="text-xs text-gray-500">{isOwner ? "Business analytics" : "Your numbers"} · derived at read time, never stored.</p>
+        <p className="text-xs text-slate-400">{isOwner ? "Business analytics" : "Your numbers"} · derived at read time, never stored.</p>
       </div>
 
       {meLoading && <Spinner />}
@@ -73,19 +73,19 @@ export default function AnalyticsPage() {
             <div className="mb-5 grid gap-3 sm:grid-cols-2">
               {charts?.netMonthly && charts.netMonthly.length >= 2 && (
                 <Card>
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Net by month</h2>
+                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Net by month</h2>
                   <NetTrend data={charts.netMonthly.map((m) => ({ label: m.month, net: m.net }))} />
                 </Card>
               )}
               {charts?.expenseByCategory && charts.expenseByCategory.length > 0 && (
                 <Card>
-                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Expenses by category</h2>
+                  <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Expenses by category</h2>
                   <div className="flex items-center gap-4">
                     <Donut slices={charts.expenseByCategory.map((e) => ({ label: e.category, value: e.total }))} />
                     <ul className="flex-1 space-y-1 text-xs">
                       {charts.expenseByCategory.slice(0, 8).map((e) => (
                         <li key={e.category} className="flex justify-between gap-2">
-                          <span className="capitalize text-gray-600">{e.category}</span>
+                          <span className="capitalize text-slate-300">{e.category}</span>
                           <span className="tabular-nums"><Money value={e.total} /></span>
                         </li>
                       ))}
@@ -99,11 +99,11 @@ export default function AnalyticsPage() {
           {/* ── Writer leaderboard (volume for all; reputation columns for owners) ── */}
           {lb && lb.volume.length > 0 && (
             <Card className="mb-5">
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Writer leaderboard</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Writer leaderboard</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
+                    <tr className="border-b border-ink-700 text-left text-xs text-slate-400">
                       <th className="py-2 pr-3">#</th>
                       <th className="py-2 pr-3">Writer</th>
                       <th className="py-2 pr-3 text-right">Jobs</th>
@@ -118,8 +118,8 @@ export default function AnalyticsPage() {
                     {lb.volume.map((v, i) => {
                       const rep = repByWriter.get(v.partyId);
                       return (
-                        <tr key={v.partyId} className="border-b border-gray-100">
-                          <td className="py-2 pr-3 text-gray-400">{i + 1}</td>
+                        <tr key={v.partyId} className="border-b border-ink-800">
+                          <td className="py-2 pr-3 text-slate-500">{i + 1}</td>
                           <td className="py-2 pr-3 font-medium">{v.displayName ?? "—"}</td>
                           <td className="py-2 pr-3 text-right tabular-nums">{v.totalJobs}</td>
                           <td className="py-2 pr-3 text-right tabular-nums">{v.delivered}</td>
@@ -139,11 +139,11 @@ export default function AnalyticsPage() {
           {/* ── Profit per writer (owner only) ───────────────────────────── */}
           {isOwner && lb?.profitPerWriter && lb.profitPerWriter.length > 0 && (
             <Card>
-              <h2 className="mb-2 text-sm font-semibold text-gray-700">Profit per writer</h2>
+              <h2 className="mb-2 text-sm font-semibold text-slate-200">Profit per writer</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200 text-left text-xs text-gray-500">
+                    <tr className="border-b border-ink-700 text-left text-xs text-slate-400">
                       <th className="py-2 pr-3">Writer</th>
                       <th className="py-2 pr-3 text-right">Jobs</th>
                       <th className="py-2 pr-3 text-right">Revenue</th>
@@ -153,7 +153,7 @@ export default function AnalyticsPage() {
                   </thead>
                   <tbody>
                     {lb.profitPerWriter.map((p) => (
-                      <tr key={p.writerPartyId} className="border-b border-gray-100">
+                      <tr key={p.writerPartyId} className="border-b border-ink-800">
                         <td className="py-2 pr-3 font-medium">{p.displayName ?? "—"}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{p.jobs}</td>
                         <td className="py-2 pr-3 text-right tabular-nums"><Money value={p.revenue} /></td>
@@ -175,9 +175,9 @@ export default function AnalyticsPage() {
 function Kpi({ label, value, sub }: { label: string; value: ReactNode; sub?: string }) {
   return (
     <Card>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xs text-slate-400">{label}</div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
-      {sub && <div className="mt-0.5 text-xs text-gray-500">{sub}</div>}
+      {sub && <div className="mt-0.5 text-xs text-slate-400">{sub}</div>}
     </Card>
   );
 }

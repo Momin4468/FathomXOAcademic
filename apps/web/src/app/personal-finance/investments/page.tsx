@@ -23,7 +23,7 @@ export default function PfInvestmentsPage() {
         <h1 className="text-lg font-semibold tracking-tight">Investments</h1>
         <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add holding"}</Button>
       </div>
-      <p className="mb-4 text-xs text-gray-500">Current value & profit/loss are derived from your value updates — never stored.</p>
+      <p className="mb-4 text-xs text-slate-400">Current value & profit/loss are derived from your value updates — never stored.</p>
       {open && <AddInvestment onDirtyChange={setFormDirty} onDone={() => { setOpen(false); void mutate(); }} />}
 
       {isLoading && <Spinner />}
@@ -140,7 +140,7 @@ function InvestmentRow({ inv, onChanged }: { inv: PfInvestment; onChanged: () =>
         <div className="flex items-start justify-between gap-3">
           <div className="text-sm font-medium">{inv.name}</div>
           <div className="text-right">
-            <div className="text-xs text-gray-500">current value</div>
+            <div className="text-xs text-slate-400">current value</div>
             <div className="font-semibold tabular-nums">{pfMoney(inv.currentValue, inv.currency)}</div>
             <div className={`text-xs tabular-nums ${gain ? "text-emerald-700" : "text-rose-700"}`}>
               {gain ? "▲" : "▼"} {pfMoney(Math.abs(inv.unrealizedPl), inv.currency)} vs {pfMoney(inv.costBasis, inv.currency)} in
@@ -154,12 +154,12 @@ function InvestmentRow({ inv, onChanged }: { inv: PfInvestment; onChanged: () =>
         {open && (
           <div className="mt-3 space-y-3">
             {events && events.length > 0 && (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-ink-800">
                 {events.map((ev) => (
                   <li key={ev.id} className={`flex items-center justify-between py-1.5 text-sm ${ev.reversesId ? "opacity-50" : ""}`}>
                     <span>
                       <Badge tone={ev.kind === "valuation" ? "blue" : ev.kind === "contribution" ? "green" : "amber"}>{ev.kind}</Badge>
-                      <span className="ml-1 text-xs text-gray-500">{formatDate(ev.occurredOn)}</span>
+                      <span className="ml-1 text-xs text-slate-400">{formatDate(ev.occurredOn)}</span>
                     </span>
                     <span className="flex items-center gap-3">
                       <span className="tabular-nums">{pfMoney(ev.amount, inv.currency)}</span>
@@ -181,7 +181,7 @@ function InvestmentRow({ inv, onChanged }: { inv: PfInvestment; onChanged: () =>
               <div className="sm:w-40"><Field label="Date" error={fieldErrs.occurredOn}><DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} /></Field></div>
               <Button variant="secondary" disabled={busy || !form.amount} onClick={addEvent}>Add</Button>
             </div>
-            <p className="text-xs text-gray-400">A <b>valuation</b> sets the current worth (latest wins). <b>Contribution</b>/<b>withdrawal</b> move your cost basis.</p>
+            <p className="text-xs text-slate-500">A <b>valuation</b> sets the current worth (latest wins). <b>Contribution</b>/<b>withdrawal</b> move your cost basis.</p>
             {err && <ErrorNote message={err} />}
           </div>
         )}

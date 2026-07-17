@@ -36,7 +36,7 @@ export default function PfRegisterPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
       <h1 className="text-xl font-semibold tracking-tight text-emerald-800">Create your account</h1>
-      <p className="mt-1 text-sm text-gray-500">A private plane, separate from any business login.</p>
+      <p className="mt-1 text-sm text-slate-400">A private plane, separate from any business login.</p>
       <Card className="mt-6">
         <form onSubmit={onSubmit} className="space-y-4">
           <Field label="Name" error={fieldErrs.displayName}>
@@ -61,7 +61,7 @@ export default function PfRegisterPage() {
           </Button>
         </form>
       </Card>
-      <p className="mt-4 text-center text-sm text-gray-500">
+      <p className="mt-4 text-center text-sm text-slate-400">
         Already have an account?{" "}
         <Link href="/personal-finance/login" className="font-medium text-emerald-700 hover:underline">
           Sign in

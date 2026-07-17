@@ -141,10 +141,10 @@ export default function PfTargetsPage() {
                 const over = t.kind === "budget_cap" && current > amount;
                 return (
                   <div className="min-w-[8rem]">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800">
                       <div className={`h-full rounded-full ${over ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
                     </div>
-                    <div className="mt-1 text-xs text-gray-500">{over ? "over!" : `${pct}%`}</div>
+                    <div className="mt-1 text-xs text-slate-400">{over ? "over!" : `${pct}%`}</div>
                   </div>
                 );
               },
