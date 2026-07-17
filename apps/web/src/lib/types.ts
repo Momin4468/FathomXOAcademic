@@ -89,7 +89,8 @@ export interface WorkListRow {
   // Money-gated (present only when the viewer may see money):
   clientRate?: string | null;
   writerRate?: string | null;
-  clientAmount?: number | null;
+  clientAmount?: number | null; // the caller's real inflow (owner = real client price)
+  declaredAmount?: string | null; // the billed/pool (declared) client price from the consumer line
   writerAmount?: number | null;
   margin?: number | null;
 }

@@ -318,6 +318,13 @@ function TaskRow({
   td: React.CSSProperties; tdR: React.CSSProperties; onChanged: () => void; done?: boolean;
 }) {
   const writerVal = canBill ? r.writerAmount : r.myFee;
+  // Declared/pool price (billed, on the books) vs the owner's REAL inflow. When the
+  // owner marks the real leg above the declared line, Client/Margin show the pool
+  // figure everyone sees; the parchment Actual/Your-extra reveal the real + markup.
+  const real = r.clientAmount ?? null;
+  const declared = r.declaredAmount != null ? Number(r.declaredAmount) : real;
+  const declaredMargin = declared != null && r.writerAmount != null ? declared - r.writerAmount : r.margin ?? null;
+  const extra = real != null && declared != null ? Math.round((real - declared) * 100) / 100 : 0;
   const NEXT: Record<string, string | undefined> = { draft: "pending", pending: "confirmed", confirmed: "delivered" };
   const next = NEXT[r.workState];
 
@@ -351,10 +358,10 @@ function TaskRow({
       <td style={tdR}>{r.wordCount ?? "—"}</td>
       <td style={{ ...td, fontSize: 11.5, color: T.muted2, whiteSpace: "nowrap" }}>{fmtDue(r.deliveryDate ?? r.submissionDate)}</td>
       <td style={{ ...tdR, fontWeight: 600 }}>{writerVal != null ? bdt(writerVal) : "—"}</td>
-      {canBill && <td style={{ ...tdR, fontWeight: 600 }}>{r.clientAmount != null ? bdt(r.clientAmount) : "—"}</td>}
-      {canBill && <td style={{ ...tdR, fontWeight: 600, color: (r.margin ?? 0) < 0 ? T.red : T.ink }}>{r.margin != null ? bdt(r.margin) : "—"}</td>}
-      {isOwner && <td style={{ ...tdR, background: T.parch }}>{r.clientAmount != null ? bdt(r.clientAmount) : "—"}</td>}
-      {isOwner && <td style={{ ...tdR, background: T.parch, fontWeight: 700, color: T.parchText }}>{r.margin != null ? bdt(r.margin) : "—"}</td>}
+      {canBill && <td style={{ ...tdR, fontWeight: 600 }}>{declared != null ? bdt(declared) : "—"}</td>}
+      {canBill && <td style={{ ...tdR, fontWeight: 600, color: (declaredMargin ?? 0) < 0 ? T.red : T.ink }}>{declaredMargin != null ? bdt(declaredMargin) : "—"}</td>}
+      {isOwner && <td style={{ ...tdR, background: T.parch }}>{real != null ? bdt(real) : "—"}</td>}
+      {isOwner && <td style={{ ...tdR, background: T.parch, fontWeight: 700, color: extra > 0 ? T.parchText : T.muted2 }}>{extra > 0 ? bdt(extra) : "—"}</td>}
       <td style={{ ...td, textAlign: "center" }}>{stateChip(r.workState)}</td>
       <td style={{ ...td, whiteSpace: "nowrap", textAlign: "right" }}>
         {next && (

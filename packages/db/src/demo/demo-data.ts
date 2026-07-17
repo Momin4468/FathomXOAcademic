@@ -284,6 +284,31 @@ export async function seedDemo(client: pg.Client): Promise<void> {
         [randomUUID(), DEMO_ORG, stype, sid, mominP2, emonU]);
   }
 
+  // ─── §4.4 declared-vs-real (owner's private markup) ─────────────────────────────
+  // Momin bills the pool/books a DECLARED ৳10,000 (the consumer line amount everyone
+  // sees) but his REAL client leg is ৳12,000. On his Tasks board Client/Margin show
+  // the declared 10,000 / 6,500; the parchment Actual/Your-extra reveal 12,000 / 2,000
+  // — visible ONLY to him (leg RLS). Emon never sees this job (Momin owns it).
+  {
+    const jobId = randomUUID();
+    const cl = P.get("mezbahul")!, writer = P.get("w:Mitul")!, mominP2 = P.get("momin")!;
+    const courseRef = refId.get("c:COMP7033M") ?? null;
+    await q(
+      `insert into work_item (id,org_id,title,work_state,money_state,owner_party_id,source_party_id,client_party_id,doer_party_id,course_ref_id,module_name,word_count,created_by)
+       values ($1,$2,$3,'confirmed','invoiced',$4,$5,$5,$6,$7,'Cloud Security — Dissertation',5000,$8)`,
+      [jobId, DEMO_ORG, "Cloud Security — Dissertation (private markup)", mominP2, cl, writer, courseRef, mominU],
+    );
+    // Consumer line carries the DECLARED price (a fixed ৳10,000 = what the books show).
+    await q(`insert into work_line (id,org_id,work_item_id,line_kind,line_status,consumer_party_id,word_count,unit_label,fixed_amount) values ($1,$2,$3,'part','submitted',$4,5000,'words',$5)`,
+      [randomUUID(), DEMO_ORG, jobId, cl, "10000"]);
+    await q(`insert into work_line (id,org_id,work_item_id,line_kind,line_status,writer_party_id,word_count,unit_label,writer_rate) values ($1,$2,$3,'part','submitted',$4,5000,'words',$5)`,
+      [randomUUID(), DEMO_ORG, jobId, writer, "0.7"]);
+    // Legs carry the REAL money: client → Momin 12,000 (his real inflow), Momin → writer 3,500.
+    for (const [seq, f, t, amt] of [[1, cl, mominP2, "12000"], [2, mominP2, writer, "3500"]] as const)
+      await q(`insert into leg (id,org_id,work_item_id,seq,from_party_id,to_party_id,amount,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [randomUUID(), DEMO_ORG, jobId, seq, f, t, amt, mominU]);
+  }
+
   // ─── Operating costs + writer payouts (so the Cashbook shows both sides) ────────
   const mominP = P.get("momin");
   for (const [cat, amt, note, days] of [

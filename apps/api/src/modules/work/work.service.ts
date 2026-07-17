@@ -565,7 +565,8 @@ export class WorkService {
       ? sql`, cl.client_rate as "clientRate", pl.writer_rate as "writerRate",
              round(${clientAmountExpr}, 2) as "clientAmount",
              round(${writerAmountExpr}, 2) as "writerAmount",
-             round(${marginExpr}, 2) as "margin"`
+             round(${marginExpr}, 2) as "margin",
+             round(cl.declared_amount, 2) as "declaredAmount"`
       : sql``;
     const moneyJoin = canSeeMoney
       ? sql`left join lateral (
@@ -597,7 +598,9 @@ export class WorkService {
       left join ref_entity ce on ce.id = w.course_ref_id
       left join project pr on pr.id = w.project_id
       left join lateral (
-        select id as consumer_line_id, word_count, unit_label, unit_count, client_rate from work_line
+        select id as consumer_line_id, word_count, unit_label, unit_count, client_rate,
+               coalesce(fixed_amount, client_rate * coalesce(word_count, unit_count)) as declared_amount
+        from work_line
         where work_item_id = w.id and consumer_party_id is not null limit 1
       ) cl on true
       left join lateral (
