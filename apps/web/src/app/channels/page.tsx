@@ -1,8 +1,9 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate } from "@/lib/format";
+import { formatDate, sanitizeAmount } from "@/lib/format";
 import {
   can,
   type Channel,
@@ -16,19 +17,19 @@ import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import {
   Badge,
-  Button,
   Card,
-  DateInput,
-  EmptyState,
-  ErrorNote,
+  CardHead,
+  dcInput,
+  EmptyBox,
   Field,
-  Input,
-  Money,
-  MoneyInput,
-  PercentInput,
-  Select,
-  Spinner,
-} from "@/components/ui";
+  GhostButton,
+  Loading,
+  money,
+  Note,
+  Page,
+  StatCards,
+  T,
+} from "@/components/dc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const searchParties = async (q: string): Promise<PickItem[]> => {
@@ -47,25 +48,57 @@ const BASIS_LABELS: Record<string, string> = {
   fixed: "fixed amount",
 };
 
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "0 0 6px" };
+const sectionSub: CSSProperties = { margin: "0 0 12px", fontSize: 11.5, color: T.muted, maxWidth: 640 };
+const formGrid: CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 };
+
+function MoneyField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <span style={{ position: "absolute", left: 9, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 12.5, color: T.muted2, pointerEvents: "none" }}>৳</span>
+      <input inputMode="decimal" value={value} onChange={(e) => onChange(sanitizeAmount(e.target.value))} style={{ ...dcInput, paddingLeft: 20, textAlign: "right", fontVariantNumeric: "tabular-nums" }} />
+    </div>
+  );
+}
+function PctField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input inputMode="decimal" value={value} onChange={(e) => onChange(sanitizeAmount(e.target.value))} style={{ ...dcInput, paddingRight: 20, textAlign: "right", fontVariantNumeric: "tabular-nums" }} />
+      <span style={{ position: "absolute", right: 9, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 12.5, color: T.muted2, pointerEvents: "none" }}>%</span>
+    </div>
+  );
+}
+
 export default function ChannelsPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const canApprove = can(me?.permissions, "channels:approve");
+  // Summary figures (SWR dedupes these with the child components' fetches).
+  const { data: channels } = useApi<Channel[]>(canApprove ? "channels" : null);
+  const { data: terms } = useApi<ProfitShareTerm[]>(canApprove ? "channels/profit-shares" : null);
 
   if (me && !canApprove) {
     return (
       <AppShell>
-        <h1 className="mb-3 text-lg font-semibold tracking-tight">Channels</h1>
-        <EmptyState title="No access to channel management" hint="See your own profit share under “My share”." />
+        <Page title="Channels">
+          <EmptyBox title="No access to channel management" hint="See your own profit share under “My share”." />
+        </Page>
       </AppShell>
     );
   }
 
+  const activeCount = (channels ?? []).filter((c) => c.isActive).length;
+
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Channels &amp; profit-share</h1>
-      <ChannelsManager />
-      <ProfitShareTerms />
-      <JobPoolViewer />
+      <Page title="Channels & profit-share" sub="sources, N-way profit splits & per-job pools">
+        <StatCards items={[
+          { label: "Channels", value: channels?.length ?? 0, tone: "gold", note: `${activeCount} active` },
+          { label: "Profit-share terms", value: terms?.length ?? 0, tone: "purple", note: "owners / investors" },
+        ]} />
+        <ChannelsManager />
+        <ProfitShareTerms />
+        <JobPoolViewer />
+      </Page>
     </AppShell>
   );
 }
@@ -74,18 +107,18 @@ export default function ChannelsPage() {
 function ChannelsManager() {
   const { data: channels, error, isLoading, mutate } = useApi<Channel[]>("channels");
   return (
-    <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Sources</h2>
-      <p className="mb-3 text-xs text-slate-400">
+    <section style={{ marginBottom: 28 }}>
+      <h2 style={sectionH}>Sources</h2>
+      <p style={sectionSub}>
         A channel is an admin-defined source (Web, Facebook, …). Set who controls it — the business, or a person who
         takes its residual margin. Add or tune one anytime; no code change needed.
       </p>
       <AddChannel onAdded={mutate} />
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {channels && channels.length === 0 && <EmptyState title="No channels yet" hint="Add one above." />}
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
+      {channels && channels.length === 0 && <div style={{ marginTop: 12 }}><EmptyBox title="No channels yet" hint="Add one above." /></div>}
       {channels && channels.length > 0 && (
-        <div className="mt-3 space-y-2">
+        <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
           {channels.map((c) => (
             <ChannelRow key={c.id} channel={c} onChange={mutate} />
           ))}
@@ -131,23 +164,23 @@ function AddChannel({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a channel</h2>
-      <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <CardHead>Add a channel</CardHead>
+      <form onSubmit={add} style={{ padding: 14, ...formGrid }}>
         <Field label="Name" error={fieldErrs.name}>
-          <Input placeholder="e.g. Web" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="e.g. Web" value={name} onChange={(e) => setName(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Medium" error={fieldErrs.medium}>
-          <Input placeholder="e.g. web / facebook" value={medium} onChange={(e) => setMedium(e.target.value)} />
+          <input placeholder="e.g. web / facebook" value={medium} onChange={(e) => setMedium(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Controller (blank = the business)" error={fieldErrs.controllerPartyId}>
           <EntityPicker key={resetSeq} placeholder="Business (default)…" search={searchParties} onPick={(i) => setControllerPartyId(i?.id ?? null)} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !name.trim() || !medium.trim()}>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !name.trim() || !medium.trim()}>
             {busy ? "Adding…" : "Add channel"}
-          </Button>
+          </GhostButton>
         </div>
-        {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
+        {err && <div style={{ gridColumn: "1 / -1" }}><Note>{err}</Note></div>}
       </form>
     </Card>
   );
@@ -185,26 +218,26 @@ function ChannelRow({ channel, onChange }: { channel: Channel; onChange: () => v
   }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{channel.name}</span>
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{channel.name}</span>
           <Badge tone="gray">{channel.medium}</Badge>
           {!channel.isActive && <Badge tone="amber">inactive</Badge>}
-          <span className="text-xs text-slate-500">
+          <span style={{ fontSize: 11, color: T.muted }}>
             controller: {channel.controllerName ?? "the business"}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={() => patch({ isActive: !channel.isActive })}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <GhostButton type="button" disabled={busy} onClick={() => patch({ isActive: !channel.isActive })}>
             {channel.isActive ? "Deactivate" : "Activate"}
-          </Button>
-          <Button variant="ghost" className="px-2 text-xs text-red-600" disabled={busy} onClick={archive}>
+          </GhostButton>
+          <GhostButton type="button" danger disabled={busy} onClick={archive}>
             Archive
-          </Button>
+          </GhostButton>
         </div>
       </div>
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
+      {err && <div style={{ marginTop: 10 }}><Note>{err}</Note></div>}
     </Card>
   );
 }
@@ -213,32 +246,34 @@ function ChannelRow({ channel, onChange }: { channel: Channel; onChange: () => v
 function ProfitShareTerms() {
   const { data: terms, error, isLoading, mutate } = useApi<ProfitShareTerm[]>("channels/profit-shares");
   return (
-    <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Profit-share &amp; dividends</h2>
-      <p className="mb-3 text-xs text-slate-400">
+    <section style={{ marginBottom: 28 }}>
+      <h2 style={sectionH}>Profit-share &amp; dividends</h2>
+      <p style={sectionSub}>
         Give any owner/investor/partner a date-versioned share of the profit pool. The formula (basis) and rate are both
         configurable; old jobs keep their old terms. A standing (default) share is an owner dividend — it applies to
         every job automatically.
       </p>
       <AddProfitShareTerm onAdded={mutate} />
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
       {terms && terms.length > 0 && (
-        <ul className="mt-3 divide-y divide-ink-800 rounded-lg border border-ink-800 bg-ink-850 text-sm">
-          {terms.map((t) => (
-            <li key={t.id} className="flex items-center justify-between px-3 py-2">
-              <span>
-                <span className="font-medium">{t.toPartyName ?? "—"}</span>{" "}
-                <span className="text-slate-400">
-                  {t.basis === "fixed" ? <>fixed <Money value={Number(t.value)} /></> : `${t.value}% — ${BASIS_LABELS[t.basis ?? ""] ?? t.basis}`}
+        <Card style={{ marginTop: 12 }}>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none", fontSize: 12.5 }}>
+            {terms.map((t, i) => (
+              <li key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderTop: i ? `1px solid ${T.hair}` : undefined }}>
+                <span>
+                  <span style={{ fontWeight: 600, color: T.ink }}>{t.toPartyName ?? "—"}</span>{" "}
+                  <span style={{ color: T.muted }}>
+                    {t.basis === "fixed" ? <>fixed {money(Number(t.value))}</> : `${t.value}% — ${BASIS_LABELS[t.basis ?? ""] ?? t.basis}`}
+                  </span>
                 </span>
-              </span>
-              <span className="text-xs text-slate-500">
-                {t.appliesTo.startsWith("source:") ? "channel-scoped" : "standing dividend"} · from {formatDate(t.effectiveFrom)}
-              </span>
-            </li>
-          ))}
-        </ul>
+                <span style={{ fontSize: 11, color: T.muted }}>
+                  {t.appliesTo.startsWith("source:") ? "channel-scoped" : "standing dividend"} · from {formatDate(t.effectiveFrom)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </section>
   );
@@ -287,42 +322,44 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a profit share</h2>
-      <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <CardHead>Add a profit share</CardHead>
+      <form onSubmit={add} style={{ padding: 14, ...formGrid }}>
         <Field label="Beneficiary" error={fieldErrs.toPartyId}>
           <EntityPicker key={`b${resetSeq}`} placeholder="Search owner/investor…" search={searchParties} onPick={(i) => setToPartyId(i?.id ?? null)} />
         </Field>
         <Field label="Basis (the formula)" error={fieldErrs.basis}>
-          <Select value={basis} onChange={(e) => setBasis(e.target.value)}>
+          <select value={basis} onChange={(e) => setBasis(e.target.value)} style={dcInput}>
             <option value="pct_after_writer">% after writer pay</option>
             <option value="pct_of_net">% of net profit</option>
             <option value="pct_of_channel">% of channel earnings</option>
             <option value="fixed">fixed amount</option>
-          </Select>
+          </select>
         </Field>
         <Field label={basis === "fixed" ? "Amount (৳)" : "Percent (%)"} error={fieldErrs.value}>
           {basis === "fixed"
-            ? <MoneyInput value={value} onChange={(v) => setValue(v)} />
-            : <PercentInput value={value} onChange={(v) => setValue(v)} />}
+            ? <MoneyField value={value} onChange={(v) => setValue(v)} />
+            : <PctField value={value} onChange={(v) => setValue(v)} />}
         </Field>
         <Field label="Scope to a channel (blank = standing dividend)" error={fieldErrs.sourcePartyId}>
           <EntityPicker key={`s${resetSeq}`} placeholder="All jobs (default)…" search={searchChannels} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
         </Field>
         <Field label="Effective from" error={fieldErrs.effectiveFrom}>
-          <DateInput value={effectiveFrom} onChange={setEffectiveFrom} />
+          <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} style={dcInput} />
         </Field>
-        <div className="sm:col-span-2">
+        <div style={{ gridColumn: "1 / -1" }}>
           {showOpacityHint && (
-            <p className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              A standing net-profit dividend is allowed only for a non-partner silent investor — for an active partner it
-              could reveal the other partner’s private margin (§4.4). For a partner, scope it to a channel or use a fixed
-              amount. The server will reject a disallowed combination.
-            </p>
+            <div style={{ marginBottom: 10 }}>
+              <Note tone="amber">
+                A standing net-profit dividend is allowed only for a non-partner silent investor — for an active partner it
+                could reveal the other partner’s private margin (§4.4). For a partner, scope it to a channel or use a fixed
+                amount. The server will reject a disallowed combination.
+              </Note>
+            </div>
           )}
-          {err && <div className="mb-2"><ErrorNote message={err} /></div>}
-          <Button type="submit" variant="secondary" disabled={busy || !toPartyId || !value}>
+          {err && <div style={{ marginBottom: 10 }}><Note>{err}</Note></div>}
+          <GhostButton type="submit" disabled={busy || !toPartyId || !value}>
             {busy ? "Saving…" : "Save share"}
-          </Button>
+          </GhostButton>
         </div>
       </form>
     </Card>
@@ -353,45 +390,45 @@ function JobPoolViewer() {
   }
 
   return (
-    <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">How a job’s profit divides</h2>
-      <Card>
+    <section style={{ marginBottom: 28 }}>
+      <h2 style={sectionH}>How a job’s profit divides</h2>
+      <Card style={{ padding: 14 }}>
         <Field label="Job">
-          <Select value={workItemId} onChange={(e) => load(e.target.value)}>
+          <select value={workItemId} onChange={(e) => load(e.target.value)} style={dcInput}>
             <option value="">Select a job…</option>
             {(works ?? []).map((w) => (
               <option key={w.id} value={w.id}>{w.title}</option>
             ))}
-          </Select>
+          </select>
         </Field>
-        {busy && <div className="mt-3"><Spinner /></div>}
-        {err && <div className="mt-3"><ErrorNote message={err} /></div>}
+        {busy && <Loading />}
+        {err && <div style={{ marginTop: 12 }}><Note>{err}</Note></div>}
         {result && (
-          <div className="mt-3 text-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs text-slate-400">profit pool (after writer pay)</span>
-              <span className="font-medium"><Money value={result.pool} /></span>
+          <div style={{ marginTop: 14, fontSize: 12.5 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: T.muted }}>profit pool (after writer pay)</span>
+              <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{money(result.pool)}</span>
             </div>
             {result.overAllocated && (
-              <p className="mb-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-                Shares exceed the pool — review the configured rates.
-              </p>
+              <div style={{ marginBottom: 8 }}>
+                <Note>Shares exceed the pool — review the configured rates.</Note>
+              </div>
             )}
-            <ul className="divide-y divide-ink-800">
-              {result.cuts.map((c) => (
-                <li key={c.toPartyId} className="flex items-center justify-between py-1.5">
+            <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+              {result.cuts.map((c, i) => (
+                <li key={c.toPartyId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderTop: i ? `1px solid ${T.hair}` : undefined }}>
                   <span>
                     {c.toPartyName ?? c.toPartyId}{" "}
-                    <span className="text-xs text-slate-500">
+                    <span style={{ fontSize: 11, color: T.muted }}>
                       ({c.basis === "fixed" ? "fixed" : `${c.rate}% of ${c.base}`})
                     </span>
                   </span>
-                  <Money value={c.amount} />
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(c.amount)}</span>
                 </li>
               ))}
-              <li className="flex items-center justify-between py-1.5 text-slate-300">
+              <li style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderTop: `1px solid ${T.hair}`, color: T.ink2 }}>
                 <span>residual → {result.residualOwner?.name ?? "the business"}</span>
-                <Money value={result.residual} />
+                <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(result.residual)}</span>
               </li>
             </ul>
           </div>

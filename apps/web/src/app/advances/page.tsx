@@ -2,12 +2,12 @@
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate } from "@/lib/format";
+import { sanitizeAmount } from "@/lib/format";
 import { can, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Card, CardHead, DGrid, Field, GhostButton, GoldButton, Loading, Note, Page, StatCards, T, cell, dcInput, fmtDay, money, type DAction, type Stat } from "@/components/dc";
 
 /**
  * Business-plane loan/advance ledger (P1 item 11). Advances to writers, vendors,
@@ -38,26 +38,60 @@ export default function AdvancesPage() {
   const { data, error, isLoading, mutate } = useApi<AdvanceRow[]>("advances");
   const canCreate = can(me?.permissions, "advances:create");
   const canApprove = can(me?.permissions, "advances:approve");
+  const confirm = useConfirm();
+  const [eventFor, setEventFor] = useState<AdvanceRow | null>(null);
+
+  async function archive(a: AdvanceRow) {
+    if (!(await confirm({ title: "Archive this advance?", danger: true, confirmLabel: "Archive" }))) return;
+    await apiSend(`advances/${a.id}/archive`, "POST");
+    if (eventFor?.id === a.id) setEventFor(null);
+    mutate();
+  }
+
+  const rows = data ?? [];
+  const owedToUs = rows.filter((a) => a.direction === "given").reduce((s, a) => s + Number(a.outstanding || 0), 0);
+  const weOwe = rows.filter((a) => a.direction === "taken").reduce((s, a) => s + Number(a.outstanding || 0), 0);
+  const stats: Stat[] = [
+    { label: "Owed to us", value: money(owedToUs), tone: "amber", note: "given — outstanding" },
+    { label: "We owe", value: money(weOwe), tone: "gray", note: "taken — outstanding" },
+  ];
+
+  const actions: DAction<AdvanceRow>[] = [
+    ...(canCreate ? [{ label: "event", onClick: (a: AdvanceRow) => setEventFor((cur) => (cur?.id === a.id ? null : a)) }] : []),
+    ...(canApprove ? [{ label: "archive", onClick: (a: AdvanceRow) => void archive(a), color: T.red }] : []),
+  ];
 
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Advances &amp; loans</h1>
-      <p className="mb-5 text-xs text-slate-400">
-        Business-side advances to writers, vendors, or anyone. Outstanding is derived from the events below — separate from the work/payment ledger.
-      </p>
+      <Page title="Advances & loans" sub="business-side advances to writers, vendors, or anyone — outstanding is derived from the events, separate from the work/payment ledger">
+        {data && data.length > 0 && <StatCards items={stats} min={200} />}
 
-      {canCreate && <NewAdvance onSaved={mutate} />}
+        {canCreate && <NewAdvance onSaved={mutate} />}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No advances yet" hint="Record one above." />}
-      {data && data.length > 0 && (
-        <div className="space-y-2">
-          {data.map((a) => (
-            <AdvanceCard key={a.id} advance={a} canCreate={canCreate} canApprove={canApprove} onChange={mutate} />
-          ))}
-        </div>
-      )}
+        {eventFor && canCreate && (
+          <AdvanceEvent key={eventFor.id} advance={eventFor} onClose={() => setEventFor(null)} onSaved={mutate} />
+        )}
+
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <DGrid<AdvanceRow>
+            rows={data}
+            keyOf={(a) => a.id}
+            cols={[
+              { label: "Counterparty", render: (a) => cell(a.counterpartyName ?? a.counterpartyPartyId, { weight: 500, sub: a.note ?? undefined }) },
+              { label: "Direction", render: (a) => <Badge tone={a.direction === "given" ? "amber" : "gray"}>{a.direction}</Badge> },
+              { label: "Principal", align: "right", render: (a) => cell(money(a.principal), { nums: true }) },
+              { label: "Started", render: (a) => <span style={{ color: T.muted2 }}>{fmtDay(a.startedOn)}</span> },
+              { label: "Due", render: (a) => <span style={{ color: T.muted2 }}>{a.dueOn ? fmtDay(a.dueOn) : "—"}</span> },
+              { label: "Outstanding", align: "right", render: (a) => cell(money(a.outstanding), { nums: true, weight: 700, color: T.ink }) },
+            ]}
+            actions={actions.length ? actions : undefined}
+            empty="No advances yet. Record one above."
+            foot="Outstanding is derived from each advance's events (disbursement, repayment, adjustment) — never stored."
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }
@@ -107,57 +141,43 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Record an advance / loan</h2>
-      <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Record an advance / loan</CardHead>
+      <form onSubmit={save} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <Field label="Counterparty (search)" error={fieldErrs.counterpartyPartyId}>
           <EntityPicker key={pickerKey} placeholder="Writer, vendor, anyone…" search={searchParty} onPick={setParty} />
         </Field>
         <Field label="…or a new name" error={fieldErrs.counterpartyName}>
-          <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New person" disabled={!!party} />
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New person" disabled={!!party} style={{ ...dcInput, opacity: party ? 0.55 : 1 }} />
         </Field>
         <Field label="Direction" error={fieldErrs.direction}>
-          <Select value={direction} onChange={(e) => setDirection(e.target.value as "given" | "taken")}>
+          <select value={direction} onChange={(e) => setDirection(e.target.value as "given" | "taken")} style={dcInput}>
             <option value="given">Given (they owe us)</option>
             <option value="taken">Taken (we owe them)</option>
-          </Select>
+          </select>
         </Field>
         <Field label="Principal (৳)" error={fieldErrs.principal}>
-          <MoneyInput value={principal} onChange={(v) => setPrincipal(v)} />
+          <input inputMode="decimal" value={principal} onChange={(e) => setPrincipal(sanitizeAmount(e.target.value))} placeholder="৳ amount" style={{ ...dcInput, textAlign: "right" }} />
         </Field>
         <Field label="Started" error={fieldErrs.startedOn}>
-          <DateInput value={startedOn} onChange={setStartedOn} />
+          <input type="date" value={startedOn} onChange={(e) => setStartedOn(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Due (optional)" error={fieldErrs.dueOn}>
-          <DateInput value={dueOn} onChange={setDueOn} />
+          <input type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Note (optional)" error={fieldErrs.note}>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+          <input value={note} onChange={(e) => setNote(e.target.value)} style={dcInput} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !(Number(principal) > 0) || (!party && !newName.trim())}>
-            {busy ? "Saving…" : "Record"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !(Number(principal) > 0) || (!party && !newName.trim())}>{busy ? "Saving…" : "Record"}</GhostButton>
         </div>
-        {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
+        {err && <div style={{ gridColumn: "1 / -1" }}><Note>{err}</Note></div>}
       </form>
     </Card>
   );
 }
 
-function AdvanceCard({
-  advance,
-  canCreate,
-  canApprove,
-  onChange,
-}: {
-  advance: AdvanceRow;
-  canCreate: boolean;
-  canApprove: boolean;
-  onChange: () => void;
-}) {
-  const confirm = useConfirm();
-  const [open, setOpen] = useState(false);
+function AdvanceEvent({ advance, onClose, onSaved }: { advance: AdvanceRow; onClose: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState<"repayment" | "disbursement" | "adjustment">("repayment");
   const [amount, setAmount] = useState("");
   const [occurredOn, setOccurredOn] = useState(new Date().toISOString().slice(0, 10));
@@ -175,7 +195,7 @@ function AdvanceCard({
     try {
       await apiSend(`advances/${advance.id}/events`, "POST", { kind, amount: amt, occurredOn });
       setAmount("");
-      onChange();
+      onSaved();
     } catch (e2) {
       setFieldErrs(fieldErrorMap(e2));
       setErr(bannerMessage(e2, "Could not record the event") ?? "");
@@ -183,61 +203,30 @@ function AdvanceCard({
       setBusy(false);
     }
   }
-  async function archive() {
-    if (!(await confirm({ title: "Archive this advance?", danger: true, confirmLabel: "Archive" }))) return;
-    await apiSend(`advances/${advance.id}/archive`, "POST");
-    onChange();
-  }
 
   return (
-    <Card>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{advance.counterpartyName ?? advance.counterpartyPartyId}</span>
-          <Badge tone={advance.direction === "given" ? "amber" : "gray"}>{advance.direction}</Badge>
-          {advance.note && <span className="text-xs text-slate-500">{advance.note}</span>}
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Record event · {advance.counterpartyName ?? "advance"} · outstanding {money(advance.outstanding)}</CardHead>
+      <form onSubmit={addEvent} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, alignItems: "end" }}>
+        <Field label="Kind" error={fieldErrs.kind}>
+          <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} style={dcInput}>
+            <option value="repayment">Repayment</option>
+            <option value="disbursement">Disbursement</option>
+            <option value="adjustment">Adjustment</option>
+          </select>
+        </Field>
+        <Field label="Amount (৳)" error={fieldErrs.amount}>
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(sanitizeAmount(e.target.value))} placeholder="৳ amount" style={{ ...dcInput, textAlign: "right" }} />
+        </Field>
+        <Field label="Date" error={fieldErrs.occurredOn}>
+          <input type="date" value={occurredOn} onChange={(e) => setOccurredOn(e.target.value)} style={dcInput} />
+        </Field>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+          <GoldButton type="submit" disabled={busy || !Number(amount)}>{busy ? "Saving…" : "Add"}</GoldButton>
+          <GhostButton onClick={onClose}>Close</GhostButton>
         </div>
-        <div className="text-right">
-          <div className="text-xs text-slate-400">outstanding</div>
-          <div className="text-sm font-semibold tabular-nums"><Money value={advance.outstanding} /></div>
-        </div>
-      </div>
-      <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-        <span>principal <Money value={advance.principal} /></span>
-        <span>started {formatDate(advance.startedOn)}</span>
-        {advance.dueOn && <span>due {formatDate(advance.dueOn)}</span>}
-        {canCreate && (
-          <button type="button" className="ml-auto text-slate-400 hover:text-slate-100" onClick={() => setOpen((o) => !o)}>
-            {open ? "Close" : "Record event"}
-          </button>
-        )}
-        {canApprove && (
-          <button type="button" className="text-slate-500 hover:text-red-600" onClick={archive}>
-            Archive
-          </button>
-        )}
-      </div>
-      {open && canCreate && (
-        <form onSubmit={addEvent} className="mt-2 flex flex-wrap items-end gap-2 border-t border-ink-800 pt-2">
-          <Field label="Kind" error={fieldErrs.kind}>
-            <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
-              <option value="repayment">Repayment</option>
-              <option value="disbursement">Disbursement</option>
-              <option value="adjustment">Adjustment</option>
-            </Select>
-          </Field>
-          <Field label="Amount (৳)" error={fieldErrs.amount}>
-            <MoneyInput value={amount} onChange={(v) => setAmount(v)} className="w-28" />
-          </Field>
-          <Field label="Date" error={fieldErrs.occurredOn}>
-            <DateInput value={occurredOn} onChange={setOccurredOn} />
-          </Field>
-          <Button type="submit" variant="secondary" className="text-xs" disabled={busy || !Number(amount)}>
-            {busy ? "Saving…" : "Add"}
-          </Button>
-          {err && <div className="w-full"><ErrorNote message={err} /></div>}
-        </form>
-      )}
+        {err && <div style={{ gridColumn: "1 / -1" }}><Note>{err}</Note></div>}
+      </form>
     </Card>
   );
 }

@@ -3,23 +3,11 @@ import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, sanitizeAmount } from "@/lib/format";
 import { can, type Expense, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import {
-  Button,
-  Card,
-  DateInput,
-  ErrorNote,
-  Field,
-  Input,
-  Money,
-  MoneyInput,
-  Select,
-  Spinner,
-} from "@/components/ui";
+import { Card, DGrid, Field, GhostButton, GoldButton, Loading, Note, Page, StatCards, T, cell, dcInput, fmtDay, money, type Stat } from "@/components/dc";
 
 const CATEGORIES = ["subscription", "salary", "promo", "loss", "event", "other"];
 const COST_BEARERS = ["party", "split", "writer"];
@@ -113,164 +101,153 @@ export default function ExpensesPage() {
     }
   }
 
+  const stats: Stat[] = data
+    ? [{ label: "Total (BDT)", value: money(data.total), tone: "gold", note: `${data.expenses.length} expense${data.expenses.length === 1 ? "" : "s"}` }]
+    : [];
+
   return (
     <AppShell>
-      <div className="mb-5 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight">Expenses</h1>
-          {data && (
-            <p className="text-xs text-slate-400">
-              Total: <Money value={data.total} />
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {canApprove && <Button variant="secondary" onClick={runReminders}>Run reminders</Button>}
-          {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add expense"}</Button>}
-        </div>
-      </div>
-      <div aria-live="polite">
-        {reminderMsg && <p className="mb-3 text-xs text-green-700">{reminderMsg}</p>}
-      </div>
-
-      {open && canCreate && (
-        <Card className="mb-5">
-          <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Category" error={fieldErrs.category}>
-                <Select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Amount" error={fieldErrs.amount}>
-                <MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
-              </Field>
-              <Field label="Cost bearer" error={fieldErrs.costBearer}>
-                <Select value={form.costBearer} onChange={(e) => setForm({ ...form, costBearer: e.target.value })}>
-                  {COST_BEARERS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Incurred on" error={fieldErrs.incurredAt}>
-                <DateInput value={form.incurredAt} onChange={(v) => setForm({ ...form, incurredAt: v })} />
-              </Field>
+      <Page
+        title="Expenses"
+        sub="operating costs — who bears each one (a partner, a split, or the writer)"
+        action={
+          canApprove || canCreate ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              {canApprove && <GhostButton onClick={runReminders}>Run reminders</GhostButton>}
+              {canCreate && <GoldButton onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add expense"}</GoldButton>}
             </div>
-            {form.costBearer === "party" && (
-              <Field label="Borne by" hint="The partner who bears this cost." error={fieldErrs.bearerPartyId}>
-                <EntityPicker placeholder="Search partner…" search={searchPartner} onPick={setBearer} />
-              </Field>
-            )}
-            {form.costBearer === "split" && (
-              <Field label="Split between" hint="Add each partner and their share." error={fieldErrs.costBearerSplitJson}>
-                <div className="space-y-2">
-                  {splitRows.map((r, i) => (
-                    <div key={r.id} className="flex items-center gap-2">
-                      <span className="flex-1 truncate text-sm">{r.label}</span>
-                      <MoneyInput
-                        className="w-24"
-                        value={r.share}
-                        onChange={(v) =>
-                          setSplitRows(splitRows.map((x, j) => (j === i ? { ...x, share: v } : x)))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="text-xs text-slate-400 hover:underline"
-                        onClick={() => setSplitRows(splitRows.filter((_, j) => j !== i))}
-                      >
-                        remove
-                      </button>
-                    </div>
-                  ))}
-                  <EntityPicker
-                    key={splitKey}
-                    placeholder="Add a partner…"
-                    search={searchPartner}
-                    onPick={(item) => {
-                      if (item && !splitRows.some((r) => r.id === item.id)) {
-                        setSplitRows([...splitRows, { id: item.id, label: item.label, share: "" }]);
-                      }
-                      setSplitKey((k) => k + 1);
-                    }}
-                  />
-                </div>
-              </Field>
-            )}
-            {form.category === "promo" && (
-              <Field label="Campaign tag" error={fieldErrs.campaignTag}>
-                <Input value={form.campaignTag} onChange={(e) => setForm({ ...form, campaignTag: e.target.value })} placeholder="e.g. JuneAds" />
-              </Field>
-            )}
-            {form.category === "subscription" && (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Next due date" hint="A reminder fires 3 days before." error={fieldErrs.nextDueDate}>
-                  <DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} />
+          ) : undefined
+        }
+      >
+        {data && <StatCards items={stats} min={200} />}
+        <div aria-live="polite">
+          {reminderMsg && <div style={{ marginBottom: 12, fontSize: 12, fontWeight: 600, color: T.green }}>{reminderMsg}</div>}
+        </div>
+
+        {open && canCreate && (
+          <Card style={{ padding: 16, marginBottom: 16 }}>
+            <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                <Field label="Category" error={fieldErrs.category}>
+                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} style={dcInput}>
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </Field>
-                <Field label="Currency" error={fieldErrs.currency}>
-                  <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
-                    {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-                  </Select>
+                <Field label="Amount" error={fieldErrs.amount}>
+                  <input inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: sanitizeAmount(e.target.value) })} placeholder="৳ amount" style={{ ...dcInput, textAlign: "right" }} />
+                </Field>
+                <Field label="Cost bearer" error={fieldErrs.costBearer}>
+                  <select value={form.costBearer} onChange={(e) => setForm({ ...form, costBearer: e.target.value })} style={dcInput}>
+                    {COST_BEARERS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Incurred on" error={fieldErrs.incurredAt}>
+                  <input type="date" value={form.incurredAt} onChange={(e) => setForm({ ...form, incurredAt: e.target.value })} style={dcInput} />
                 </Field>
               </div>
-            )}
-            <Field label="Note" error={fieldErrs.note}>
-              <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-            </Field>
-            {formError && <ErrorNote message={formError} />}
-            <Button type="submit" disabled={busy || !form.amount}>
-              {busy ? "Saving…" : "Save expense"}
-            </Button>
-          </form>
-        </Card>
-      )}
+              {form.costBearer === "party" && (
+                <Field label="Borne by" hint="The partner who bears this cost." error={fieldErrs.bearerPartyId}>
+                  <EntityPicker placeholder="Search partner…" search={searchPartner} onPick={setBearer} />
+                </Field>
+              )}
+              {form.costBearer === "split" && (
+                <Field label="Split between" hint="Add each partner and their share." error={fieldErrs.costBearerSplitJson}>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {splitRows.map((r, i) => (
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12.5 }}>{r.label}</span>
+                        <input
+                          inputMode="decimal"
+                          value={r.share}
+                          onChange={(e) => setSplitRows(splitRows.map((x, j) => (j === i ? { ...x, share: sanitizeAmount(e.target.value) } : x)))}
+                          placeholder="৳ share"
+                          style={{ ...dcInput, width: 110, textAlign: "right" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSplitRows(splitRows.filter((_, j) => j !== i))}
+                          style={{ fontSize: 11, color: T.muted, background: "none", border: "none", cursor: "pointer" }}
+                        >
+                          remove
+                        </button>
+                      </div>
+                    ))}
+                    <EntityPicker
+                      key={splitKey}
+                      placeholder="Add a partner…"
+                      search={searchPartner}
+                      onPick={(item) => {
+                        if (item && !splitRows.some((r) => r.id === item.id)) {
+                          setSplitRows([...splitRows, { id: item.id, label: item.label, share: "" }]);
+                        }
+                        setSplitKey((k) => k + 1);
+                      }}
+                    />
+                  </div>
+                </Field>
+              )}
+              {form.category === "promo" && (
+                <Field label="Campaign tag" error={fieldErrs.campaignTag}>
+                  <input value={form.campaignTag} onChange={(e) => setForm({ ...form, campaignTag: e.target.value })} placeholder="e.g. JuneAds" style={dcInput} />
+                </Field>
+              )}
+              {form.category === "subscription" && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                  <Field label="Next due date" hint="A reminder fires 3 days before." error={fieldErrs.nextDueDate}>
+                    <input type="date" value={form.nextDueDate} onChange={(e) => setForm({ ...form, nextDueDate: e.target.value })} style={dcInput} />
+                  </Field>
+                  <Field label="Currency" error={fieldErrs.currency}>
+                    <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} style={dcInput}>
+                      {CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </select>
+                  </Field>
+                </div>
+              )}
+              <Field label="Note" error={fieldErrs.note}>
+                <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={dcInput} />
+              </Field>
+              {formError && <Note>{formError}</Note>}
+              <div>
+                <GoldButton type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : "Save expense"}</GoldButton>
+              </div>
+            </form>
+          </Card>
+        )}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<Expense>
-          tableId="expenses"
-          exportName="expenses"
-          rows={data.expenses}
-          getRowId={(x) => x.id}
-          emptyTitle="No expenses yet"
-          columns={[
-            {
-              key: "category",
-              header: "Category",
-              sortable: true,
-              filter: "select",
-              filterOptions: CATEGORIES,
-              render: (x) => (
-                <span>
-                  <span className="capitalize">{x.category}</span>
-                  {x.campaignTag ? <span className="ml-2 text-xs text-slate-500">#{x.campaignTag}</span> : null}
-                </span>
-              ),
-              value: (x) => x.category,
-            },
-            {
-              key: "amount",
-              header: "Amount",
-              align: "right",
-              sortable: true,
-              // Expenses can be non-BDT; no total to avoid mixing currencies.
-              render: (x) =>
-                x.currency && x.currency !== "BDT" ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}` : <Money value={x.amount} />,
-              value: (x) => (x.amount == null ? "" : Number(x.amount)),
-            },
-            { key: "costBearer", header: "Bearer", sortable: true, filter: "select", filterOptions: COST_BEARERS, value: (x) => x.costBearer },
-            { key: "incurredAt", header: "Date", sortable: true, format: "date", value: (x) => x.incurredAt },
-            { key: "note", header: "Note", filter: "text", value: (x) => x.note ?? "" },
-          ]}
-        />
-      )}
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <DGrid<Expense>
+            rows={data.expenses}
+            keyOf={(x) => x.id}
+            cols={[
+              {
+                label: "Category",
+                render: (x) => (
+                  <span>
+                    <span style={{ textTransform: "capitalize" }}>{x.category}</span>
+                    {x.campaignTag ? <span style={{ marginLeft: 8, fontSize: 11, color: T.muted2 }}>#{x.campaignTag}</span> : null}
+                  </span>
+                ),
+              },
+              {
+                label: "Amount",
+                align: "right",
+                // Expenses can be non-BDT; show the code + amount so currencies aren't mixed.
+                render: (x) => cell(x.currency && x.currency !== "BDT" ? `${x.currency} ${formatMoney(x.amount, "") ?? x.amount}` : money(x.amount), { nums: true, weight: 600 }),
+              },
+              { label: "Bearer", render: (x) => <span style={{ textTransform: "capitalize" }}>{x.costBearer}</span> },
+              { label: "Date", render: (x) => <span style={{ color: T.muted2 }}>{fmtDay(x.incurredAt)}</span> },
+              { label: "Note", render: (x) => x.note ?? <span style={{ color: T.muted2 }}>—</span> },
+            ]}
+            empty="No expenses yet."
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }

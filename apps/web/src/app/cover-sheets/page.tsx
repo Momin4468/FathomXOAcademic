@@ -3,12 +3,14 @@ import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { fileSrc } from "@/lib/upload";
-import { formatDate } from "@/lib/format";
 import { can, type CoverSheet, type FileMeta, type RefEntity, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { FileUpload } from "@/components/FileUpload";
-import { Button, Card, EmptyState, ErrorNote, Field, Input, Spinner } from "@/components/ui";
+import {
+  Card, DGrid, EmptyBox, Field, GoldButton, Loading, Note, Page, T,
+  cell, dcInput, fmtDay, type DCol,
+} from "@/components/dc";
 
 const searchRef = (kind: string) => async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<RefEntity[]>(`reference?kind=${kind}&q=${encodeURIComponent(q)}`);
@@ -52,63 +54,64 @@ export default function CoverSheetsPage() {
     }
   }
 
+  const cols: DCol<CoverSheet>[] = [
+    { label: "Name", render: (cs) => cell(cs.name, { weight: 600, sub: cs.notes || undefined }) },
+    { label: "Updated", render: (cs) => cell(fmtDay(cs.updatedAt), { color: T.muted2 }) },
+    {
+      label: "File", align: "right", render: (cs) =>
+        cs.fileObjectId ? (
+          <a href={fileSrc(cs.fileObjectId)} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, fontWeight: 600, color: T.blue, textDecoration: "none" }}>
+            Download
+          </a>
+        ) : (
+          <span style={{ color: T.muted2 }}>—</span>
+        ),
+    },
+  ];
+
   return (
     <AppShell>
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Cover sheets</h1>
-        {canManage && <Button onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ New cover sheet"}</Button>}
-      </div>
-
-      {open && canManage && (
-        <Card className="mb-5">
-          <form onSubmit={create} className="space-y-3">
-            <Field label="Name" error={fieldErrs.name}>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            </Field>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="University" error={fieldErrs.universityRefId}>
-                <EntityPicker placeholder="Search university…" search={searchRef("university")} onPick={(i) => setForm((f) => ({ ...f, universityRefId: i?.id ?? null }))} />
+      <Page
+        title="Cover sheets"
+        action={canManage ? <GoldButton onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ New cover sheet"}</GoldButton> : undefined}
+      >
+        {open && canManage && (
+          <Card style={{ marginBottom: 16 }}>
+            <form onSubmit={create} style={{ padding: 16, display: "grid", gap: 14 }}>
+              <Field label="Name" error={fieldErrs.name}>
+                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required style={dcInput} />
               </Field>
-              <Field label="Programme / course" error={fieldErrs.programmeRefId}>
-                <EntityPicker placeholder="Search course…" search={searchRef("course")} onPick={(i) => setForm((f) => ({ ...f, programmeRefId: i?.id ?? null }))} />
-              </Field>
-            </div>
-            <Field label="Template file" error={fieldErrs.fileObjectId}>
-              <FileUpload kind="cover_sheet" label={file ? "Replace file" : "Upload template"} onUploaded={setFile} />
-              {file && <p className="mt-1 text-xs text-slate-300">📎 {file.filename ?? file.id}</p>}
-            </Field>
-            <Field label="Notes" error={fieldErrs.notes}>
-              <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </Field>
-            {formError && <ErrorNote message={formError} />}
-            <Button type="submit" disabled={busy || !form.name}>
-              {busy ? "Saving…" : "Save cover sheet"}
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No cover sheets yet" />}
-      {data && data.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {data.map((cs) => (
-            <li key={cs.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="text-sm">
-                <span className="font-medium">{cs.name}</span>
-                {cs.notes ? <div className="mt-0.5 text-xs text-slate-400">{cs.notes}</div> : null}
-                <div className="mt-0.5 text-xs text-slate-500">updated {formatDate(cs.updatedAt)}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+                <Field label="University" error={fieldErrs.universityRefId}>
+                  <EntityPicker placeholder="Search university…" search={searchRef("university")} onPick={(i) => setForm((f) => ({ ...f, universityRefId: i?.id ?? null }))} />
+                </Field>
+                <Field label="Programme / course" error={fieldErrs.programmeRefId}>
+                  <EntityPicker placeholder="Search course…" search={searchRef("course")} onPick={(i) => setForm((f) => ({ ...f, programmeRefId: i?.id ?? null }))} />
+                </Field>
               </div>
-              {cs.fileObjectId && (
-                <a href={fileSrc(cs.fileObjectId)} target="_blank" rel="noreferrer" className="text-sm text-blue-700 hover:underline">
-                  Download
-                </a>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+              <Field label="Template file" error={fieldErrs.fileObjectId}>
+                <FileUpload kind="cover_sheet" label={file ? "Replace file" : "Upload template"} onUploaded={setFile} />
+                {file && <p style={{ marginTop: 6, fontSize: 11, color: T.muted }}>📎 {file.filename ?? file.id}</p>}
+              </Field>
+              <Field label="Notes" error={fieldErrs.notes}>
+                <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={dcInput} />
+              </Field>
+              {formError && <Note>{formError}</Note>}
+              <div>
+                <GoldButton type="submit" disabled={busy || !form.name}>{busy ? "Saving…" : "Save cover sheet"}</GoldButton>
+              </div>
+            </form>
+          </Card>
+        )}
+
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (data.length === 0 ? (
+          <EmptyBox title="No cover sheets yet" />
+        ) : (
+          <DGrid cols={cols} rows={data} keyOf={(cs) => cs.id} minWidth={480} />
+        ))}
+      </Page>
     </AppShell>
   );
 }

@@ -69,13 +69,17 @@ export function Page({
   );
 }
 
-export function GoldButton({ onClick, children, href }: { onClick?: () => void; children: ReactNode; href?: string }) {
-  const style: CSSProperties = { fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 8, cursor: "pointer", background: T.gold, color: T.goldInk, textDecoration: "none", display: "inline-block" };
-  return href ? <Link href={href} style={style}>{children}</Link> : <span onClick={onClick} style={style}>{children}</span>;
+export function GoldButton({ onClick, children, href, type, disabled }: { onClick?: () => void; children: ReactNode; href?: string; type?: "button" | "submit"; disabled?: boolean }) {
+  const style: CSSProperties = { fontFamily: "Inter, sans-serif", fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", background: T.gold, color: T.goldInk, textDecoration: "none", display: "inline-block", border: "none", opacity: disabled ? 0.5 : 1 };
+  if (href) return <Link href={href} style={style}>{children}</Link>;
+  if (type) return <button type={type} disabled={disabled} onClick={onClick} style={style}>{children}</button>;
+  return <span onClick={disabled ? undefined : onClick} style={style}>{children}</span>;
 }
-export function GhostButton({ onClick, children, href }: { onClick?: () => void; children: ReactNode; href?: string }) {
-  const style: CSSProperties = { fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 8, cursor: "pointer", background: T.card, color: T.ink2, border: `1px solid ${T.border}`, textDecoration: "none", display: "inline-block" };
-  return href ? <Link href={href} style={style}>{children}</Link> : <span onClick={onClick} style={style}>{children}</span>;
+export function GhostButton({ onClick, children, href, type, disabled, danger }: { onClick?: () => void; children: ReactNode; href?: string; type?: "button" | "submit"; disabled?: boolean; danger?: boolean }) {
+  const style: CSSProperties = { fontFamily: "Inter, sans-serif", fontSize: 12.5, fontWeight: 700, padding: "7px 14px", borderRadius: 8, cursor: disabled ? "not-allowed" : "pointer", background: T.card, color: danger ? T.red : T.ink2, border: `1px solid ${danger ? "#F3C9C3" : T.border}`, textDecoration: "none", display: "inline-block", opacity: disabled ? 0.5 : 1 };
+  if (href) return <Link href={href} style={style}>{children}</Link>;
+  if (type) return <button type={type} disabled={disabled} onClick={onClick} style={style}>{children}</button>;
+  return <span onClick={disabled ? undefined : onClick} style={style}>{children}</span>;
 }
 
 export function Badge({ children, tone = "gray" }: { children: ReactNode; tone?: Tone }) {
@@ -120,10 +124,39 @@ export function CardHead({ children, tone }: { children: ReactNode; tone?: Tone 
   return <div style={{ padding: "10px 14px", borderBottom: `1px solid ${T.eyebrow}`, fontSize: 12, fontWeight: 700, background: t?.bg, color: t?.color ?? T.ink }}>{children}</div>;
 }
 
+// ── Form primitives (label/error field, inline banner, loading + empty) ───────
+export function Field({ label, hint, error, required, children }: { label: string; hint?: string; error?: string; required?: boolean; children: ReactNode }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{ display: "block", fontSize: 11, fontWeight: 600, color: T.muted, marginBottom: 5 }}>
+        {label}{required && <span style={{ color: T.red, marginLeft: 2 }}>*</span>}
+      </span>
+      {children}
+      {hint && !error && <span style={{ display: "block", fontSize: 10.5, color: T.muted2, marginTop: 4 }}>{hint}</span>}
+      {error && <span style={{ display: "block", fontSize: 10.5, color: T.red, fontWeight: 600, marginTop: 4 }}>{error}</span>}
+    </label>
+  );
+}
+export function Note({ children, tone = "red" }: { children: ReactNode; tone?: Tone }) {
+  const t = TONES[tone];
+  return <div style={{ background: t.bg, border: `1px solid ${t.border}`, color: t.color, borderRadius: 8, padding: "8px 11px", fontSize: 11.5, fontWeight: 500 }}>{children}</div>;
+}
+export function Loading({ label = "Loading…" }: { label?: string }) {
+  return <div style={{ padding: "22px 0", textAlign: "center", fontSize: 12.5, color: T.muted2 }}>{label}</div>;
+}
+export function EmptyBox({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div style={{ border: `1px dashed ${T.border}`, borderRadius: 12, padding: "34px 16px", textAlign: "center" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>{title}</div>
+      {hint && <div style={{ fontSize: 11.5, color: T.muted2, marginTop: 4 }}>{hint}</div>}
+    </div>
+  );
+}
+
 // ── DGrid: the handoff's generic module table (config-driven) ────────────────
 export type Align = "left" | "right" | "center";
 export type DCol<R> = { label: string; align?: Align; width?: number; render: (row: R) => ReactNode };
-export type DAction<R> = { label: string; onClick: (row: R) => void; icon?: ReactNode; color?: string; href?: (row: R) => string };
+export type DAction<R> = { label: string; onClick?: (row: R) => void; icon?: ReactNode; color?: string; href?: (row: R) => string };
 
 export function cell(text: ReactNode, opts?: { sub?: ReactNode; mono?: boolean; weight?: number; color?: string; nums?: boolean }): ReactNode {
   return (
@@ -167,7 +200,7 @@ export function DGrid<R>({
                     {actions.map((a, i) => a.href ? (
                       <Link key={i} href={a.href(r)} title={a.label} style={{ fontSize: 11, fontWeight: 600, color: a.color ?? T.muted, marginLeft: 8, textDecoration: "none" }}>{a.icon ?? a.label}</Link>
                     ) : (
-                      <span key={i} onClick={() => a.onClick(r)} title={a.label} style={{ fontSize: 11, fontWeight: 600, color: a.color ?? T.goldDeep, marginLeft: 8, cursor: "pointer" }}>{a.icon ?? a.label}</span>
+                      <span key={i} onClick={() => a.onClick?.(r)} title={a.label} style={{ fontSize: 11, fontWeight: 600, color: a.color ?? T.goldDeep, marginLeft: 8, cursor: "pointer" }}>{a.icon ?? a.label}</span>
                     ))}
                   </td>
                 )}

@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate } from "@/lib/format";
 import {
   can,
   type CheckBatchRow,
@@ -16,20 +15,10 @@ import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
 import {
-  Badge,
-  Button,
-  Card,
-  DateInput,
-  EmptyState,
-  ErrorNote,
-  Field,
-  Input,
-  Money,
-  MoneyInput,
-  Select,
-  Spinner,
-  StateBadge,
-} from "@/components/ui";
+  Badge, Card, CardHead, DGrid, EmptyBox, Field, GhostButton, GoldButton,
+  Loading, Note, Page, StatCards, T, cell, dcInput, fmtDay, money,
+  type DCol, type Stat,
+} from "@/components/dc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const searchParties = async (q: string): Promise<PickItem[]> => {
@@ -104,112 +93,118 @@ export default function ChecksPage() {
     }
   }
 
+  // Admin: the unit P&L (derived; confirmed batches only) as a stat-card row.
+  const pnlStats: Stat[] = pnl
+    ? [
+        { label: "Revenue", value: money(pnl.revenue), tone: "green" },
+        { label: "Account cost", value: money(pnl.accountCost) },
+        { label: "Worker pay", value: money(pnl.workerComp) },
+        { label: "Net", value: money(pnl.net), tone: pnl.net < 0 ? "red" : "green" },
+        { label: "Files checked", value: pnl.filesChecked },
+        { label: "Files paid", value: pnl.filesPaid },
+        { label: "Margin / check", value: pnl.marginPerCheck == null ? "—" : money(pnl.marginPerCheck) },
+      ]
+    : [];
+
+  // The board: recent batches.
+  const cols: DCol<CheckBatchRow>[] = [
+    { label: "Channel", render: (b) => cell(b.channelLabel, { sub: b.customerPartyId ? <PartyName id={b.customerPartyId} /> : undefined }) },
+    { label: "Date", render: (b) => cell(fmtDay(b.periodDate), { color: T.muted2 }) },
+    { label: "Checked", align: "right", render: (b) => b.filesChecked },
+    { label: "Paid", align: "right", render: (b) => b.filesPaid },
+    { label: "Collected", align: "right", render: (b) => money(b.amountCollected) },
+    { label: "State", align: "center", render: (b) => <Badge tone={b.status === "confirmed" ? "green" : b.status === "proposed" ? "amber" : "gray"}>{b.status}</Badge> },
+    {
+      label: "", align: "right", render: (b) =>
+        canApprove && b.status === "proposed" ? (
+          <span onClick={() => confirm(b.id)} style={{ fontSize: 11, fontWeight: 700, color: T.goldDeep, cursor: confirmingId === b.id ? "default" : "pointer" }}>
+            {confirmingId === b.id ? "Confirming…" : "Confirm"}
+          </span>
+        ) : null,
+    },
+  ];
+
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Checks</h1>
+      <Page title="Checks" sub="record a batch → an admin confirms it; the unit P&L is derived from confirmed batches only">
+        {canApprove && pnl && <StatCards items={pnlStats} min={150} />}
 
-      {/* Admin: the unit P&L (derived; confirmed batches only). */}
-      {canApprove && pnl && (
-        <Card className="mb-5">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Unit P&amp;L (confirmed)</h2>
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div><div className="text-xs text-slate-400">revenue</div><div className="font-medium"><Money value={pnl.revenue} /></div></div>
-            <div><div className="text-xs text-slate-400">account cost</div><div className="font-medium"><Money value={pnl.accountCost} /></div></div>
-            <div><div className="text-xs text-slate-400">worker pay</div><div className="font-medium"><Money value={pnl.workerComp} /></div></div>
-            <div><div className="text-xs text-slate-400">net</div><div className="font-semibold"><Money value={pnl.net} /></div></div>
-            <div><div className="text-xs text-slate-400">files checked</div><div className="font-medium">{pnl.filesChecked}</div></div>
-            <div><div className="text-xs text-slate-400">files paid</div><div className="font-medium">{pnl.filesPaid}</div></div>
-            <div><div className="text-xs text-slate-400">margin per check</div><div className="font-medium">{pnl.marginPerCheck == null ? "—" : <Money value={pnl.marginPerCheck} />}</div></div>
+        {/* Capture: record today's tally (a claim → admin confirms). */}
+        <Card style={{ marginBottom: 16 }}>
+          <CardHead>Record a batch</CardHead>
+          <div style={{ padding: 14 }}>
+            {channelsLoading ? (
+              <Loading />
+            ) : channelsError ? (
+              <Note>{channelsError.message}</Note>
+            ) : channels && channels.length === 0 ? (
+              <EmptyBox title="No channel yet" hint="Register a WhatsApp account/channel below first." />
+            ) : (
+              <form onSubmit={record} style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  <Field label="Channel (WhatsApp account)" error={fieldErrs.channelId}>
+                    <select value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })} required style={dcInput}>
+                      <option value="">Select channel…</option>
+                      {(channels ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Tool account" error={fieldErrs.toolAccountId}>
+                    <select value={form.toolAccountId} onChange={(e) => setForm({ ...form, toolAccountId: e.target.value })} style={dcInput}>
+                      <option value="">(none)</option>
+                      {(accounts ?? []).map((a) => (
+                        <option key={a.id} value={a.id}>{a.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
+                  <Field label="Date" error={fieldErrs.periodDate}>
+                    <input type="date" value={form.periodDate} onChange={(e) => setForm({ ...form, periodDate: e.target.value })} style={dcInput} />
+                  </Field>
+                  <Field label="Files checked" error={fieldErrs.filesChecked}>
+                    <input type="number" min="0" value={form.filesChecked} onChange={(e) => setForm({ ...form, filesChecked: e.target.value })} style={dcInput} />
+                  </Field>
+                  <Field label="Files paid" error={fieldErrs.filesPaid}>
+                    <input type="number" min="0" value={form.filesPaid} onChange={(e) => setForm({ ...form, filesPaid: e.target.value })} style={dcInput} />
+                  </Field>
+                  <Field label="Collected (৳)" error={fieldErrs.amountCollected}>
+                    <input inputMode="decimal" value={form.amountCollected} onChange={(e) => setForm({ ...form, amountCollected: e.target.value })} style={{ ...dcInput, textAlign: "right" }} />
+                  </Field>
+                </div>
+                <Field label="Customer (optional — stand-alone if blank)" error={fieldErrs.customerPartyId}>
+                  <EntityPicker key={resetSeq} placeholder="Search customer…" search={searchParties} onPick={(i) => setForm({ ...form, customerPartyId: i?.id ?? null })} />
+                </Field>
+                <Field label="Note" error={fieldErrs.note}>
+                  <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} style={dcInput} />
+                </Field>
+                {err && <Note>{err}</Note>}
+                <div>
+                  <GoldButton type="submit" disabled={busy || !form.channelId}>{busy ? "Saving…" : "Record batch"}</GoldButton>
+                </div>
+              </form>
+            )}
           </div>
         </Card>
-      )}
 
-      {/* Capture: record today's tally (a claim → admin confirms). */}
-      <Card className="mb-5">
-        <p className="mb-2 text-sm font-semibold text-slate-200">Record a batch</p>
-        {channelsLoading ? (
-          <Spinner />
-        ) : channelsError ? (
-          <ErrorNote message={channelsError.message} />
-        ) : channels && channels.length === 0 ? (
-          <EmptyState title="No channel yet" hint="Register a WhatsApp account/channel below first." />
-        ) : (
-          <form onSubmit={record} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Channel (WhatsApp account)" error={fieldErrs.channelId}>
-                <Select value={form.channelId} onChange={(e) => setForm({ ...form, channelId: e.target.value })} required>
-                  <option value="">Select channel…</option>
-                  {(channels ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.label}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Tool account" error={fieldErrs.toolAccountId}>
-                <Select value={form.toolAccountId} onChange={(e) => setForm({ ...form, toolAccountId: e.target.value })}>
-                  <option value="">(none)</option>
-                  {(accounts ?? []).map((a) => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
-                  ))}
-                </Select>
-              </Field>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <Field label="Date" error={fieldErrs.periodDate}><DateInput value={form.periodDate} onChange={(v) => setForm({ ...form, periodDate: v })} /></Field>
-              <Field label="Files checked" error={fieldErrs.filesChecked}><Input type="number" min="0" value={form.filesChecked} onChange={(e) => setForm({ ...form, filesChecked: e.target.value })} /></Field>
-              <Field label="Files paid" error={fieldErrs.filesPaid}><Input type="number" min="0" value={form.filesPaid} onChange={(e) => setForm({ ...form, filesPaid: e.target.value })} /></Field>
-              <Field label="Collected (৳)" error={fieldErrs.amountCollected}><MoneyInput value={form.amountCollected} onChange={(v) => setForm({ ...form, amountCollected: v })} /></Field>
-            </div>
-            <Field label="Customer (optional — stand-alone if blank)" error={fieldErrs.customerPartyId}>
-              <EntityPicker key={resetSeq} placeholder="Search customer…" search={searchParties} onPick={(i) => setForm({ ...form, customerPartyId: i?.id ?? null })} />
-            </Field>
-            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
-            {err && <ErrorNote message={err} />}
-            <Button type="submit" disabled={busy || !form.channelId}>{busy ? "Saving…" : "Record batch"}</Button>
-          </form>
+        {/* The board: recent batches. */}
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, margin: "18px 0 8px" }}>Recent batches</div>
+        {boardErr && <div style={{ marginBottom: 8 }}><Note>{boardErr}</Note></div>}
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {batches && <DGrid cols={cols} rows={batches} keyOf={(b) => b.id} empty="No batches yet." minWidth={620} />}
+
+        {/* Admin setup: channels, tool accounts + credits, top-ups. */}
+        {canApprove && (
+          <AdminSetup
+            channels={channels ?? []}
+            accounts={accounts ?? []}
+            onChannels={mutateChannels}
+            onAccounts={mutateAccounts}
+          />
         )}
-      </Card>
-
-      {/* The board: recent batches. */}
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Recent batches</h2>
-      {boardErr && <ErrorNote message={boardErr} />}
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {batches && batches.length === 0 && <EmptyState title="No batches yet" />}
-      {batches && batches.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {batches.map((b) => (
-            <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="text-sm">
-                <span className="font-medium">{b.channelLabel}</span>
-                {b.customerPartyId && (
-                  <span className="ml-2 text-xs text-slate-400">· <PartyName id={b.customerPartyId} /></span>
-                )}
-                <div className="mt-0.5 text-xs text-slate-400">
-                  {formatDate(b.periodDate)} · checked {b.filesChecked} · paid {b.filesPaid} · <Money value={b.amountCollected} />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <StateBadge state={b.status} />
-                {canApprove && b.status === "proposed" && (
-                  <Button variant="secondary" className="px-2 text-xs" disabled={confirmingId === b.id} onClick={() => confirm(b.id)}>
-                    {confirmingId === b.id ? "Confirming…" : "Confirm"}
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Admin setup: channels, tool accounts + credits, top-ups. */}
-      {canApprove && (
-        <AdminSetup
-          channels={channels ?? []}
-          accounts={accounts ?? []}
-          onChannels={mutateChannels}
-          onAccounts={mutateAccounts}
-        />
-      )}
+      </Page>
     </AppShell>
   );
 }
@@ -272,57 +267,63 @@ function AdminSetup({
   }
 
   return (
-    <section className="mt-8 space-y-4">
-      <h2 className="text-sm font-semibold text-slate-200">Accounts &amp; credits (admin)</h2>
-      {err && <ErrorNote message={err} />}
+    <section style={{ marginTop: 26 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 12 }}>Accounts &amp; credits (admin)</div>
+      {err && <div style={{ marginBottom: 12 }}><Note>{err}</Note></div>}
 
       {/* Tool accounts + derived credit balances */}
-      <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tool accounts</h2>
-        {accounts.length === 0 ? (
-          <EmptyState title="No tool accounts" />
-        ) : (
-          <ul className="divide-y divide-ink-800">
-            {accounts.map((a) => (
-              <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <span className="font-medium">{a.label}</span>
-                {a.credit && (
-                  <span className="text-xs text-slate-400">
-                    {a.credit.remaining} credits left · {a.credit.consumed} used · <Money value={a.credit.costPerCredit} />/credit
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        <form onSubmit={addAccount} className="mt-3 flex gap-2">
-          <Input placeholder="New tool account (e.g. AcademyCX #2)" value={accLabel} onChange={(e) => setAccLabel(e.target.value)} />
-          <Button type="submit" variant="secondary" disabled={!accLabel.trim()}>Add</Button>
-        </form>
+      <Card style={{ marginBottom: 14 }}>
+        <CardHead>Tool accounts</CardHead>
+        <div style={{ padding: 14 }}>
+          {accounts.length === 0 ? (
+            <EmptyBox title="No tool accounts" />
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {accounts.map((a) => (
+                <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 12.5 }}>
+                  <span style={{ fontWeight: 600 }}>{a.label}</span>
+                  {a.credit && (
+                    <span style={{ fontSize: 11, color: T.muted2 }}>
+                      {a.credit.remaining} credits left · {a.credit.consumed} used · {money(a.credit.costPerCredit)}/credit
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <form onSubmit={addAccount} style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <input placeholder="New tool account (e.g. AcademyCX #2)" value={accLabel} onChange={(e) => setAccLabel(e.target.value)} style={dcInput} />
+            <GhostButton type="submit" disabled={!accLabel.trim()}>Add</GhostButton>
+          </form>
+        </div>
       </Card>
 
       {/* Record a credit top-up (the cost basis) */}
-      <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Record a credit top-up</h2>
-        <form onSubmit={addTopup} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
-          <Select value={topup.toolAccountId} onChange={(e) => setTopup({ ...topup, toolAccountId: e.target.value })}>
-            <option value="">Account…</option>
-            {accounts.map((a) => (<option key={a.id} value={a.id}>{a.label}</option>))}
-          </Select>
-          <Input type="number" min="0" placeholder="Credits" value={topup.credits} onChange={(e) => setTopup({ ...topup, credits: e.target.value })} />
-          <MoneyInput placeholder="Cost (৳)" value={topup.cost} onChange={(v) => setTopup({ ...topup, cost: v })} />
-          <Button type="submit" variant="secondary" disabled={!topup.toolAccountId || !topup.credits}>Add top-up</Button>
-        </form>
+      <Card style={{ marginBottom: 14 }}>
+        <CardHead>Record a credit top-up</CardHead>
+        <div style={{ padding: 14 }}>
+          <form onSubmit={addTopup} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, alignItems: "end" }}>
+            <select value={topup.toolAccountId} onChange={(e) => setTopup({ ...topup, toolAccountId: e.target.value })} style={dcInput}>
+              <option value="">Account…</option>
+              {accounts.map((a) => (<option key={a.id} value={a.id}>{a.label}</option>))}
+            </select>
+            <input type="number" min="0" placeholder="Credits" value={topup.credits} onChange={(e) => setTopup({ ...topup, credits: e.target.value })} style={dcInput} />
+            <input inputMode="decimal" placeholder="Cost (৳)" value={topup.cost} onChange={(e) => setTopup({ ...topup, cost: e.target.value })} style={{ ...dcInput, textAlign: "right" }} />
+            <GhostButton type="submit" disabled={!topup.toolAccountId || !topup.credits}>Add top-up</GhostButton>
+          </form>
+        </div>
       </Card>
 
       {/* Channels */}
-      <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Channels ({channels.length})</h2>
-        <form onSubmit={addChannel} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Input placeholder="Channel label (WhatsApp acct)" value={chLabel} onChange={(e) => setChLabel(e.target.value)} />
-          <EntityPicker placeholder="Employee…" search={searchParties} onPick={(i) => setChEmployee(i?.id ?? null)} />
-          <Button type="submit" variant="secondary" disabled={!chLabel.trim()}>Add channel</Button>
-        </form>
+      <Card style={{ marginBottom: 14 }}>
+        <CardHead>Channels ({channels.length})</CardHead>
+        <div style={{ padding: 14 }}>
+          <form onSubmit={addChannel} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8, alignItems: "end" }}>
+            <input placeholder="Channel label (WhatsApp acct)" value={chLabel} onChange={(e) => setChLabel(e.target.value)} style={dcInput} />
+            <EntityPicker placeholder="Employee…" search={searchParties} onPick={(i) => setChEmployee(i?.id ?? null)} />
+            <GhostButton type="submit" disabled={!chLabel.trim()}>Add channel</GhostButton>
+          </form>
+        </div>
       </Card>
     </section>
   );

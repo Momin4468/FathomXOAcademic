@@ -1,8 +1,9 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate } from "@/lib/format";
+import { formatDate, sanitizeAmount } from "@/lib/format";
 import {
   can,
   type PartyRow,
@@ -16,19 +17,20 @@ import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import {
   Badge,
-  Button,
   Card,
-  DateInput,
-  EmptyState,
-  ErrorNote,
+  CardHead,
+  dcInput,
+  EmptyBox,
   Field,
-  Input,
-  Money,
-  MoneyInput,
-  PercentInput,
-  Select,
-  Spinner,
-} from "@/components/ui";
+  GhostButton,
+  GoldButton,
+  Loading,
+  money,
+  Note,
+  Page,
+  StatCards,
+  T,
+} from "@/components/dc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const searchParties = async (q: string): Promise<PickItem[]> => {
@@ -40,6 +42,27 @@ const searchReferrers = async (q: string): Promise<PickItem[]> => {
   return rows.map((r) => ({ id: r.id, label: r.displayName, sub: r.externalRef ?? undefined }));
 };
 
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
+const formGrid = (min = 200): CSSProperties => ({ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`, gap: 12 });
+
+// ৳-adorned money input recreated with the design tokens (sanitizes to a clean numeric string).
+function MoneyField({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <span style={{ position: "absolute", left: 9, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 12.5, color: T.muted2, pointerEvents: "none" }}>৳</span>
+      <input inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(sanitizeAmount(e.target.value))} style={{ ...dcInput, paddingLeft: 20, textAlign: "right", fontVariantNumeric: "tabular-nums" }} />
+    </div>
+  );
+}
+function PctField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: "relative" }}>
+      <input inputMode="decimal" value={value} onChange={(e) => onChange(sanitizeAmount(e.target.value))} style={{ ...dcInput, paddingRight: 20, textAlign: "right", fontVariantNumeric: "tabular-nums" }} />
+      <span style={{ position: "absolute", right: 9, top: 0, bottom: 0, display: "flex", alignItems: "center", fontSize: 12.5, color: T.muted2, pointerEvents: "none" }}>%</span>
+    </div>
+  );
+}
+
 export default function ReferrersPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const canApprove = can(me?.permissions, "referrers:approve");
@@ -49,32 +72,35 @@ export default function ReferrersPage() {
   if (me && !canApprove) {
     return (
       <AppShell>
-        <h1 className="mb-3 text-lg font-semibold tracking-tight">Referrers</h1>
-        <EmptyState title="No access to referrer management" hint="See your own referral income under “My referrals”." />
+        <Page title="Referrers">
+          <EmptyBox title="No access to referrer management" hint="See your own referral income under “My referrals”." />
+        </Page>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Referrers</h1>
+      <Page title="Referrers" sub="referral agreements & per-job attachments">
+        <StatCards items={[{ label: "Referrers", value: referrers?.length ?? 0, tone: "gold", note: "with agreements below" }]} />
 
-      <AttachReferral />
+        <AttachReferral />
 
-      <SetClientReferrer />
+        <SetClientReferrer />
 
-      <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-200">Referrers &amp; agreements</h2>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      <AddReferrer onAdded={mutate} />
-      {referrers && referrers.length === 0 && <EmptyState title="No referrers yet" hint="Add one above." />}
-      {referrers && referrers.length > 0 && (
-        <div className="mt-3 space-y-3">
-          {referrers.map((r) => (
-            <ReferrerCard key={r.id} referrer={r} />
-          ))}
-        </div>
-      )}
+        <h2 style={sectionH}>Referrers &amp; agreements</h2>
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        <AddReferrer onAdded={mutate} />
+        {referrers && referrers.length === 0 && <div style={{ marginTop: 12 }}><EmptyBox title="No referrers yet" hint="Add one above." /></div>}
+        {referrers && referrers.length > 0 && (
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+            {referrers.map((r) => (
+              <ReferrerCard key={r.id} referrer={r} />
+            ))}
+          </div>
+        )}
+      </Page>
     </AppShell>
   );
 }
@@ -103,12 +129,12 @@ function AddReferrer({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a referrer</h2>
-      <form onSubmit={add} className="flex gap-2">
-        <Input placeholder="Referrer name (e.g. Mujib)" value={name} onChange={(e) => setName(e.target.value)} />
-        <Button type="submit" variant="secondary" disabled={busy || !name.trim()}>Add</Button>
+      <CardHead>Add a referrer</CardHead>
+      <form onSubmit={add} style={{ display: "flex", gap: 10, padding: 14 }}>
+        <input placeholder="Referrer name (e.g. Mujib)" value={name} onChange={(e) => setName(e.target.value)} style={{ ...dcInput, flex: 1 }} />
+        <GhostButton type="submit" disabled={busy || !name.trim()}>Add</GhostButton>
       </form>
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
+      {err && <div style={{ padding: "0 14px 14px" }}><Note>{err}</Note></div>}
     </Card>
   );
 }
@@ -147,54 +173,56 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
   }
 
   const fmtTerm = (t: ReferrerTerm) =>
-    t.basis === "fixed" ? <>fixed <Money value={t.value} /></> : <>{t.value}% of {t.basis ?? "—"}</>;
+    t.basis === "fixed" ? <>fixed {money(t.value)}</> : <>{t.value}% of {t.basis ?? "—"}</>;
 
   return (
     <Card>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm font-medium">{referrer.displayName}</span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", borderBottom: `1px solid ${T.eyebrow}` }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>{referrer.displayName}</span>
         {referrer.externalRef && <Badge tone="gray">{referrer.externalRef}</Badge>}
       </div>
 
-      {terms && terms.length > 0 ? (
-        <ul className="mb-3 divide-y divide-ink-800 text-sm">
-          {terms.map((t) => (
-            <li key={t.id} className="flex items-center justify-between py-1.5">
-              <span>{fmtTerm(t)}</span>
-              <span className="text-xs text-slate-500">
-                {t.appliesTo.startsWith("client:") ? "per-client" : "default"} · from {formatDate(t.effectiveFrom)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mb-3 text-xs text-slate-500">No agreement yet — add one (the suggested payout uses it).</p>
-      )}
+      <div style={{ padding: 14 }}>
+        {terms && terms.length > 0 ? (
+          <ul style={{ margin: "0 0 12px", padding: 0, listStyle: "none" }}>
+            {terms.map((t, i) => (
+              <li key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                <span>{fmtTerm(t)}</span>
+                <span style={{ fontSize: 11, color: T.muted }}>
+                  {t.appliesTo.startsWith("client:") ? "per-client" : "default"} · from {formatDate(t.effectiveFrom)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p style={{ margin: "0 0 12px", fontSize: 11.5, color: T.muted }}>No agreement yet — add one (the suggested payout uses it).</p>
+        )}
 
-      <form onSubmit={addTerm} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Basis" error={fieldErrs.basis}>
-          <Select value={form.basis} onChange={(e) => setForm({ ...form, basis: e.target.value })}>
-            <option value="revenue">% of revenue</option>
-            <option value="margin">% of margin (post-writer)</option>
-            <option value="fixed">fixed amount</option>
-          </Select>
-        </Field>
-        <Field label={form.basis === "fixed" ? "Amount (৳)" : "Percent (%)"} error={fieldErrs.value}>
-          {form.basis === "fixed"
-            ? <MoneyInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />
-            : <PercentInput value={form.value} onChange={(v) => setForm({ ...form, value: v })} />}
-        </Field>
-        <Field label="Effective from" error={fieldErrs.effectiveFrom}>
-          <DateInput value={form.effectiveFrom} onChange={(v) => setForm({ ...form, effectiveFrom: v })} />
-        </Field>
-        <Field label="Per-client override (optional)" error={fieldErrs.clientPartyId}>
-          <EntityPicker key={resetSeq} placeholder="All clients (default)…" search={searchParties} onPick={(i) => setForm({ ...form, clientPartyId: i?.id ?? null })} />
-        </Field>
-        <div className="sm:col-span-2">
-          {err && <div className="mb-2"><ErrorNote message={err} /></div>}
-          <Button type="submit" variant="secondary" disabled={busy || !form.value}>{busy ? "Saving…" : "Save agreement"}</Button>
-        </div>
-      </form>
+        <form onSubmit={addTerm} style={formGrid()}>
+          <Field label="Basis" error={fieldErrs.basis}>
+            <select value={form.basis} onChange={(e) => setForm({ ...form, basis: e.target.value })} style={dcInput}>
+              <option value="revenue">% of revenue</option>
+              <option value="margin">% of margin (post-writer)</option>
+              <option value="fixed">fixed amount</option>
+            </select>
+          </Field>
+          <Field label={form.basis === "fixed" ? "Amount (৳)" : "Percent (%)"} error={fieldErrs.value}>
+            {form.basis === "fixed"
+              ? <MoneyField value={form.value} onChange={(v) => setForm({ ...form, value: v })} />
+              : <PctField value={form.value} onChange={(v) => setForm({ ...form, value: v })} />}
+          </Field>
+          <Field label="Effective from" error={fieldErrs.effectiveFrom}>
+            <input type="date" value={form.effectiveFrom} onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })} style={dcInput} />
+          </Field>
+          <Field label="Per-client override (optional)" error={fieldErrs.clientPartyId}>
+            <EntityPicker key={resetSeq} placeholder="All clients (default)…" search={searchParties} onPick={(i) => setForm({ ...form, clientPartyId: i?.id ?? null })} />
+          </Field>
+          <div style={{ gridColumn: "1 / -1" }}>
+            {err && <div style={{ marginBottom: 10 }}><Note>{err}</Note></div>}
+            <GhostButton type="submit" disabled={busy || !form.value}>{busy ? "Saving…" : "Save agreement"}</GhostButton>
+          </div>
+        </form>
+      </div>
     </Card>
   );
 }
@@ -231,22 +259,24 @@ function SetClientReferrer() {
   }
 
   return (
-    <Card className="mt-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Client’s default referrer</h2>
-      <p className="mb-3 text-xs text-slate-400">Each new job for this client suggests this referrer (one hop — never cascades).</p>
-      <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Client">
-          <EntityPicker key={`c${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientId(i?.id ?? null)} />
-        </Field>
-        <Field label="Referrer" error={fieldErrs.referrerId}>
-          <EntityPicker key={`r${resetSeq}`} placeholder="Search referrer…" search={searchReferrers} onPick={(i) => setReferrerId(i?.id ?? null)} />
-        </Field>
-        <div className="sm:col-span-2">
-          {err && <div className="mb-2"><ErrorNote message={err} /></div>}
-          {msg && <p className="mb-2 text-xs text-green-700">{msg}</p>}
-          <Button type="submit" variant="secondary" disabled={busy || !clientId}>{busy ? "Saving…" : "Save default"}</Button>
-        </div>
-      </form>
+    <Card style={{ marginTop: 14 }}>
+      <CardHead>Client’s default referrer</CardHead>
+      <div style={{ padding: 14 }}>
+        <p style={{ margin: "0 0 12px", fontSize: 11.5, color: T.muted }}>Each new job for this client suggests this referrer (one hop — never cascades).</p>
+        <form onSubmit={save} style={formGrid()}>
+          <Field label="Client">
+            <EntityPicker key={`c${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientId(i?.id ?? null)} />
+          </Field>
+          <Field label="Referrer" error={fieldErrs.referrerId}>
+            <EntityPicker key={`r${resetSeq}`} placeholder="Search referrer…" search={searchReferrers} onPick={(i) => setReferrerId(i?.id ?? null)} />
+          </Field>
+          <div style={{ gridColumn: "1 / -1" }}>
+            {err && <div style={{ marginBottom: 10 }}><Note>{err}</Note></div>}
+            {msg && <p style={{ margin: "0 0 10px", fontSize: 11.5, fontWeight: 600, color: T.green }}>{msg}</p>}
+            <GhostButton type="submit" disabled={busy || !clientId}>{busy ? "Saving…" : "Save default"}</GhostButton>
+          </div>
+        </form>
+      </div>
     </Card>
   );
 }
@@ -312,47 +342,49 @@ function AttachReferral() {
   }
 
   return (
-    <Card className="mb-5">
-      <p className="mb-2 text-sm font-semibold text-slate-200">Attach a referral to a job</p>
-      <form onSubmit={attach} className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <Card style={{ marginBottom: 14 }}>
+      <CardHead>Attach a referral to a job</CardHead>
+      <form onSubmit={attach} style={{ padding: 14, display: "grid", gap: 12 }}>
+        <div style={formGrid()}>
           <Field label="Job" error={fieldErrs.workItemId}>
-            <Select value={workItemId} onChange={(e) => { setWorkItemId(e.target.value); setSuggestion(null); }} required>
+            <select value={workItemId} onChange={(e) => { setWorkItemId(e.target.value); setSuggestion(null); }} required style={dcInput}>
               <option value="">Select job…</option>
               {(works ?? []).map((w) => (
                 <option key={w.id} value={w.id}>{w.title}</option>
               ))}
-            </Select>
+            </select>
           </Field>
           <Field label="Referrer (blank = the client’s default)" error={fieldErrs.referrerId}>
             <EntityPicker key={resetSeq} placeholder="Search referrer…" search={searchReferrers} onPick={(i) => setReferrerId(i?.id ?? null)} />
           </Field>
         </div>
 
-        <Button type="button" variant="ghost" className="px-2 text-xs" disabled={busy || !workItemId} onClick={preview}>
-          {busy ? "…" : "Preview suggestion"}
-        </Button>
+        <div>
+          <GhostButton type="button" disabled={busy || !workItemId} onClick={preview}>
+            {busy ? "…" : "Preview suggestion"}
+          </GhostButton>
+        </div>
 
         {suggestion && (
-          <div className="rounded-lg bg-ink-800 px-3 py-2 text-sm">
+          <div style={{ background: T.hair, borderRadius: 8, padding: "9px 12px", fontSize: 12.5 }}>
             {suggestion.source === "no_referrer" ? (
-              <span className="text-amber-700">No referrer set for this job — pick one above.</span>
+              <span style={{ color: T.amber }}>No referrer set for this job — pick one above.</span>
             ) : (
-              <div className="space-y-0.5">
-                <div className="text-xs text-slate-400">
-                  referrer: <span className="text-slate-200">{suggestion.referrerName ?? "—"}</span>
-                  {" · "}revenue <Money value={suggestion.revenue} />{" · "}margin <Money value={suggestion.margin} />
+              <div style={{ display: "grid", gap: 3 }}>
+                <div style={{ fontSize: 11, color: T.muted }}>
+                  referrer: <span style={{ color: T.ink, fontWeight: 600 }}>{suggestion.referrerName ?? "—"}</span>
+                  {" · "}revenue {money(suggestion.revenue)}{" · "}margin {money(suggestion.margin)}
                 </div>
                 <div>
                   {suggestion.source === "derived" && suggestion.term ? (
                     <span>
-                      suggested <span className="font-medium"><Money value={suggestion.suggestedAmount} /></span>{" "}
-                      <span className="text-xs text-slate-500">
+                      suggested <span style={{ fontWeight: 700 }}>{money(suggestion.suggestedAmount)}</span>{" "}
+                      <span style={{ fontSize: 11, color: T.muted }}>
                         ({suggestion.term.basis === "fixed" ? "fixed" : `${suggestion.term.value}% of ${suggestion.term.basis}`})
                       </span>
                     </span>
                   ) : (
-                    <span className="text-amber-700 text-xs">No agreement — enter an amount to attach.</span>
+                    <span style={{ fontSize: 11, color: T.amber }}>No agreement — enter an amount to attach.</span>
                   )}
                 </div>
               </div>
@@ -361,12 +393,12 @@ function AttachReferral() {
         )}
 
         <Field label="Amount (৳) — override or enter manually" error={fieldErrs.amount}>
-          <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
+          <MoneyField value={amount} onChange={(v) => setAmount(v)} />
         </Field>
 
-        {err && <ErrorNote message={err} />}
-        {msg && <p className="text-xs text-green-700">{msg}</p>}
-        <Button type="submit" disabled={busy || !workItemId}>{busy ? "Attaching…" : "Attach referral"}</Button>
+        {err && <Note>{err}</Note>}
+        {msg && <p style={{ margin: 0, fontSize: 11.5, fontWeight: 600, color: T.green }}>{msg}</p>}
+        <div><GoldButton type="submit" disabled={busy || !workItemId}>{busy ? "Attaching…" : "Attach referral"}</GoldButton></div>
       </form>
     </Card>
   );

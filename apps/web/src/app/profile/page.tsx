@@ -5,18 +5,17 @@ import { apiSend, logout, useApi } from "@/lib/api";
 import { bannerMessage } from "@/lib/field-errors";
 import { type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, ErrorNote, Field, Input, Spinner } from "@/components/ui";
+import { Badge, Card, dcInput, Page, T } from "@/components/dc";
 
 /**
- * Self-service profile & security (business plane). A user manages only what is
- * theirs to manage: their own password. Identity facts (email, linked person) are
- * read-only here and roles are shown but NOT editable — role changes are an admin
- * action (no self-promotion, spec §10). Changing the password revokes every
- * session, so on success we sign the user out to re-authenticate cleanly.
+ * Self-service Profile & security (business plane), recreated to the Business OS
+ * v5 design. A user manages only what is theirs: their password. Identity facts
+ * (email, linked person) are read-only and roles are shown but not editable — role
+ * changes are an admin action (no self-promotion, §10). A password change revokes
+ * every session, so on success we sign out to re-authenticate cleanly.
  */
 export default function ProfilePage() {
-  const { data: me, isLoading } = useApi<WhoAmI>("platform/whoami");
-
+  const { data: me } = useApi<WhoAmI>("platform/whoami");
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -36,8 +35,6 @@ export default function ProfilePage() {
     try {
       await apiSend("auth/change-password", "POST", { currentPassword: current, newPassword: next });
       setDone(true);
-      // Every device was signed out; bounce to login after a beat so the user
-      // reads the confirmation.
       setTimeout(() => void logout(), 1600);
     } catch (e2) {
       setErr(bannerMessage(e2, "Could not change password") ?? "Could not change password");
@@ -45,70 +42,65 @@ export default function ProfilePage() {
     }
   }
 
+  const label: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: T.muted };
+  const ro: React.CSSProperties = { ...dcInput, marginTop: 4, background: T.canvas, color: T.ink2 };
+
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Profile &amp; security</h1>
-      <p className="mb-4 text-xs text-slate-400">Manage your own login. Roles are assigned by an administrator.</p>
-      {isLoading && <Spinner />}
+      <div style={{ maxWidth: 620 }}>
+        <Page title="Profile & security" sub="manage your own login — roles are assigned by an administrator">
+          {me && (
+            <>
+              <Card style={{ padding: 16, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 12 }}>Your details</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <label style={label}>Sign-in email<div style={ro}>{me.account?.email ?? "—"}</div></label>
+                  <label style={label}>Linked person<div style={ro}>{me.party ? <Link href={`/people/${me.party.id}`} style={{ color: T.goldDeep, textDecoration: "none" }}>{me.party.displayName}</Link> : "Not linked"}</div></label>
+                  <label style={{ ...label, gridColumn: "1 / -1" }}>Roles
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                      {me.roleNames.length ? me.roleNames.map((r) => <Badge key={r} tone="blue">{r}</Badge>) : <span style={{ color: T.muted2 }}>No roles</span>}
+                    </div>
+                  </label>
+                </div>
+                <p style={{ marginTop: 12, borderTop: `1px solid ${T.eyebrow}`, paddingTop: 10, fontSize: 11, color: T.muted2 }}>
+                  Your name & contact live on your <Link href={me.party ? `/people/${me.party.id}` : "/people"} style={{ color: T.goldDeep, textDecoration: "none" }}>person record</Link>. Only an administrator can change your roles.
+                </p>
+              </Card>
 
-      {me && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {/* Identity (read-only) */}
-          <Card className="h-fit">
-            <h2 className="mb-3 text-sm font-semibold">Account</h2>
-            <dl className="space-y-2.5 text-sm">
-              <div>
-                <dt className="text-xs text-slate-500">Sign-in email</dt>
-                <dd className="font-medium">{me.account?.email ?? <span className="text-slate-500">—</span>}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">Linked person</dt>
-                <dd className="font-medium">
-                  {me.party ? (
-                    <Link href={`/people/${me.party.id}`} className="text-gold-600 hover:underline dark:text-gold-400">{me.party.displayName}</Link>
-                  ) : (
-                    <span className="text-slate-500">Not linked to a person record</span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">Roles</dt>
-                <dd className="mt-1 flex flex-wrap gap-1">
-                  {me.roleNames.length ? me.roleNames.map((r) => <Badge key={r} tone="blue">{r}</Badge>) : <span className="text-slate-500">No roles</span>}
-                </dd>
-              </div>
-            </dl>
-            <p className="mt-4 border-t border-ink-700 pt-3 text-[11px] text-slate-500">
-              Your profile details (name, contact) live on your <Link href={me.party ? `/people/${me.party.id}` : "/people"} className="text-gold-600 hover:underline dark:text-gold-400">person record</Link>. Only an administrator can change your roles.
-            </p>
-          </Card>
+              <Card style={{ padding: 16, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 12 }}>Change password</div>
+                {done ? (
+                  <p style={{ borderRadius: 8, background: T.greenBg, color: T.green, padding: "12px 12px", fontSize: 13 }}>
+                    Password changed. You&apos;ve been signed out of all devices — redirecting you to sign in…
+                  </p>
+                ) : (
+                  <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <input type="password" autoComplete="current-password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} style={dcInput} />
+                    <input type="password" autoComplete="new-password" placeholder="New password (min 8)" value={next} onChange={(e) => setNext(e.target.value)} style={{ ...dcInput, borderColor: tooShort ? T.red : T.border }} />
+                    <input type="password" autoComplete="new-password" placeholder="Confirm new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} style={{ ...dcInput, borderColor: mismatch ? T.red : T.border }} />
+                    {mismatch && <span style={{ fontSize: 11, color: T.red }}>Passwords do not match.</span>}
+                    {err && <span style={{ fontSize: 11.5, color: T.red, fontWeight: 600 }}>{err}</span>}
+                    <div style={{ textAlign: "right", marginTop: 2 }}>
+                      <button type="submit" disabled={!canSubmit} style={{ background: T.ink, color: "#F0D08C", fontWeight: 700, fontSize: 12.5, padding: "8px 16px", borderRadius: 8, cursor: canSubmit ? "pointer" : "not-allowed", border: "none", opacity: canSubmit ? 1 : 0.55 }}>
+                        {busy ? "Updating…" : "Update password"}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: 11, color: T.muted2 }}>Changing your password signs you out everywhere.</p>
+                  </form>
+                )}
+              </Card>
 
-          {/* Change password */}
-          <Card className="h-fit">
-            <h2 className="mb-3 text-sm font-semibold">Change password</h2>
-            {done ? (
-              <p className="rounded-lg bg-emerald-50 px-3 py-3 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                Password changed. You&apos;ve been signed out of all devices — redirecting you to sign in…
-              </p>
-            ) : (
-              <form onSubmit={submit} className="space-y-3">
-                <Field label="Current password">
-                  <Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
-                </Field>
-                <Field label="New password" hint="At least 8 characters" error={tooShort ? "Too short — at least 8 characters." : undefined}>
-                  <Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
-                </Field>
-                <Field label="Confirm new password" error={mismatch ? "Passwords do not match." : undefined}>
-                  <Input type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-                </Field>
-                {err && <ErrorNote message={err} />}
-                <Button type="submit" className="w-full" disabled={!canSubmit}>{busy ? "Changing…" : "Change password"}</Button>
-                <p className="text-[11px] text-slate-500">Changing your password signs you out everywhere.</p>
-              </form>
-            )}
-          </Card>
-        </div>
-      )}
+              <Card style={{ padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ flex: 1 }}>
+                  <span style={{ display: "block", fontSize: 12.5, fontWeight: 700 }}>Two-factor authentication</span>
+                  <span style={{ display: "block", fontSize: 11.5, color: T.muted2, marginTop: 2 }}>Required for money & vault roles. Recommended for everyone.</span>
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, padding: "6px 14px", borderRadius: 999, background: T.eyebrow, color: T.muted }}>Managed by admin</span>
+              </Card>
+            </>
+          )}
+        </Page>
+      </div>
     </AppShell>
   );
 }

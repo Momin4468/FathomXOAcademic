@@ -1,16 +1,35 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { can, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import {
+  Badge,
+  Card,
+  CardHead,
+  dcInput,
+  EmptyBox,
+  Field,
+  GoldButton,
+  Loading,
+  Note,
+  Page,
+  Pill,
+  StatCards,
+  T,
+} from "@/components/dc";
 
 const IMPORT_ENTITIES = ["clients", "jobs", "payments", "settlement_opening"] as const;
 const EXPORT_DATASETS = ["clients", "jobs", "payments", "expenses", "invoices", "settlement"] as const;
 
 interface ImportRow { id: string; rowNumber: number; status: string; errorsJson: string[] | null; resolutionJson: Record<string, string> | null }
 interface ImportResult { batch: { id: string; entityType: string; status: string; validCount: number; invalidCount: number; committedCount: number; failedCount: number }; rows: ImportRow[] }
+
+// Ghost/gold-styled download anchors (plain <a> so the browser handles the file download / new tab).
+const dlGhost: CSSProperties = { display: "inline-flex", alignItems: "center", fontSize: 12.5, fontWeight: 700, padding: "8px 14px", borderRadius: 8, background: T.card, color: T.ink2, border: `1px solid ${T.border}`, textDecoration: "none" };
+const dlGold: CSSProperties = { ...dlGhost, background: T.gold, color: T.goldInk, border: "none" };
 
 export default function DataPage() {
   const { data: me, isLoading } = useApi<WhoAmI>("platform/whoami");
@@ -19,26 +38,23 @@ export default function DataPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Data — import · export · archive</h1>
-      <p className="mb-4 text-xs text-slate-400">
-        Three paths into the system: manual template · preprocess script · AI capture. Imports preview before they commit; nothing is created until you confirm.
-      </p>
+      <Page title="Data — import · export · archive" sub="manual template · preprocess script · AI capture — previewed before commit">
+        {isLoading && <Loading />}
+        {!isLoading && !allowed && <EmptyBox title="You don't have access to data tools" />}
 
-      {isLoading && <Spinner />}
-      {!isLoading && !allowed && <EmptyState title="You don't have access to data tools" />}
-
-      {allowed && (
-        <>
-          <div className="mb-4 flex gap-2">
-            {(["import", "export", "archive"] as const).map((t) => (
-              <Button key={t} variant={tab === t ? "primary" : "secondary"} className="px-3 capitalize" onClick={() => setTab(t)}>{t}</Button>
-            ))}
-          </div>
-          {tab === "import" && <ImportTab />}
-          {tab === "export" && <ExportTab />}
-          {tab === "archive" && <ArchiveTab />}
-        </>
-      )}
+        {allowed && (
+          <>
+            <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+              {(["import", "export", "archive"] as const).map((t) => (
+                <Pill key={t} active={tab === t} onClick={() => setTab(t)}>{t}</Pill>
+              ))}
+            </div>
+            {tab === "import" && <ImportTab />}
+            {tab === "export" && <ExportTab />}
+            {tab === "archive" && <ArchiveTab />}
+          </>
+        )}
+      </Page>
     </AppShell>
   );
 }
@@ -82,64 +98,64 @@ function ImportTab() {
 
   return (
     <>
-      <Card className="mb-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="What are you importing?">
-            <Select value={entity} onChange={(e) => { setEntity(e.target.value); setResult(null); }}>
-              {IMPORT_ENTITIES.map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}
-            </Select>
-          </Field>
-          <Field label="1. Get the template" hint="Exact headers + a sample row.">
-            <a href={`/api/import/template/${entity}`} className="inline-flex min-h-[44px] items-center rounded-lg border border-ink-700 px-4 text-sm font-medium text-slate-200 hover:bg-ink-800">Download {entity} template ↓</a>
-          </Field>
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ padding: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+            <Field label="What are you importing?">
+              <select value={entity} onChange={(e) => { setEntity(e.target.value); setResult(null); }} style={dcInput}>
+                {IMPORT_ENTITIES.map((x) => <option key={x} value={x}>{x.replace("_", " ")}</option>)}
+              </select>
+            </Field>
+            <Field label="1. Get the template" hint="Exact headers + a sample row.">
+              <a href={`/api/import/template/${entity}`} style={dlGhost}>Download {entity} template ↓</a>
+            </Field>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <Field label="2. Upload your filled CSV / Excel" hint="A dry-run preview shows what will be created — nothing is saved yet.">
+              <input type="file" accept=".csv,.xlsx,.xls" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} style={{ display: "block", fontSize: 12.5, color: T.ink2 }} />
+            </Field>
+          </div>
+          {err && <div style={{ marginTop: 12 }}><Note>{err}</Note></div>}
         </div>
-        <div className="mt-3">
-          <Field label="2. Upload your filled CSV / Excel" hint="A dry-run preview shows what will be created — nothing is saved yet.">
-            <input type="file" accept=".csv,.xlsx,.xls" disabled={busy} onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFile(f); }} className="block text-sm" />
-          </Field>
-        </div>
-        {err && <div className="mt-2"><ErrorNote message={err} /></div>}
       </Card>
 
-      {busy && <Spinner label="Working…" />}
+      {busy && <Loading label="Working…" />}
 
       {result && (
         <Card>
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-200">
-              {committed ? "Committed" : "Preview"} — {result.batch.entityType.replace("_", " ")}
-            </p>
-            <div className="flex items-center gap-2 text-xs">
-              <Badge tone="green">{result.batch.validCount} valid</Badge>
-              {result.batch.invalidCount > 0 && <Badge tone="red">{result.batch.invalidCount} invalid</Badge>}
-              {committed && <Badge tone="blue">{result.batch.committedCount} created</Badge>}
-              {committed && result.batch.failedCount > 0 && <Badge tone="red">{result.batch.failedCount} failed</Badge>}
-            </div>
+          <CardHead>{committed ? "Committed" : "Preview"} — {result.batch.entityType.replace("_", " ")}</CardHead>
+          <div style={{ padding: 14 }}>
+            <StatCards min={130} items={[
+              { label: "Valid", value: result.batch.validCount, tone: "green" },
+              ...(result.batch.invalidCount > 0 ? [{ label: "Invalid", value: result.batch.invalidCount, tone: "red" as const }] : []),
+              ...(committed ? [{ label: "Created", value: result.batch.committedCount, tone: "blue" as const }] : []),
+              ...(committed && result.batch.failedCount > 0 ? [{ label: "Failed", value: result.batch.failedCount, tone: "red" as const }] : []),
+            ]} />
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
+              {result.rows.map((r, i) => (
+                <li key={r.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 12px", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                  <span style={{ color: T.muted }}>#{r.rowNumber}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <StatusBadge status={r.status} />
+                    {r.resolutionJson && (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: T.muted }}>
+                        {Object.entries(r.resolutionJson).map(([k, v]) => `${k}: ${v}`).join(" · ")}
+                      </span>
+                    )}
+                    {r.errorsJson && r.errorsJson.length > 0 && (
+                      <span style={{ marginLeft: 8, fontSize: 11, color: T.red }}>{r.errorsJson.join("; ")}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {!committed && result.batch.validCount > 0 && (
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <GoldButton type="button" onClick={commit} disabled={busy}>{busy ? "Committing…" : `Commit ${result.batch.validCount} valid row(s)`}</GoldButton>
+                <span style={{ fontSize: 11, color: T.muted }}>Creates records through the normal validation + governance, marked &ldquo;added by import&rdquo;.</span>
+              </div>
+            )}
           </div>
-          <ul className="divide-y divide-ink-800 overflow-hidden rounded-lg border border-ink-700">
-            {result.rows.map((r) => (
-              <li key={r.id} className="flex items-start justify-between gap-3 px-3 py-2 text-sm">
-                <span className="text-slate-500">#{r.rowNumber}</span>
-                <div className="min-w-0 flex-1">
-                  <StatusBadge status={r.status} />
-                  {r.resolutionJson && (
-                    <span className="ml-2 text-xs text-slate-400">
-                      {Object.entries(r.resolutionJson).map(([k, v]) => `${k}: ${v}`).join(" · ")}
-                    </span>
-                  )}
-                  {r.errorsJson && r.errorsJson.length > 0 && (
-                    <span className="ml-2 text-xs text-red-600">{r.errorsJson.join("; ")}</span>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-          {!committed && result.batch.validCount > 0 && (
-            <div className="mt-3 flex items-center gap-3">
-              <Button onClick={commit} disabled={busy}>{busy ? "Committing…" : `Commit ${result.batch.validCount} valid row(s)`}</Button>
-              <span className="text-xs text-slate-500">Creates records through the normal validation + governance, marked "added by import".</span>
-            </div>
-          )}
         </Card>
       )}
     </>
@@ -157,13 +173,15 @@ function ExportTab() {
   const [format, setFormat] = useState<"csv" | "xlsx">("csv");
   return (
     <Card>
-      <p className="mb-3 text-sm text-slate-300">Export reflects exactly what you can see in the app — figures you aren&rsquo;t permitted to see are never included.</p>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Dataset"><Select value={dataset} onChange={(e) => setDataset(e.target.value)}>{EXPORT_DATASETS.map((d) => <option key={d} value={d}>{d}</option>)}</Select></Field>
-        <Field label="Format"><Select value={format} onChange={(e) => setFormat(e.target.value as "csv" | "xlsx")}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option></Select></Field>
-      </div>
-      <div className="mt-3">
-        <a href={`/api/export/${dataset}?format=${format}`} className="inline-flex min-h-[44px] items-center rounded-lg bg-gray-900 px-4 text-sm font-medium text-white hover:bg-gray-800">Download {dataset}.{format} ↓</a>
+      <div style={{ padding: 14 }}>
+        <p style={{ margin: "0 0 12px", fontSize: 12.5, color: T.ink2 }}>Export reflects exactly what you can see in the app — figures you aren&rsquo;t permitted to see are never included.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+          <Field label="Dataset"><select value={dataset} onChange={(e) => setDataset(e.target.value)} style={dcInput}>{EXPORT_DATASETS.map((d) => <option key={d} value={d}>{d}</option>)}</select></Field>
+          <Field label="Format"><select value={format} onChange={(e) => setFormat(e.target.value as "csv" | "xlsx")} style={dcInput}><option value="csv">CSV</option><option value="xlsx">Excel (.xlsx)</option></select></Field>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <a href={`/api/export/${dataset}?format=${format}`} style={dlGold}>Download {dataset}.{format} ↓</a>
+        </div>
       </div>
     </Card>
   );
@@ -203,56 +221,59 @@ function ArchiveTab() {
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex-1"><Input placeholder="Search archived files…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <Button className="shrink-0" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add file"}</Button>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+        <input placeholder="Search archived files…" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...dcInput, flex: 1 }} />
+        <GoldButton type="button" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "+ Add file"}</GoldButton>
       </div>
 
       {open && (
-        <Card className="mb-5">
-          <form onSubmit={add} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Title"><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="2025 master sheet" /></Field>
-              <Field label="Document date"><DateInput value={form.docDate} onChange={(v) => setForm({ ...form, docDate: v })} /></Field>
-              <Field label="Tags (comma-separated)"><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="2025, settlement" /></Field>
-              <Field label="Description"><Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Field>
+        <Card style={{ marginBottom: 16 }}>
+          <CardHead>Add a file to the archive</CardHead>
+          <form onSubmit={add} style={{ padding: 14, display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+              <Field label="Title"><input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="2025 master sheet" style={dcInput} /></Field>
+              <Field label="Document date"><input type="date" value={form.docDate} onChange={(e) => setForm({ ...form, docDate: e.target.value })} style={dcInput} /></Field>
+              <Field label="Tags (comma-separated)"><input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="2025, settlement" style={dcInput} /></Field>
+              <Field label="Description"><input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} style={dcInput} /></Field>
             </div>
             <Field label="File (small) — or a link below (large)">
-              <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block text-sm" />
+              <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} style={{ display: "block", fontSize: 12.5, color: T.ink2 }} />
             </Field>
-            <Field label="…or a link (large files)"><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" /></Field>
-            {err && <ErrorNote message={err} />}
-            <Button type="submit" disabled={busy || !form.title.trim()}>{busy ? "Saving…" : "Add to archive"}</Button>
+            <Field label="…or a link (large files)"><input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" style={dcInput} /></Field>
+            {err && <Note>{err}</Note>}
+            <div><GoldButton type="submit" disabled={busy || !form.title.trim()}>{busy ? "Saving…" : "Add to archive"}</GoldButton></div>
           </form>
         </Card>
       )}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No archived files" hint="Add old sheets, the 2025 file, references." />}
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
+      {data && data.length === 0 && <EmptyBox title="No archived files" hint="Add old sheets, the 2025 file, references." />}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {data.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-              <div className="min-w-0">
-                <span className="font-medium">{a.title}</span>
-                {a.docDate && <span className="ml-2 text-xs text-slate-500">{formatDate(a.docDate)}</span>}
-                {a.tags?.length > 0 && <span className="ml-2">{a.tags.map((t) => <Badge key={t} tone="gray">{t}</Badge>)}</span>}
-                {a.description && <div className="mt-0.5 truncate text-xs text-slate-400">{a.description}</div>}
-              </div>
-              {a.fileObjectId && (
-                <a
-                  href={a.fileIsLink && a.fileUrl ? a.fileUrl : `/api/files/${a.fileObjectId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs text-blue-700 hover:underline"
-                >
-                  open ↗
-                </a>
-              )}
-            </li>
-          ))}
-        </ul>
+        <Card>
+          <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+            {data.map((a, i) => (
+              <li key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                <div style={{ minWidth: 0 }}>
+                  <span style={{ fontWeight: 600, color: T.ink }}>{a.title}</span>
+                  {a.docDate && <span style={{ marginLeft: 8, fontSize: 11, color: T.muted }}>{formatDate(a.docDate)}</span>}
+                  {a.tags?.length > 0 && <span style={{ marginLeft: 8, display: "inline-flex", gap: 6 }}>{a.tags.map((t) => <Badge key={t} tone="gray">{t}</Badge>)}</span>}
+                  {a.description && <div style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, color: T.muted }}>{a.description}</div>}
+                </div>
+                {a.fileObjectId && (
+                  <a
+                    href={a.fileIsLink && a.fileUrl ? a.fileUrl : `/api/files/${a.fileObjectId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ flexShrink: 0, fontSize: 11, fontWeight: 600, color: T.blue, textDecoration: "none" }}
+                  >
+                    open ↗
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </>
   );

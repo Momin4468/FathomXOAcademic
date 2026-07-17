@@ -1,14 +1,14 @@
 "use client";
 import { useMemo, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
-import { useSWRConfig } from "swr";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { bannerMessage, fieldErrorMap } from "@/lib/field-errors";
 import { can, type AdminUserRow, type PartyRow, type RoleRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Spinner } from "@/components/ui";
 import { useToast } from "@/components/toast";
+import { Badge, Card, CardHead, DGrid, GhostButton, GoldButton, Page, T, dcInput } from "@/components/dc";
 
 /**
  * User management (login accounts) — DISTINCT from the People directory. A *person*
@@ -17,11 +17,47 @@ import { useToast } from "@/components/toast";
  * revokes roles (roles-as-data), and enables/disables access. Passwords are never
  * shown or set here — users change their own on /profile; a locked-out user uses
  * the emailed reset flow. Gated to the `platform` module (SuperAdmin-only by seed).
+ * Recreated to the `Business OS v5` design handoff (generic grid + manage panel).
  */
 const searchParty = async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}`);
   return rows.map((r) => ({ id: r.id, label: r.displayName, sub: (r.partyType ?? []).join(", ") }));
 };
+
+const sectionLabel: CSSProperties = {
+  display: "block", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase",
+  letterSpacing: "0.05em", color: T.muted, marginBottom: 6,
+};
+const btnGold = (disabled?: boolean): CSSProperties => ({
+  fontSize: 12.5, fontWeight: 700, padding: "8px 14px", borderRadius: 8, fontFamily: "inherit",
+  background: T.gold, color: T.goldInk, cursor: disabled ? "default" : "pointer",
+  opacity: disabled ? 0.55 : 1, display: "inline-block", textAlign: "center",
+});
+const btnDanger = (disabled?: boolean): CSSProperties => ({
+  fontSize: 12.5, fontWeight: 700, padding: "8px 14px", borderRadius: 8, fontFamily: "inherit",
+  background: T.redBg, color: T.red, border: "1px solid #F3C9C3", cursor: disabled ? "default" : "pointer",
+  opacity: disabled ? 0.55 : 1, display: "inline-block",
+});
+
+function Note({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ background: T.redBg, color: T.red, border: "1px solid #F3C9C3", borderRadius: 8, padding: "8px 11px", fontSize: 12, fontWeight: 500 }}>
+      {children}
+    </div>
+  );
+}
+function Fld({ label, hint, error, required, children }: { label: string; hint?: string; error?: string; required?: boolean; children: ReactNode }) {
+  return (
+    <div>
+      <span style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: T.ink2, marginBottom: 5 }}>
+        {label}{required && <span style={{ color: T.red }}> *</span>}
+      </span>
+      {children}
+      {hint && <div style={{ fontSize: 11, color: T.muted2, marginTop: 4 }}>{hint}</div>}
+      {error && <div style={{ fontSize: 11, color: T.red, marginTop: 4, fontWeight: 500 }}>{error}</div>}
+    </div>
+  );
+}
 
 export default function UsersPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
@@ -36,94 +72,106 @@ export default function UsersPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  const openUser = (users ?? []).find((u) => u.id === openId) ?? null;
+
   return (
     <AppShell>
-      <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Users &amp; access</h1>
-        {canCreate && !creating && <Button onClick={() => setCreating(true)}>+ New login</Button>}
-      </div>
-      <p className="mb-4 text-xs text-slate-400">
-        Logins that can act in the system. A login links to a <Link href="/people" className="text-gold-600 hover:underline dark:text-gold-400">person</Link> but is never merged with it. Passwords are self-service.
-      </p>
+      <Page
+        title="Users & access"
+        sub="logins that can act in the system"
+        action={canCreate && !creating ? <GoldButton onClick={() => setCreating(true)}>+ New login</GoldButton> : undefined}
+      >
+        <div style={{ fontSize: 12, color: T.muted, marginTop: -4, marginBottom: 14 }}>
+          A login links to a <Link href="/people" style={{ color: T.goldDeep, fontWeight: 600, textDecoration: "none" }}>person</Link> but is never merged with it. Passwords are self-service.
+        </div>
 
-      {!canView ? (
-        <EmptyState title="Not authorized" hint="You need the platform module to manage users." />
-      ) : (
-        <>
-          {creating && canCreate && (
-            <CreateLogin roles={roles ?? []} onDone={() => { setCreating(false); void mutate(); }} onCancel={() => setCreating(false)} />
-          )}
+        {!canView ? (
+          <Card style={{ padding: "26px 16px", textAlign: "center" }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>Not authorized</div>
+            <div style={{ fontSize: 12, color: T.muted2, marginTop: 4 }}>You need the platform module to manage users.</div>
+          </Card>
+        ) : (
+          <>
+            {creating && canCreate && (
+              <CreateLogin roles={roles ?? []} onDone={() => { setCreating(false); void mutate(); }} onCancel={() => setCreating(false)} />
+            )}
 
-          {isLoading && <Spinner />}
-          {error && <ErrorNote message={error.message} />}
-          {users && users.length === 0 && <EmptyState title="No users yet" />}
+            {isLoading && <div style={{ padding: "20px 4px", fontSize: 12.5, color: T.muted2 }}>Loading…</div>}
+            {error && <Note>{error.message}</Note>}
+            {users && users.length === 0 && (
+              <Card style={{ padding: "26px 16px", textAlign: "center", color: T.muted2, fontSize: 13 }}>No users yet</Card>
+            )}
 
-          {users && users.length > 0 && (
-            <Card className="p-0">
-              <ul className="divide-y divide-ink-800">
-                {users.map((u) => {
-                  const disabled = u.status !== "active";
-                  const held = new Set(u.roleNames);
-                  const assignable = (roles ?? []).filter((r) => !held.has(r.name));
-                  const isOpen = openId === u.id;
-                  return (
-                    <li key={u.id}>
-                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate text-sm font-medium">
-                              {u.partyId ? (
-                                <Link href={`/people/${u.partyId}`} className="hover:underline">{u.displayName ?? u.email}</Link>
-                              ) : (
-                                u.displayName ?? u.email
-                              )}
-                            </span>
-                            {disabled ? <Badge tone="red">disabled</Badge> : <Badge tone="green">active</Badge>}
-                            {u.id === me?.principal.userId && <Badge tone="gray">you</Badge>}
-                          </div>
-                          <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-slate-400">
-                            <span>{u.email}</span>
-                            {u.roleNames.map((r) => <Badge key={r} tone="blue">{r}</Badge>)}
-                            {u.roleNames.length === 0 && <span className="text-slate-500">no roles</span>}
-                          </div>
-                        </div>
-                        {canApprove && (
-                          <Button variant="secondary" className="min-h-0 px-2.5 py-1 text-xs" onClick={() => setOpenId(isOpen ? null : u.id)}>
-                            {isOpen ? "Close" : "Manage"}
-                          </Button>
-                        )}
-                      </div>
+            {users && users.length > 0 && (
+              <DGrid<AdminUserRow>
+                rows={users}
+                keyOf={(u) => u.id}
+                cols={[
+                  {
+                    label: "Person",
+                    render: (u) => (
+                      <span>
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          {u.partyId ? (
+                            <Link href={`/people/${u.partyId}`} style={{ color: T.ink, fontWeight: 600, textDecoration: "none" }}>{u.displayName ?? u.email}</Link>
+                          ) : (
+                            <span style={{ fontWeight: 600 }}>{u.displayName ?? u.email}</span>
+                          )}
+                          {u.id === me?.principal.userId && <Badge tone="gray">you</Badge>}
+                        </span>
+                        <span style={{ display: "block", fontSize: 10.5, color: T.muted2, marginTop: 2 }}>{u.email}</span>
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Roles",
+                    render: (u) => (
+                      <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {u.roleNames.length === 0
+                          ? <span style={{ fontSize: 11, color: T.muted2 }}>no roles</span>
+                          : u.roleNames.map((r) => <Badge key={r} tone="blue">{r}</Badge>)}
+                      </span>
+                    ),
+                  },
+                  {
+                    label: "Status",
+                    align: "center",
+                    render: (u) => (u.status === "active" ? <Badge tone="green">active</Badge> : <Badge tone="red">disabled</Badge>),
+                  },
+                ]}
+                actions={canApprove ? [{ label: "Manage", onClick: (u) => setOpenId(openId === u.id ? null : u.id), color: T.goldDeep }] : undefined}
+              />
+            )}
 
-                      {isOpen && canApprove && (
-                        <ManageUser
-                          user={u}
-                          assignable={assignable}
-                          roleByName={roleByName}
-                          isSelf={u.id === me?.principal.userId}
-                          onChanged={mutate}
-                        />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Card>
-          )}
-        </>
-      )}
+            {openUser && canApprove && (
+              <div style={{ marginTop: 14 }}>
+                <ManageUser
+                  user={openUser}
+                  assignable={(roles ?? []).filter((r) => !new Set(openUser.roleNames).has(r.name))}
+                  roleByName={roleByName}
+                  isSelf={openUser.id === me?.principal.userId}
+                  onChanged={mutate}
+                  onClose={() => setOpenId(null)}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </Page>
     </AppShell>
   );
 }
 
 /** The expanded per-user admin controls: roles + enable/disable. */
 function ManageUser({
-  user, assignable, roleByName, isSelf, onChanged,
+  user, assignable, roleByName, isSelf, onChanged, onClose,
 }: {
   user: AdminUserRow;
   assignable: RoleRow[];
   roleByName: Map<string, string>;
   isSelf: boolean;
   onChanged: () => void;
+  onClose: () => void;
 }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
@@ -138,55 +186,64 @@ function ManageUser({
   }
 
   return (
-    <div className="border-t border-ink-800 bg-ink-850/40 px-4 py-3">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <Card>
+      <CardHead>
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          Manage · {user.displayName ?? user.email}
+          <span style={{ flex: 1 }} />
+          <span onClick={onClose} style={{ fontSize: 11, fontWeight: 600, color: T.muted, cursor: "pointer" }}>Close</span>
+        </span>
+      </CardHead>
+      <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Roles</p>
-          <div className="mb-2 flex flex-wrap gap-1">
-            {user.roleNames.length === 0 && <span className="text-xs text-slate-500">None</span>}
+          <span style={sectionLabel}>Roles</span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {user.roleNames.length === 0 && <span style={{ fontSize: 12, color: T.muted2 }}>None</span>}
             {user.roleNames.map((r) => (
-              <span key={r} className="inline-flex items-center gap-1 rounded-full border border-ink-700 py-0.5 pl-2 pr-1 text-xs">
+              <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 4, border: `1px solid ${T.border}`, borderRadius: 999, padding: "2px 4px 2px 10px", fontSize: 11.5 }}>
                 {r}
-                <button type="button" disabled={busy} title="Revoke"
-                  onClick={() => { const id = roleByName.get(r); if (id) void run(() => apiSend(`platform/users/${user.id}/roles/${id}`, "DELETE"), "Role revoked"); }}
-                  className="rounded-full px-1 text-slate-400 hover:bg-red-500/15 hover:text-red-500">×</button>
+                <span
+                  title="Revoke"
+                  onClick={() => { if (busy) return; const id = roleByName.get(r); if (id) void run(() => apiSend(`platform/users/${user.id}/roles/${id}`, "DELETE"), "Role revoked"); }}
+                  style={{ cursor: busy ? "default" : "pointer", color: T.muted, padding: "0 5px", fontWeight: 700 }}
+                >×</span>
               </span>
             ))}
           </div>
-          <div className="flex items-end gap-2">
-            <Field label="Assign a role">
-              <select value={addRoleId} onChange={(e) => setAddRoleId(e.target.value)}
-                className="min-h-[40px] w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400">
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <span style={sectionLabel}>Assign a role</span>
+              <select value={addRoleId} onChange={(e) => setAddRoleId(e.target.value)} style={dcInput}>
                 <option value="">Select…</option>
                 {assignable.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
-            </Field>
-            <Button className="min-h-0 px-3 py-2 text-xs" disabled={busy || !addRoleId}
-              onClick={() => run(() => apiSend(`platform/users/${user.id}/roles`, "POST", { roleId: addRoleId }), "Role assigned").then(() => setAddRoleId(""))}>
-              Add
-            </Button>
+            </div>
+            <span
+              onClick={() => { if (busy || !addRoleId) return; void run(() => apiSend(`platform/users/${user.id}/roles`, "POST", { roleId: addRoleId }), "Role assigned").then(() => setAddRoleId("")); }}
+              style={{ ...btnGold(busy || !addRoleId), whiteSpace: "nowrap" }}
+            >Add</span>
           </div>
         </div>
 
         <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Access</p>
+          <span style={sectionLabel}>Access</span>
           {user.status === "active" ? (
-            <Button variant="danger" className="min-h-0 px-3 py-1.5 text-xs" disabled={busy || isSelf}
-              onClick={() => run(() => apiSend(`platform/users/${user.id}/status`, "PATCH", { status: "disabled" }), "User disabled")}>
-              Disable login
-            </Button>
+            <span
+              onClick={() => { if (busy || isSelf) return; void run(() => apiSend(`platform/users/${user.id}/status`, "PATCH", { status: "disabled" }), "User disabled"); }}
+              style={btnDanger(busy || isSelf)}
+            >Disable login</span>
           ) : (
-            <Button className="min-h-0 px-3 py-1.5 text-xs" disabled={busy}
-              onClick={() => run(() => apiSend(`platform/users/${user.id}/status`, "PATCH", { status: "active" }), "User re-enabled")}>
-              Re-enable login
-            </Button>
+            <span
+              onClick={() => { if (busy) return; void run(() => apiSend(`platform/users/${user.id}/status`, "PATCH", { status: "active" }), "User re-enabled"); }}
+              style={btnGold(busy)}
+            >Re-enable login</span>
           )}
-          {isSelf && <p className="mt-1.5 text-[11px] text-slate-500">You can&apos;t disable your own account.</p>}
-          <p className="mt-2 text-[11px] text-slate-500">A disabled login can&apos;t sign in and its sessions are revoked. Passwords are reset by the user via the sign-in page.</p>
+          {isSelf && <div style={{ marginTop: 6, fontSize: 11, color: T.muted2 }}>You can&apos;t disable your own account.</div>}
+          <div style={{ marginTop: 8, fontSize: 11, color: T.muted2 }}>A disabled login can&apos;t sign in and its sessions are revoked. Passwords are reset by the user via the sign-in page.</div>
         </div>
       </div>
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-    </div>
+      {err && <div style={{ padding: "0 16px 14px" }}><Note>{err}</Note></div>}
+    </Card>
   );
 }
 
@@ -223,38 +280,39 @@ function CreateLogin({ roles, onDone, onCancel }: { roles: RoleRow[]; onDone: ()
   }
 
   return (
-    <Card className="mb-4">
-      <h2 className="mb-3 text-sm font-semibold">New login</h2>
-      <form onSubmit={submit} className="space-y-3">
-        <Field label="Sign-in email" required error={fieldErrs.email}>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
-        </Field>
-        <label className="flex items-start gap-2 text-sm text-slate-300">
-          <input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} className="mt-1" />
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>New login</CardHead>
+      <form onSubmit={submit} style={{ padding: "14px 16px", display: "grid", gap: 12 }}>
+        <Fld label="Sign-in email" required error={fieldErrs.email}>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required style={dcInput} />
+        </Fld>
+        <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12.5, color: T.ink2 }}>
+          <input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} style={{ marginTop: 3 }} />
           <span>
             Email an invite link
-            <span className="block text-xs text-slate-500">The user sets their own password via a one-time link — no password is shared. Uncheck to set a temporary password yourself.</span>
+            <span style={{ display: "block", fontSize: 11, color: T.muted2, marginTop: 2 }}>The user sets their own password via a one-time link — no password is shared. Uncheck to set a temporary password yourself.</span>
           </span>
         </label>
         {!invite && (
-          <Field label="Temporary password" hint="At least 8 chars — the user changes it on first sign-in" required error={fieldErrs.password}>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-          </Field>
+          <Fld label="Temporary password" hint="At least 8 chars — the user changes it on first sign-in" required error={fieldErrs.password}>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" style={dcInput} />
+          </Fld>
         )}
-        <Field label="Link to a person" hint="Optional — link a login to its business identity (never merged).">
+        <Fld label="Link to a person" hint="Optional — link a login to its business identity (never merged).">
           <EntityPicker placeholder="Search people…" search={searchParty} onPick={(i) => setPartyId(i?.id ?? null)} />
-        </Field>
-        <Field label="Initial role" hint="Optional — assign one now (add more after).">
-          <select value={roleId} onChange={(e) => setRoleId(e.target.value)}
-            className="min-h-[44px] w-full rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400">
+        </Fld>
+        <Fld label="Initial role" hint="Optional — assign one now (add more after).">
+          <select value={roleId} onChange={(e) => setRoleId(e.target.value)} style={dcInput}>
             <option value="">No role yet</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
-        </Field>
-        {err && <ErrorNote message={err} />}
-        <div className="flex gap-2">
-          <Button type="submit" disabled={busy || !canSubmit}>{busy ? "Saving…" : invite ? "Create & send invite" : "Create login"}</Button>
-          <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
+        </Fld>
+        {err && <Note>{err}</Note>}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="submit" disabled={busy || !canSubmit} style={{ ...btnGold(busy || !canSubmit), border: "none" }}>
+            {busy ? "Saving…" : invite ? "Create & send invite" : "Create login"}
+          </button>
+          <GhostButton onClick={onCancel}>Cancel</GhostButton>
         </div>
       </form>
     </Card>

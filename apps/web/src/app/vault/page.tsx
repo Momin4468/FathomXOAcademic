@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
@@ -14,13 +15,29 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import {
+  Badge,
+  Card,
+  CardHead,
+  dcInput,
+  EmptyBox,
+  Field,
+  GhostButton,
+  GoldButton,
+  Loading,
+  Note,
+  Page,
+  StatCards,
+  T,
+} from "@/components/dc";
 
 const TYPES = ["portal", "google", "github", "aws", "tool", "other"];
 const searchParties = async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}`);
   return rows.map((r) => ({ id: r.id, label: r.displayName, sub: r.partyType?.join(", ") }));
 };
+
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
 
 export default function VaultPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
@@ -30,24 +47,25 @@ export default function VaultPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Credential vault</h1>
-      <p className="mb-4 text-xs text-slate-400">Metadata only — secrets are revealed one at a time behind a 2FA step-up.</p>
+      <Page title="Credential vault" sub="metadata only — secrets are revealed one at a time behind a 2FA step-up">
+        <StatCards items={[{ label: "Credentials", value: items?.length ?? 0, tone: "blue", note: "you can access" }]} />
 
-      {canCreate && <CreateItem onDone={mutate} />}
+        {canCreate && <CreateItem onDone={mutate} />}
 
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">My credentials</h2>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {items && items.length === 0 && <EmptyState title="No credentials you can access" />}
-      {items && items.length > 0 && (
-        <ul className="space-y-2">
-          {items.map((it) => (
-            <ItemRow key={it.id} item={it} />
-          ))}
-        </ul>
-      )}
+        <h2 style={sectionH}>My credentials</h2>
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {items && items.length === 0 && <EmptyBox title="No credentials you can access" />}
+        {items && items.length > 0 && (
+          <div style={{ display: "grid", gap: 10 }}>
+            {items.map((it) => (
+              <ItemRow key={it.id} item={it} />
+            ))}
+          </div>
+        )}
 
-      {canManage && <ManagerPanel />}
+        {canManage && <ManagerPanel />}
+      </Page>
     </AppShell>
   );
 }
@@ -80,45 +98,45 @@ function ItemRow({ item }: { item: VaultItem }) {
   }
 
   return (
-    <li>
-      <Card>
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm">
-            <span className="font-medium">{item.name}</span>
-            <span className="ml-2"><Badge tone="blue">{item.type}</Badge></span>
-            <div className="mt-0.5 text-xs text-slate-400">
-              {item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="hover:underline">{item.url}</a> : "no url"}
-              {item.clientPartyId && <> · <PartyName id={item.clientPartyId} /></>}
-            </div>
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ fontSize: 12.5 }}>
+          <span style={{ fontWeight: 600, color: T.ink }}>{item.name}</span>
+          <span style={{ marginLeft: 8 }}><Badge tone="blue">{item.type}</Badge></span>
+          <div style={{ marginTop: 2, fontSize: 11, color: T.muted }}>
+            {item.url ? <a href={item.url} target="_blank" rel="noreferrer" style={{ color: T.muted, textDecoration: "none" }}>{item.url}</a> : "no url"}
+            {item.clientPartyId && <> · <PartyName id={item.clientPartyId} /></>}
           </div>
-          {!secret && (
-            <Button variant="secondary" className="px-2 text-xs" onClick={() => setShowTotp((s) => !s)}>
-              {showTotp ? "Cancel" : "Reveal"}
-            </Button>
-          )}
         </div>
+        {!secret && (
+          <GhostButton type="button" onClick={() => setShowTotp((s) => !s)}>
+            {showTotp ? "Cancel" : "Reveal"}
+          </GhostButton>
+        )}
+      </div>
 
-        {showTotp && !secret && (
-          <form onSubmit={reveal} className="mt-3 flex items-end gap-2">
+      {showTotp && !secret && (
+        <form onSubmit={reveal} style={{ marginTop: 12, display: "flex", alignItems: "flex-end", gap: 10 }}>
+          <div style={{ maxWidth: 160 }}>
             <Field label="6-digit 2FA code" error={fieldErrs.totp}>
-              <Input inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))} placeholder="123456" />
+              <input inputMode="numeric" maxLength={6} value={totp} onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))} placeholder="123456" style={{ ...dcInput, fontFamily: T.mono, letterSpacing: 2 }} />
             </Field>
-            <Button type="submit" disabled={busy || !/^\d{6}$/.test(totp)}>{busy ? "…" : "Reveal"}</Button>
-          </form>
-        )}
-        {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-
-        {secret && (
-          <div className="mt-3 space-y-2 rounded-lg bg-ink-800 p-3">
-            <SecretRow label="Username" value={secret.secret.username} />
-            <SecretRow label="Password" value={secret.secret.password} />
-            <SecretRow label="2FA recovery" value={secret.secret.totpRecovery} />
-            <SecretRow label="Notes" value={secret.secret.notes} />
-            <Button variant="ghost" className="px-2 text-xs" onClick={() => setSecret(null)}>Hide</Button>
           </div>
-        )}
-      </Card>
-    </li>
+          <GoldButton type="submit" disabled={busy || !/^\d{6}$/.test(totp)}>{busy ? "…" : "Reveal"}</GoldButton>
+        </form>
+      )}
+      {err && <div style={{ marginTop: 10 }}><Note>{err}</Note></div>}
+
+      {secret && (
+        <div style={{ marginTop: 12, display: "grid", gap: 8, background: T.parch, border: `1px solid ${T.parchBorder}`, borderRadius: 10, padding: 12 }}>
+          <SecretRow label="Username" value={secret.secret.username} />
+          <SecretRow label="Password" value={secret.secret.password} />
+          <SecretRow label="2FA recovery" value={secret.secret.totpRecovery} />
+          <SecretRow label="Notes" value={secret.secret.notes} />
+          <div><GhostButton type="button" onClick={() => setSecret(null)}>Hide</GhostButton></div>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -135,12 +153,12 @@ function SecretRow({ label, value }: { label: string; value?: string }) {
     }
   };
   return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <div className="min-w-0">
-        <div className="text-xs text-slate-400">{label}</div>
-        <div className="truncate font-mono">{value}</div>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 12.5 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10.5, color: T.parchText, fontWeight: 600 }}>{label}</div>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: T.mono, color: T.ink }}>{value}</div>
       </div>
-      <button type="button" aria-label="Copy to clipboard" className="text-xs text-slate-400 hover:underline" onClick={copy}>
+      <button type="button" aria-label="Copy to clipboard" onClick={copy} style={{ fontSize: 11, fontWeight: 600, color: T.parchText, background: "transparent", border: "none", cursor: "pointer" }}>
         {copied ? "copied" : "copy"}
       </button>
     </div>
@@ -185,25 +203,25 @@ function CreateItem({ onDone }: { onDone: () => void }) {
     }
   }
   return (
-    <Card className="mb-5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-200">Add a credential</p>
-        <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</Button>
+    <Card style={{ marginBottom: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: open ? `1px solid ${T.eyebrow}` : undefined }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>Add a credential</span>
+        <GhostButton type="button" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</GhostButton>
       </div>
       {open && (
-        <form onSubmit={submit} className="mt-3 space-y-3">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="AcademyCX" /></Field>
-            <Field label="Type" error={fieldErrs.type}><Select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</Select></Field>
-            <Field label="URL" error={fieldErrs.url}><Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
+        <form onSubmit={submit} style={{ padding: 14, display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <Field label="Name" error={fieldErrs.name}><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="AcademyCX" style={dcInput} /></Field>
+            <Field label="Type" error={fieldErrs.type}><select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={dcInput}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
+            <Field label="URL" error={fieldErrs.url}><input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} style={dcInput} /></Field>
             <Field label="Client (optional)" error={fieldErrs.clientPartyId}><EntityPicker key={resetSeq} placeholder="Link a client…" search={searchParties} onPick={(i) => setClient(i?.id ?? null)} /></Field>
-            <Field label="Username" error={fieldErrs.username}><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></Field>
-            <Field label="Password" error={fieldErrs.password}><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
+            <Field label="Username" error={fieldErrs.username}><input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} style={dcInput} /></Field>
+            <Field label="Password" error={fieldErrs.password}><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} style={dcInput} /></Field>
           </div>
-          <Field label="2FA recovery" error={fieldErrs.totpRecovery}><Input value={form.totpRecovery} onChange={(e) => setForm({ ...form, totpRecovery: e.target.value })} /></Field>
-          <Field label="Notes" error={fieldErrs.notes}><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></Field>
-          {err && <ErrorNote message={err} />}
-          <Button type="submit" disabled={busy || !form.name.trim()}>{busy ? "Saving…" : "Create credential"}</Button>
+          <Field label="2FA recovery" error={fieldErrs.totpRecovery}><input value={form.totpRecovery} onChange={(e) => setForm({ ...form, totpRecovery: e.target.value })} style={dcInput} /></Field>
+          <Field label="Notes" error={fieldErrs.notes}><input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} style={dcInput} /></Field>
+          {err && <Note>{err}</Note>}
+          <div><GoldButton type="submit" disabled={busy || !form.name.trim()}>{busy ? "Saving…" : "Create credential"}</GoldButton></div>
         </form>
       )}
     </Card>
@@ -213,15 +231,15 @@ function CreateItem({ onDone }: { onDone: () => void }) {
 function ManagerPanel() {
   const { data: items, mutate } = useApi<VaultManageItem[]>("vault/manage/items");
   return (
-    <section className="mt-8">
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Manage sharing (admin)</h2>
-      {items && items.length === 0 && <EmptyState title="No credentials in the org" />}
+    <section style={{ marginTop: 8 }}>
+      <h2 style={sectionH}>Manage sharing (admin)</h2>
+      {items && items.length === 0 && <EmptyBox title="No credentials in the org" />}
       {items && items.length > 0 && (
-        <ul className="space-y-2">
+        <div style={{ display: "grid", gap: 10 }}>
           {items.map((it) => (
             <ManageRow key={it.id} item={it} onChanged={mutate} />
           ))}
-        </ul>
+        </div>
       )}
     </section>
   );
@@ -255,34 +273,32 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
     onChanged();
   }
   return (
-    <li>
-      <Card>
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="font-medium">{item.name} <Badge tone="gray">{item.shareCount} holder{item.shareCount === 1 ? "" : "s"}</Badge></span>
-          <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Shares"}</Button>
-        </div>
-        {open && (
-          <div className="mt-3 space-y-3">
-            {shares && shares.length > 0 ? (
-              <ul className="divide-y divide-ink-800">
-                {shares.map((s) => (
-                  <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
-                    <PartyName id={s.partyId} />
-                    <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => revoke(s.id)}>revoke</button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-slate-500">No active shares.</p>
-            )}
-            <div className="flex items-end gap-2">
-              <div className="flex-1"><Field label="Grant to" error={fieldErrs.partyId}><EntityPicker key={resetSeq} placeholder="Search party…" search={searchParties} onPick={(i) => setGrantee(i?.id ?? null)} /></Field></div>
-              <Button variant="secondary" disabled={!grantee} onClick={grant}>Grant</Button>
-            </div>
-            {err && <ErrorNote message={err} />}
+    <Card style={{ padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 12.5 }}>
+        <span style={{ fontWeight: 600, color: T.ink }}>{item.name} <Badge tone="gray">{item.shareCount} holder{item.shareCount === 1 ? "" : "s"}</Badge></span>
+        <GhostButton type="button" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Shares"}</GhostButton>
+      </div>
+      {open && (
+        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+          {shares && shares.length > 0 ? (
+            <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+              {shares.map((s, i) => (
+                <li key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                  <PartyName id={s.partyId} />
+                  <button type="button" onClick={() => revoke(s.id)} style={{ fontSize: 11, fontWeight: 600, color: T.red, background: "transparent", border: "none", cursor: "pointer" }}>revoke</button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p style={{ margin: 0, fontSize: 11.5, color: T.muted }}>No active shares.</p>
+          )}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+            <div style={{ flex: 1 }}><Field label="Grant to" error={fieldErrs.partyId}><EntityPicker key={resetSeq} placeholder="Search party…" search={searchParties} onPick={(i) => setGrantee(i?.id ?? null)} /></Field></div>
+            <GhostButton type="button" disabled={!grantee} onClick={grant}>Grant</GhostButton>
           </div>
-        )}
-      </Card>
-    </li>
+          {err && <Note>{err}</Note>}
+        </div>
+      )}
+    </Card>
   );
 }

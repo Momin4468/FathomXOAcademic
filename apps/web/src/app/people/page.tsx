@@ -1,20 +1,26 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { useSWRConfig } from "swr";
 import { apiGet, useApi } from "@/lib/api";
 import { type PartyRow } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { DataTable } from "@/components/DataTable";
 import { PartyForm, type PartyFormInitial } from "@/components/PartyForm";
-import { Badge, Button, Card, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Card, CardHead, DGrid, GoldButton, Page, T, cell, dcInput } from "@/components/dc";
 
 const TYPES = ["writer", "vendor", "partner", "referrer", "client", "employee"] as const;
+
+const labelStyle: CSSProperties = {
+  display: "block", fontSize: 10.5, fontWeight: 600, textTransform: "uppercase",
+  letterSpacing: "0.05em", color: T.muted, marginBottom: 5,
+};
 
 /**
  * People directory (Phase 3) — full CRUD over every party type (writers, vendors,
  * partners, referrers, …), closing the master-data gap that previously left these
- * creatable only implicitly at job intake. Reuses POST/PATCH /parties.
+ * creatable only implicitly at job intake. Reuses POST/PATCH /parties. Recreated to
+ * the `Business OS v5` design handoff (generic grid + capture-first create panel).
  */
 export default function PeoplePage() {
   const { mutate } = useSWRConfig();
@@ -38,74 +44,75 @@ export default function PeoplePage() {
 
   return (
     <AppShell>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">People</h1>
-        {!creating && !editing && <Button onClick={() => setCreating(true)}>+ New person</Button>}
-      </div>
+      <Page
+        title="People"
+        sub="team & partners — writers, vendors, referrers, clients"
+        action={!creating && !editing ? <GoldButton onClick={() => setCreating(true)}>+ New person</GoldButton> : undefined}
+      >
+        {(creating || editing) && (
+          <Card style={{ marginBottom: 16 }}>
+            <CardHead>{editing ? "Edit person" : "New person"}</CardHead>
+            <div style={{ padding: "14px 16px" }}>
+              <PartyForm
+                initial={editing ?? undefined}
+                presetType={editing ? undefined : type}
+                onSaved={refresh}
+                onCancel={() => { setCreating(false); setEditing(null); }}
+              />
+            </div>
+          </Card>
+        )}
 
-      {(creating || editing) && (
-        <Card className="mb-4">
-          <h2 className="mb-3 text-sm font-semibold">{editing ? "Edit person" : "New person"}</h2>
-          <PartyForm
-            initial={editing ?? undefined}
-            presetType={editing ? undefined : type}
-            onSaved={refresh}
-            onCancel={() => { setCreating(false); setEditing(null); }}
-          />
+        <Card style={{ marginBottom: 16 }}>
+          <div style={{ padding: "14px 16px", display: "grid", gridTemplateColumns: "minmax(150px, 220px) 1fr", gap: 12 }}>
+            <div>
+              <span style={labelStyle}>Type</span>
+              <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...dcInput, textTransform: "capitalize" }}>
+                {TYPES.map((t) => <option key={t} value={t} style={{ textTransform: "capitalize" }}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <span style={labelStyle}>Search</span>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…" style={dcInput} />
+            </div>
+          </div>
         </Card>
-      )}
 
-      <Card className="mb-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Type">
-            <Select value={type} onChange={(e) => setType(e.target.value)}>
-              {TYPES.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
-            </Select>
-          </Field>
-          <Field label="Search">
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…" />
-          </Field>
-        </div>
-      </Card>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<PartyRow>
-          tableId={`people-${type}`}
-          exportName="people"
-          rows={data}
-          getRowId={(p) => p.id}
-          emptyTitle={`No ${type}s found`}
-          columns={[
-            {
-              key: "displayName",
-              header: "Name",
-              sortable: true,
-              value: (p) => p.displayName,
-              render: (p) => (
-                <Link href={`/people/${p.id}`} className="font-medium text-gold-600 hover:underline dark:text-gold-400">{p.displayName}</Link>
-              ),
-            },
-            {
-              key: "partyType",
-              header: "Type",
-              render: (p) => <span className="flex flex-wrap gap-1">{(p.partyType ?? []).map((t) => <Badge key={t} tone="gray">{t}</Badge>)}</span>,
-              value: (p) => (p.partyType ?? []).join(", "),
-            },
-            { key: "externalRef", header: "Ref", value: (p) => p.externalRef ?? "" },
-            {
-              key: "actions",
-              header: "",
-              align: "right",
-              render: (p) => (
-                <button type="button" onClick={() => void openEdit(p.id)} className="text-xs text-gold-600 hover:underline dark:text-gold-400">
-                  Edit
-                </button>
-              ),
-            },
-          ]}
-        />
-      )}
+        {isLoading && <div style={{ padding: "20px 4px", fontSize: 12.5, color: T.muted2 }}>Loading…</div>}
+        {error && (
+          <div style={{ background: T.redBg, color: T.red, border: "1px solid #F3C9C3", borderRadius: 8, padding: "8px 11px", fontSize: 12, fontWeight: 500 }}>
+            {error.message}
+          </div>
+        )}
+        {data && (
+          <DGrid<PartyRow>
+            rows={data}
+            keyOf={(p) => p.id}
+            empty={`No ${type}s found`}
+            cols={[
+              {
+                label: "Name",
+                render: (p) => (
+                  <Link href={`/people/${p.id}`} style={{ color: T.goldDeep, fontWeight: 600, textDecoration: "none" }}>{p.displayName}</Link>
+                ),
+              },
+              {
+                label: "Type",
+                render: (p) => (
+                  <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {(p.partyType ?? []).map((t) => <Badge key={t} tone="gray">{t}</Badge>)}
+                  </span>
+                ),
+              },
+              {
+                label: "Ref",
+                render: (p) => (p.externalRef ? cell(p.externalRef, { mono: true }) : <span style={{ color: T.muted2 }}>—</span>),
+              },
+            ]}
+            actions={[{ label: "Edit", onClick: (p) => void openEdit(p.id), color: T.goldDeep }]}
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
@@ -13,15 +14,22 @@ import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import {
   Badge,
-  Button,
   Card,
-  EmptyState,
-  ErrorNote,
+  CardHead,
+  cell,
+  DGrid,
+  dcInput,
+  EmptyBox,
   Field,
-  Input,
-  Select,
-  Spinner,
-} from "@/components/ui";
+  GhostButton,
+  GoldButton,
+  Loading,
+  Note,
+  Page,
+  Pill,
+  StatCards,
+  T,
+} from "@/components/dc";
 
 const TARGETS = ["work_item", "party", "project"] as const;
 const TYPES = ["text", "number", "date", "select", "bool"] as const;
@@ -43,6 +51,8 @@ const searchUnis = async (q: string): Promise<PickItem[]> => {
   return rows.map((r) => ({ id: r.id, label: r.canonical }));
 };
 
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
+
 export default function CustomFieldsPage() {
   const { data: me } = useApi<WhoAmI>("platform/whoami");
   const canManage = can(me?.permissions, "custom_fields:approve");
@@ -54,31 +64,55 @@ export default function CustomFieldsPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Custom fields</h1>
+      <Page title="Custom fields" sub="add fields to jobs, parties & projects — no code change">
+        <StatCards items={[{ label: `Fields on ${TARGET_LABEL[target]}`, value: defs?.length ?? 0, tone: "gold" }]} />
 
-      <div className="mb-4 flex gap-2">
-        {TARGETS.map((t) => (
-          <Button key={t} aria-pressed={t === target} variant={t === target ? "primary" : "secondary"} className="px-3 text-xs" onClick={() => setTarget(t)}>
-            {TARGET_LABEL[t]}
-          </Button>
-        ))}
-      </div>
-
-      {canManage && <CreateField target={target} onCreated={mutate} />}
-
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-slate-200">Fields on {TARGET_LABEL[target]}</h2>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {defs && defs.length === 0 && <EmptyState title="No custom fields yet" hint={canManage ? "Define one above." : undefined} />}
-      {defs && defs.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {defs.map((d) => (
-            <FieldRow key={d.id} def={d} canManage={canManage} onChanged={mutate} />
+        <div style={{ marginBottom: 16, display: "flex", gap: 8 }}>
+          {TARGETS.map((t) => (
+            <Pill key={t} active={t === target} onClick={() => setTarget(t)}>
+              {TARGET_LABEL[t]}
+            </Pill>
           ))}
-        </ul>
-      )}
+        </div>
 
-      <SearchByField target={target} defs={defs ?? []} />
+        {canManage && <CreateField target={target} onCreated={mutate} />}
+
+        <h2 style={sectionH}>Fields on {TARGET_LABEL[target]}</h2>
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {defs && defs.length === 0 && <EmptyBox title="No custom fields yet" hint={canManage ? "Define one above." : undefined} />}
+        {defs && defs.length > 0 && (
+          <DGrid<CustomFieldDef>
+            rows={defs}
+            keyOf={(d) => d.id}
+            minWidth={520}
+            cols={[
+              {
+                label: "Field",
+                render: (d) => cell(d.fieldName, { sub: d.fieldType === "select" && d.optionsJson ? d.optionsJson.join(" · ") : undefined }),
+              },
+              { label: "Type", render: (d) => <Badge tone="blue">{TYPE_LABEL[d.fieldType] ?? d.fieldType}</Badge> },
+              {
+                label: "Flags",
+                render: (d) => {
+                  const scoped = d.scopeJson && Object.keys(d.scopeJson).length > 0;
+                  return (
+                    <span style={{ display: "inline-flex", gap: 6 }}>
+                      {d.required && <Badge tone="amber">required</Badge>}
+                      <Badge tone="gray">{scoped ? "scoped" : "global"}</Badge>
+                    </span>
+                  );
+                },
+              },
+              ...(canManage
+                ? [{ label: "", align: "right" as const, render: (d: CustomFieldDef) => <FieldManage def={d} onChanged={mutate} /> }]
+                : []),
+            ]}
+          />
+        )}
+
+        <SearchByField target={target} defs={defs ?? []} />
+      </Page>
     </AppShell>
   );
 }
@@ -128,38 +162,37 @@ function CreateField({ target, onCreated }: { target: string; onCreated: () => v
 
   return (
     <Card>
-      <p className="mb-2 text-sm font-semibold text-slate-200">Define a field on {TARGET_LABEL[target]}</p>
-      <form onSubmit={add} className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field label="Field name" error={fieldErrs.fieldName}><Input placeholder="e.g. WhatsApp Reference" value={form.fieldName} onChange={(e) => setForm({ ...form, fieldName: e.target.value })} /></Field>
+      <CardHead>Define a field on {TARGET_LABEL[target]}</CardHead>
+      <form onSubmit={add} style={{ padding: 14, display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <Field label="Field name" error={fieldErrs.fieldName}><input placeholder="e.g. WhatsApp Reference" value={form.fieldName} onChange={(e) => setForm({ ...form, fieldName: e.target.value })} style={dcInput} /></Field>
           <Field label="Type" error={fieldErrs.fieldType}>
-            <Select value={form.fieldType} onChange={(e) => setForm({ ...form, fieldType: e.target.value })}>
+            <select value={form.fieldType} onChange={(e) => setForm({ ...form, fieldType: e.target.value })} style={dcInput}>
               {TYPES.map((t) => (<option key={t} value={t}>{TYPE_LABEL[t]}</option>))}
-            </Select>
+            </select>
           </Field>
           <Field label="Required" error={fieldErrs.required}>
-            <label className="flex h-[44px] items-center gap-2 text-sm text-slate-200">
+            <label style={{ display: "flex", height: 36, alignItems: "center", gap: 8, fontSize: 12.5, color: T.ink2 }}>
               <input type="checkbox" checked={form.required} onChange={(e) => setForm({ ...form, required: e.target.checked })} /> required (hard at gate)
             </label>
           </Field>
         </div>
         {form.fieldType === "select" && (
-          <Field label="Options (comma-separated)" error={fieldErrs.options}><Input placeholder="Low, Medium, High" value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} /></Field>
+          <Field label="Options (comma-separated)" error={fieldErrs.options}><input placeholder="Low, Medium, High" value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} style={dcInput} /></Field>
         )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
           <Field label="Scope: client (optional)"><EntityPicker key={`c${resetSeq}`} placeholder="All clients (global)…" search={searchParties} onPick={(i) => setClient(i?.id ?? null)} /></Field>
           <Field label="Scope: university (optional)"><EntityPicker key={`u${resetSeq}`} placeholder="All universities…" search={searchUnis} onPick={(i) => setUni(i?.id ?? null)} /></Field>
         </div>
-        {err && <ErrorNote message={err} />}
-        <Button type="submit" disabled={busy || !form.fieldName.trim()}>{busy ? "Saving…" : "Create field"}</Button>
+        {err && <Note>{err}</Note>}
+        <div><GoldButton type="submit" disabled={busy || !form.fieldName.trim()}>{busy ? "Saving…" : "Create field"}</GoldButton></div>
       </form>
     </Card>
   );
 }
 
-function FieldRow({ def, canManage, onChanged }: { def: CustomFieldDef; canManage: boolean; onChanged: () => void }) {
+function FieldManage({ def, onChanged }: { def: CustomFieldDef; onChanged: () => void }) {
   const [busy, setBusy] = useState(false);
-  const scoped = def.scopeJson && Object.keys(def.scopeJson).length > 0;
   async function archive() {
     setBusy(true);
     try {
@@ -179,27 +212,12 @@ function FieldRow({ def, canManage, onChanged }: { def: CustomFieldDef; canManag
     }
   }
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="text-sm">
-        <span className="font-medium">{def.fieldName}</span>
-        <span className="ml-2 inline-flex gap-1">
-          <Badge tone="blue">{TYPE_LABEL[def.fieldType] ?? def.fieldType}</Badge>
-          {def.required && <Badge tone="amber">required</Badge>}
-          {scoped ? <Badge tone="gray">scoped</Badge> : <Badge tone="gray">global</Badge>}
-        </span>
-        {def.fieldType === "select" && def.optionsJson && (
-          <div className="mt-0.5 text-xs text-slate-400">{def.optionsJson.join(" · ")}</div>
-        )}
-      </div>
-      {canManage && (
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={toggleRequired}>
-            {def.required ? "make optional" : "make required"}
-          </Button>
-          <Button variant="danger" className="px-2 text-xs" disabled={busy} onClick={archive}>Archive</Button>
-        </div>
-      )}
-    </li>
+    <span style={{ display: "inline-flex", gap: 8, whiteSpace: "nowrap" }}>
+      <GhostButton type="button" disabled={busy} onClick={toggleRequired}>
+        {def.required ? "make optional" : "make required"}
+      </GhostButton>
+      <GhostButton type="button" danger disabled={busy} onClick={archive}>Archive</GhostButton>
+    </span>
   );
 }
 
@@ -228,28 +246,30 @@ function SearchByField({ target, defs }: { target: string; defs: CustomFieldDef[
   }
 
   return (
-    <Card className="mt-6">
-      <p className="mb-2 text-sm font-semibold text-slate-200">Search {TARGET_LABEL[target]} by a custom field</p>
-      <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        <Select value={fieldId} onChange={(e) => setFieldId(e.target.value)}>
-          <option value="">Field…</option>
-          {defs.map((d) => (<option key={d.id} value={d.id}>{d.fieldName}</option>))}
-        </Select>
-        <Input placeholder="Value contains…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Button type="submit" variant="secondary" disabled={busy || !fieldId || !q.trim()}>{busy ? "Searching…" : "Search"}</Button>
-      </form>
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-      {rows && (
-        rows.length === 0 ? (
-          <p className="mt-3 text-xs text-slate-500">No matches.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-ink-800">
-            {rows.map((r) => (
-              <li key={r.id} className="py-2 text-sm">{r.label}</li>
-            ))}
-          </ul>
-        )
-      )}
+    <Card style={{ marginTop: 16 }}>
+      <CardHead>Search {TARGET_LABEL[target]} by a custom field</CardHead>
+      <div style={{ padding: 14 }}>
+        <form onSubmit={run} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+          <select value={fieldId} onChange={(e) => setFieldId(e.target.value)} style={dcInput}>
+            <option value="">Field…</option>
+            {defs.map((d) => (<option key={d.id} value={d.id}>{d.fieldName}</option>))}
+          </select>
+          <input placeholder="Value contains…" value={q} onChange={(e) => setQ(e.target.value)} style={dcInput} />
+          <GhostButton type="submit" disabled={busy || !fieldId || !q.trim()}>{busy ? "Searching…" : "Search"}</GhostButton>
+        </form>
+        {err && <div style={{ marginTop: 10 }}><Note>{err}</Note></div>}
+        {rows && (
+          rows.length === 0 ? (
+            <p style={{ marginTop: 12, fontSize: 11.5, color: T.muted }}>No matches.</p>
+          ) : (
+            <ul style={{ margin: "12px 0 0", padding: 0, listStyle: "none" }}>
+              {rows.map((r, i) => (
+                <li key={r.id} style={{ padding: "8px 0", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>{r.label}</li>
+              ))}
+            </ul>
+          )
+        )}
+      </div>
     </Card>
   );
 }

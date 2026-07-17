@@ -6,12 +6,12 @@ import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { can, type Invoice, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { DataTable } from "@/components/DataTable";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, Chip, ErrorNote, Field, Money, Select, Spinner } from "@/components/ui";
+import { Badge, Card, DGrid, Field, GhostButton, GoldButton, Loading, Note, Page, T, dcInput, fmtDay, money, type Tone } from "@/components/dc";
 
 const STATUSES = ["", "open", "sent", "partial", "paid", "void"];
+const STATUS_TONE: Record<string, Tone> = { open: "gray", sent: "blue", partial: "amber", paid: "green", void: "red" };
 interface BillableLine { id: string; workItemId: string; title: string; courseCode: string | null; amount: number }
 
 const searchClients = async (q: string): Promise<PickItem[]> => {
@@ -89,122 +89,99 @@ export default function InvoicesPage() {
 
   return (
     <AppShell>
-      <div className="mb-5 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Invoices</h1>
-        {canCreate && <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ New invoice"}</Button>}
-      </div>
+      <Page
+        title="Invoices"
+        sub="bill a client's unbilled work — the amount is derived from the lines, never stored"
+        action={canCreate ? <GoldButton onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ New invoice"}</GoldButton> : undefined}
+      >
+        {open && canCreate && (
+          <Card style={{ padding: 16, marginBottom: 16 }}>
+            <form onSubmit={create} style={{ display: "grid", gap: 12 }}>
+              <Field label="Client" required hint="Pick the client this invoice bills." error={fieldErrs.clientPartyId}>
+                <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setNewClient(i?.id ?? null)} />
+              </Field>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: T.ink2 }}>
+                <input type="checkbox" checked={isEstimate} onChange={(e) => setIsEstimate(e.target.checked)} />
+                This is an estimate
+              </label>
 
-      {open && canCreate && (
-        <Card className="mb-5">
-          <form onSubmit={create} className="space-y-3">
-            <Field label="Client" required hint="Pick the client this invoice bills." error={fieldErrs.clientPartyId}>
-              <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setNewClient(i?.id ?? null)} />
-            </Field>
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" checked={isEstimate} onChange={(e) => setIsEstimate(e.target.checked)} />
-              This is an estimate
-            </label>
+              {/* Bill from the work pool — the client's unbilled lines (Rule 3). */}
+              {newClient && (
+                <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: 12 }}>
+                  <p style={{ margin: "0 0 8px", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: T.muted }}>Bill from the work pool</p>
+                  {!billable ? (
+                    <Loading />
+                  ) : billable.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: 12, color: T.muted2 }}>No unbilled work for this client.</p>
+                  ) : (
+                    <>
+                      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 2 }}>
+                        {billable.map((l) => (
+                          <li key={l.id}>
+                            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 4px", fontSize: 12.5, cursor: "pointer", borderRadius: 6 }}>
+                              <input type="checkbox" checked={picked.has(l.id)} onChange={() => togglePick(l.id)} />
+                              {l.courseCode && <span style={{ fontFamily: T.mono, fontSize: 11, fontWeight: 600, color: T.codeText, background: T.codeBg, borderRadius: 5, padding: "2px 6px" }}>{l.courseCode}</span>}
+                              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title}</span>
+                              <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(l.amount)}</span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.hair}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        <span style={{ fontSize: 11.5, color: T.muted }}>{picked.size} selected · {money(pickedTotal)}</span>
+                        <GoldButton type="button" disabled={busy || picked.size === 0} onClick={() => void billSelected()}>
+                          {busy ? "Billing…" : `Bill ${picked.size} item${picked.size === 1 ? "" : "s"}`}
+                        </GoldButton>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
-            {/* Bill from the work pool — the client's unbilled lines (Rule 3). */}
-            {newClient && (
-              <div className="rounded-lg border border-ink-700 p-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Bill from the work pool</p>
-                {!billable ? (
-                  <Spinner />
-                ) : billable.length === 0 ? (
-                  <p className="text-xs text-slate-500">No unbilled work for this client.</p>
-                ) : (
-                  <>
-                    <ul className="space-y-1">
-                      {billable.map((l) => (
-                        <li key={l.id}>
-                          <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-ink-800/50">
-                            <input type="checkbox" checked={picked.has(l.id)} onChange={() => togglePick(l.id)} />
-                            {l.courseCode && <Chip>{l.courseCode}</Chip>}
-                            <span className="min-w-0 flex-1 truncate">{l.title}</span>
-                            <span className="tabular-nums"><Money value={l.amount} /></span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="mt-2 flex items-center justify-between border-t border-ink-800 pt-2">
-                      <span className="text-xs text-slate-400">{picked.size} selected · <Money value={pickedTotal} /></span>
-                      <Button type="button" disabled={busy || picked.size === 0} onClick={() => void billSelected()}>
-                        {busy ? "Billing…" : `Bill ${picked.size} item${picked.size === 1 ? "" : "s"}`}
-                      </Button>
-                    </div>
-                  </>
-                )}
+              {formError && <Note>{formError}</Note>}
+              <div>
+                <GhostButton type="submit" disabled={busy || !newClient}>{busy ? "Creating…" : "Create empty invoice"}</GhostButton>
               </div>
-            )}
+            </form>
+          </Card>
+        )}
 
-            {formError && <ErrorNote message={formError} />}
-            <Button type="submit" variant="secondary" disabled={busy || !newClient}>
-              {busy ? "Creating…" : "Create empty invoice"}
-            </Button>
-          </form>
+        <Card style={{ padding: 16, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <Field label="Filter by client">
+              <EntityPicker placeholder="Any client…" search={searchClients} onPick={(i) => setClientFilter(i?.id ?? null)} />
+            </Field>
+            <Field label="Status">
+              <select value={status} onChange={(e) => setStatus(e.target.value)} style={dcInput}>
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>{s || "Any status"}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
         </Card>
-      )}
 
-      <Card className="mb-5">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Filter by client">
-            <EntityPicker placeholder="Any client…" search={searchClients} onPick={(i) => setClientFilter(i?.id ?? null)} />
-          </Field>
-          <Field label="Status">
-            <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-              {STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s || "Any status"}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-      </Card>
-
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<Invoice>
-          tableId="invoices"
-          exportName="invoices"
-          rows={data}
-          getRowId={(inv) => inv.id}
-          onRowClick={(inv) => router.push(`/invoices/${inv.id}`)}
-          emptyTitle="No invoices"
-          emptyHint="Bill a job line to start a client's invoice."
-          columns={[
-            {
-              key: "client",
-              header: "Client",
-              render: (inv) => <PartyName id={inv.clientPartyId} />,
-              value: (inv) => inv.clientPartyId ?? "",
-            },
-            {
-              key: "status",
-              header: "Status",
-              align: "center",
-              sortable: true,
-              filter: "select",
-              filterOptions: ["open", "sent", "partial", "paid", "void"],
-              format: "badge",
-              value: (inv) => inv.status,
-            },
-            {
-              key: "estimate",
-              header: "Estimate",
-              align: "center",
-              sortable: true,
-              filter: "select",
-              filterOptions: ["estimate", "final"],
-              render: (inv) => (inv.isEstimate ? <Badge tone="amber">estimate</Badge> : inv.supersedesInvoiceId ? <Badge tone="gray">final</Badge> : <span className="text-gray-400">—</span>),
-              value: (inv) => (inv.isEstimate ? "estimate" : inv.supersedesInvoiceId ? "final" : ""),
-            },
-            { key: "createdAt", header: "Date", sortable: true, format: "date", value: (inv) => inv.createdAt },
-          ]}
-        />
-      )}
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <DGrid<Invoice>
+            rows={data}
+            keyOf={(inv) => inv.id}
+            cols={[
+              { label: "Client", render: (inv) => <PartyName id={inv.clientPartyId} /> },
+              { label: "Status", align: "center", render: (inv) => <Badge tone={STATUS_TONE[inv.status] ?? "gray"}>{inv.status}</Badge> },
+              {
+                label: "Estimate",
+                align: "center",
+                render: (inv) => (inv.isEstimate ? <Badge tone="amber">estimate</Badge> : inv.supersedesInvoiceId ? <Badge tone="gray">final</Badge> : <span style={{ color: T.muted2 }}>—</span>),
+              },
+              { label: "Date", render: (inv) => <span style={{ color: T.muted2 }}>{fmtDay(inv.createdAt)}</span> },
+            ]}
+            actions={[{ label: "open →", onClick: () => {}, href: (inv) => `/invoices/${inv.id}` }]}
+            empty="No invoices. Bill a job line to start a client's invoice."
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }

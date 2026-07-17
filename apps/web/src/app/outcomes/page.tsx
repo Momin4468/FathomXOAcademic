@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate } from "@/lib/format";
 import {
   can,
   type Outcome,
@@ -14,7 +13,11 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { PartyName } from "@/components/PartyName";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Money, Select, Spinner } from "@/components/ui";
+import {
+  Badge, Card, DGrid, EmptyBox, Field, GhostButton, GoldButton,
+  Loading, Note, Page, StatCards, T, cell, dcInput, fmtDay, money,
+  type DCol, type Stat,
+} from "@/components/dc";
 
 const FAULTS = ["", "writer", "brief_change", "client"];
 const SATISFACTION = ["", "high", "neutral", "low"];
@@ -33,52 +36,52 @@ export default function OutcomesPage() {
     `outcomes${writerFilter ? `?writerPartyId=${writerFilter}` : ""}`,
   );
 
+  const cols: DCol<Outcome>[] = [
+    { label: "Writer", render: (o) => cell(o.writerPartyId ? <PartyName id={o.writerPartyId} /> : "—", { weight: 600 }) },
+    {
+      label: "Result", render: (o) => (
+        <span style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {o.onTime === false && <Badge tone="amber">late{o.daysLate ? ` ${o.daysLate}d` : ""}</Badge>}
+          {o.onTime === true && <Badge tone="green">on-time</Badge>}
+          {o.failed && <Badge tone="red">failed</Badge>}
+          {o.complaint && <Badge tone="red">complaint</Badge>}
+          {o.revisionCount > 0 && <Badge tone="gray">{o.revisionCount} rev{o.revisionFault ? ` (${o.revisionFault})` : ""}</Badge>}
+          {o.satisfaction && <Badge tone={o.satisfaction === "high" ? "green" : o.satisfaction === "low" ? "red" : "gray"}>{o.satisfaction}</Badge>}
+        </span>
+      ),
+    },
+    { label: "Grade", render: (o) => o.grade ?? "—" },
+    { label: "Rework", align: "right", render: (o) => money(o.reworkCost) },
+    { label: "Recorded", render: (o) => cell(fmtDay(o.recordedAt), { color: T.muted2 }) },
+  ];
+
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Outcomes</h1>
-      <p className="mb-4 text-xs text-slate-400">{canSeeAll ? "All writers" : "Your own work"} · reputation is derived, never hand-edited.</p>
+      <Page title="Outcomes" sub={`${canSeeAll ? "all writers" : "your own work"} · reputation is derived, never hand-edited`}>
+        {canSeeAll && <ReputationCard defaultPartyId={me?.party?.id ?? null} />}
+        {!canSeeAll && me?.party?.id && <ReputationCard defaultPartyId={me.party.id} lockSelf />}
 
-      {canSeeAll && (
-        <ReputationCard defaultPartyId={me?.party?.id ?? null} />
-      )}
-      {!canSeeAll && me?.party?.id && <ReputationCard defaultPartyId={me.party.id} lockSelf />}
+        {canRecord && <RecordOutcome onDone={mutate} />}
 
-      {canRecord && <RecordOutcome onDone={mutate} />}
+        {canSeeAll && (
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ padding: 14 }}>
+              <Field label="Filter by writer (optional)">
+                <EntityPicker placeholder="All writers…" search={searchWriters} onPick={(i) => setWriterFilter(i?.id ?? null)} />
+              </Field>
+            </div>
+          </Card>
+        )}
 
-      {canSeeAll && (
-        <Card className="mb-4">
-          <Field label="Filter by writer (optional)">
-            <EntityPicker placeholder="All writers…" search={searchWriters} onPick={(i) => setWriterFilter(i?.id ?? null)} />
-          </Field>
-        </Card>
-      )}
-
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Recorded outcomes</h2>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {outcomes && outcomes.length === 0 && <EmptyState title="No outcomes yet" />}
-      {outcomes && outcomes.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {outcomes.map((o) => (
-            <li key={o.id} className="px-4 py-3 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{o.writerPartyId ? <PartyName id={o.writerPartyId} /> : "—"}</span>
-                <span className="flex flex-wrap items-center gap-1">
-                  {o.onTime === false && <Badge tone="amber">late{o.daysLate ? ` ${o.daysLate}d` : ""}</Badge>}
-                  {o.onTime === true && <Badge tone="green">on-time</Badge>}
-                  {o.failed && <Badge tone="red">failed</Badge>}
-                  {o.complaint && <Badge tone="red">complaint</Badge>}
-                  {o.revisionCount > 0 && <Badge tone="gray">{o.revisionCount} rev{o.revisionFault ? ` (${o.revisionFault})` : ""}</Badge>}
-                  {o.satisfaction && <Badge tone={o.satisfaction === "high" ? "green" : o.satisfaction === "low" ? "red" : "gray"}>{o.satisfaction}</Badge>}
-                </span>
-              </div>
-              <div className="mt-0.5 text-xs text-slate-400">
-                {formatDate(o.recordedAt)}{o.grade ? ` · grade ${o.grade}` : ""}{o.reworkCost ? <> · rework <Money value={o.reworkCost} /></> : null}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+        <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, margin: "18px 0 8px" }}>Recorded outcomes</div>
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {outcomes && (outcomes.length === 0 ? (
+          <EmptyBox title="No outcomes yet" />
+        ) : (
+          <DGrid cols={cols} rows={outcomes} keyOf={(o) => o.id} minWidth={620} />
+        ))}
+      </Page>
     </AppShell>
   );
 }
@@ -87,41 +90,45 @@ function ReputationCard({ defaultPartyId, lockSelf }: { defaultPartyId: string |
   const [partyId, setPartyId] = useState<string | null>(defaultPartyId);
   const { data: card } = useApi<WriterCard>(partyId ? `outcomes/writers/${partyId}` : null, { shouldRetryOnError: false });
   const rep = card?.reputation;
+  const stats: Stat[] = rep
+    ? [
+        { label: "Reliability", value: rep.reliabilityScore == null ? "—" : `${rep.reliabilityScore}` },
+        { label: "Jobs", value: `${rep.jobCount ?? 0}` },
+        { label: "On-time", value: rep.onTime.rate == null ? "—" : `${Math.round(rep.onTime.rate * 100)}%`, tone: "green" },
+        { label: "Fail rate", value: rep.failRate == null ? "—" : `${Math.round(rep.failRate * 100)}%`, tone: (rep.failRate ?? 0) > 0 ? "red" : "gray" },
+        { label: "Complaints", value: `${rep.complaint.count ?? 0}` },
+        { label: "Open jobs", value: `${card?.load.openJobs ?? 0}` },
+      ]
+    : [];
   return (
-    <Card className="mb-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reputation</h2>
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${T.eyebrow}` }}>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Reputation</span>
         {!lockSelf && (
-          <div className="w-full sm:w-56"><EntityPicker placeholder="Pick a writer…" search={searchWriters} onPick={(i) => setPartyId(i?.id ?? defaultPartyId)} /></div>
+          <div style={{ width: 240 }}>
+            <EntityPicker placeholder="Pick a writer…" search={searchWriters} onPick={(i) => setPartyId(i?.id ?? defaultPartyId)} />
+          </div>
         )}
       </div>
-      {!card ? (
-        <EmptyState title="Pick a writer" hint="Their derived reputation will show here." />
-      ) : (
-        <>
-          <p className="text-sm font-medium">{card.profile.displayName} <Badge tone={card.load.atCapacity ? "red" : "green"}>{card.load.availability}</Badge></p>
-          <div className="mt-2 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <Stat label="reliability" value={rep?.reliabilityScore == null ? "—" : `${rep.reliabilityScore}`} />
-            <Stat label="jobs" value={`${rep?.jobCount ?? 0}`} />
-            <Stat label="on-time" value={rep?.onTime.rate == null ? "—" : `${Math.round(rep.onTime.rate * 100)}%`} />
-            <Stat label="fail rate" value={rep?.failRate == null ? "—" : `${Math.round(rep.failRate * 100)}%`} />
-            <Stat label="complaints" value={`${rep?.complaint.count ?? 0}`} />
-            <Stat label="open jobs" value={`${card.load.openJobs}`} />
-          </div>
-          {card.courseHistory.length > 0 && (
-            <div className="mt-3 text-xs text-slate-400">
-              Courses: {card.courseHistory.slice(0, 6).map((c) => `${c.courseName ?? c.courseRefId.slice(0, 6)} (${c.jobCount})`).join(" · ")}
+      <div style={{ padding: 14 }}>
+        {!card ? (
+          <EmptyBox title="Pick a writer" hint="Their derived reputation will show here." />
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 13, fontWeight: 600 }}>
+              {card.profile.displayName}
+              <Badge tone={card.load.atCapacity ? "red" : "green"}>{card.load.availability}</Badge>
             </div>
-          )}
-        </>
-      )}
+            <StatCards items={stats} min={150} />
+            {card.courseHistory.length > 0 && (
+              <div style={{ fontSize: 11, color: T.muted2 }}>
+                Courses: {card.courseHistory.slice(0, 6).map((c) => `${c.courseName ?? c.courseRefId.slice(0, 6)} (${c.jobCount})`).join(" · ")}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </Card>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div><div className="text-xs text-slate-400">{label}</div><div className="font-medium">{value}</div></div>
   );
 }
 
@@ -167,48 +174,48 @@ function RecordOutcome({ onDone }: { onDone: () => void }) {
     }
   }
   return (
-    <Card className="mb-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-200">Record an outcome</p>
-        <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</Button>
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: open ? `1px solid ${T.eyebrow}` : undefined }}>
+        <span style={{ fontSize: 12, fontWeight: 700 }}>Record an outcome</span>
+        <GhostButton onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</GhostButton>
       </div>
       {open && (
-        <form onSubmit={submit} className="mt-3 space-y-3">
+        <form onSubmit={submit} style={{ padding: 14, display: "grid", gap: 12 }}>
           <Field label="Job" error={fieldErrs.workItemId}>
-            <Select value={form.workItemId} onChange={(e) => setForm({ ...form, workItemId: e.target.value })}>
+            <select value={form.workItemId} onChange={(e) => setForm({ ...form, workItemId: e.target.value })} style={dcInput}>
               <option value="">{jobs && jobs.length === 0 ? "No jobs yet" : "Select job…"}</option>
               {(jobs ?? []).map((j) => (<option key={j.id} value={j.id}>{j.title}</option>))}
-            </Select>
+            </select>
           </Field>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
             <Field label="On time?" error={fieldErrs.onTime}>
-              <Select value={form.onTime} onChange={(e) => setForm({ ...form, onTime: e.target.value })}>
+              <select value={form.onTime} onChange={(e) => setForm({ ...form, onTime: e.target.value })} style={dcInput}>
                 <option value="">—</option><option value="yes">yes</option><option value="no">no</option>
-              </Select>
+              </select>
             </Field>
-            <Field label="Days late" error={fieldErrs.daysLate}><Input type="number" min="0" value={form.daysLate} onChange={(e) => setForm({ ...form, daysLate: e.target.value })} /></Field>
-            <Field label="Revisions" error={fieldErrs.revisionCount}><Input type="number" min="0" value={form.revisionCount} onChange={(e) => setForm({ ...form, revisionCount: e.target.value })} /></Field>
+            <Field label="Days late" error={fieldErrs.daysLate}><input type="number" min="0" value={form.daysLate} onChange={(e) => setForm({ ...form, daysLate: e.target.value })} style={dcInput} /></Field>
+            <Field label="Revisions" error={fieldErrs.revisionCount}><input type="number" min="0" value={form.revisionCount} onChange={(e) => setForm({ ...form, revisionCount: e.target.value })} style={dcInput} /></Field>
             <Field label="Revision fault" error={fieldErrs.revisionFault}>
-              <Select value={form.revisionFault} onChange={(e) => setForm({ ...form, revisionFault: e.target.value })}>
+              <select value={form.revisionFault} onChange={(e) => setForm({ ...form, revisionFault: e.target.value })} style={dcInput}>
                 {FAULTS.map((f) => <option key={f} value={f}>{f || "—"}</option>)}
-              </Select>
+              </select>
             </Field>
-            <Field label="Grade" error={fieldErrs.grade}><Input value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} /></Field>
-            <Field label="AI score" error={fieldErrs.aiScore}><Input type="number" min="0" max="100" value={form.aiScore} onChange={(e) => setForm({ ...form, aiScore: e.target.value })} /></Field>
+            <Field label="Grade" error={fieldErrs.grade}><input value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })} style={dcInput} /></Field>
+            <Field label="AI score" error={fieldErrs.aiScore}><input type="number" min="0" max="100" value={form.aiScore} onChange={(e) => setForm({ ...form, aiScore: e.target.value })} style={dcInput} /></Field>
             <Field label="Satisfaction" error={fieldErrs.satisfaction}>
-              <Select value={form.satisfaction} onChange={(e) => setForm({ ...form, satisfaction: e.target.value })}>
+              <select value={form.satisfaction} onChange={(e) => setForm({ ...form, satisfaction: e.target.value })} style={dcInput}>
                 {SATISFACTION.map((s) => <option key={s} value={s}>{s || "—"}</option>)}
-              </Select>
+              </select>
             </Field>
-            <Field label="Rework cost (৳)" error={fieldErrs.reworkCost}><MoneyInput value={form.reworkCost} onChange={(v) => setForm({ ...form, reworkCost: v })} /></Field>
+            <Field label="Rework cost (৳)" error={fieldErrs.reworkCost}><input inputMode="decimal" value={form.reworkCost} onChange={(e) => setForm({ ...form, reworkCost: e.target.value })} style={{ ...dcInput, textAlign: "right" }} /></Field>
           </div>
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={form.complaint} onChange={(e) => setForm({ ...form, complaint: e.target.checked })} /> complaint</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={form.failed} onChange={(e) => setForm({ ...form, failed: e.target.checked })} /> failed</label>
+          <div style={{ display: "flex", gap: 18, fontSize: 12.5, color: T.ink2 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><input type="checkbox" checked={form.complaint} onChange={(e) => setForm({ ...form, complaint: e.target.checked })} /> complaint</label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}><input type="checkbox" checked={form.failed} onChange={(e) => setForm({ ...form, failed: e.target.checked })} /> failed</label>
           </div>
-          <Field label="Marker feedback" error={fieldErrs.markerFeedback}><Input value={form.markerFeedback} onChange={(e) => setForm({ ...form, markerFeedback: e.target.value })} /></Field>
-          {err && <ErrorNote message={err} />}
-          <Button type="submit" disabled={busy || !form.workItemId}>{busy ? "Saving…" : "Record outcome"}</Button>
+          <Field label="Marker feedback" error={fieldErrs.markerFeedback}><input value={form.markerFeedback} onChange={(e) => setForm({ ...form, markerFeedback: e.target.value })} style={dcInput} /></Field>
+          {err && <Note>{err}</Note>}
+          <div><GoldButton type="submit" disabled={busy || !form.workItemId}>{busy ? "Saving…" : "Record outcome"}</GoldButton></div>
         </form>
       )}
     </Card>
