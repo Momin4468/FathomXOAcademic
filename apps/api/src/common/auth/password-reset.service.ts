@@ -105,6 +105,37 @@ export class PasswordResetService {
   }
 
   /**
+   * Admin-initiated INVITE — mint a set-password token for a just-created account
+   * and email a "set your password" link (reuses the reset token machinery). Unlike
+   * request(), this is called from a permission-gated admin endpoint, so it skips
+   * the anti-enumeration IP/timing dance and uses invite wording. Best-effort: a
+   * failed email is logged, never thrown (the account already exists). No-op if the
+   * account can't be resolved. Returns whether a link was actually dispatched.
+   */
+  async invite(plane: ResetPlane, identifier: string): Promise<boolean> {
+    const resolved = await this.resolve(plane, identifier.trim().toLowerCase());
+    if (!resolved) return false;
+    const rawToken = randomBytes(24).toString("base64url");
+    const expiresAt = new Date(Date.now() + this.ttlMin * 60 * 1000);
+    await this.db.pwResetRequest(plane, resolved.accountId, this.hashToken(rawToken), expiresAt);
+    const link = `${this.webBaseUrl}${PLANE_PATH[plane]}?token=${rawToken}`;
+    try {
+      await this.email.send({
+        to: resolved.email,
+        subject: `You've been invited to ${PLANE_LABEL[plane]}`,
+        text:
+          `An administrator created a ${PLANE_LABEL[plane]} account for you.\n\n` +
+          `Open this link to set your password and sign in (it expires in ${this.ttlMin} minutes and can be used once):\n` +
+          `${link}\n\n` +
+          `If you weren't expecting this, you can ignore this email.`,
+      });
+    } catch (err) {
+      this.logger.error(`invite email failed (${plane}): ${(err as Error).message}`);
+    }
+    return true;
+  }
+
+  /**
    * Step 2 — set a new password using the emailed token. The consume definer is
    * atomic (spend token + set password + revoke all sessions + audit). A null result
    * (invalid / expired / already-used) maps to one generic error — no distinction

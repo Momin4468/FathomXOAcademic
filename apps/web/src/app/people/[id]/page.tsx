@@ -84,6 +84,8 @@ export default function PersonRecordPage() {
                   universityId: party.universityId,
                   programme: party.programme,
                   contact: party.contact ?? null,
+                  ownerPartyId: party.ownerPartyId ?? null,
+                  ownerName: party.ownerName ?? null,
                 } satisfies PartyFormInitial}
                 onSaved={() => { setEditing(false); void mutate(); }}
                 onCancel={() => setEditing(false)}

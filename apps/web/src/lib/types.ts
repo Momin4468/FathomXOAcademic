@@ -636,6 +636,8 @@ export interface PartyDetail {
   universityCanonical: string | null;
   referredByPartyId: string | null;
   referredByName: string | null;
+  ownerPartyId?: string | null;
+  ownerName?: string | null;
   contact?: Record<string, unknown> | null;
   customFields: CustomFieldOnRecord[];
   createdAt: string;

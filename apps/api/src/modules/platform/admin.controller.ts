@@ -9,10 +9,12 @@ import {
   Patch,
   Post,
 } from "@nestjs/common";
+import { randomBytes } from "node:crypto";
 import { schema } from "@business-os/db";
 import type { RlsContext, SessionPrincipal } from "@business-os/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
+import { PasswordResetService } from "../../common/auth/password-reset.service.js";
 import { PasswordService } from "../../common/auth/password.service.js";
 import { CurrentPrincipal } from "../../common/auth/current-principal.decorator.js";
 import { CurrentPermissions } from "../../common/authz/current-permissions.decorator.js";
@@ -33,10 +35,17 @@ export class AdminController {
   constructor(
     private readonly db: DbService,
     private readonly passwords: PasswordService,
+    private readonly passwordReset: PasswordResetService,
     private readonly audit: AuditService,
   ) {}
 
-  /** Create a login (optionally linked to a party — never merged). */
+  /**
+   * Create a login (optionally linked to a party — never merged). Two onboarding
+   * modes: set an initial password directly, OR (sendInvite / no password) email
+   * the user a one-time "set your password" link. When inviting, the stored hash is
+   * a random unusable secret, so the account can be entered ONLY via the emailed
+   * link (or a later reset) — no admin ever knows the credential.
+   */
   @Post("users")
   @RequirePermission("platform", "create")
   async createUser(
@@ -44,9 +53,11 @@ export class AdminController {
     @CurrentPrincipal() principal: SessionPrincipal,
     @Body() dto: CreateUserDto,
   ) {
-    const hash = await this.passwords.hash(dto.password);
-    return this.db.withTenant(ctx, async (tx) => {
-      const [user] = await tx
+    const invite = dto.sendInvite === true || !dto.password;
+    // Invite path: store a random, unknowable secret so the only way in is the link.
+    const hash = await this.passwords.hash(dto.password ?? randomBytes(24).toString("base64url"));
+    const user = await this.db.withTenant(ctx, async (tx) => {
+      const [row] = await tx
         .insert(schema.userAccount)
         .values({
           orgId: ctx.orgId,
@@ -59,11 +70,15 @@ export class AdminController {
         actorUserId: principal.userId,
         action: "platform.user_created",
         entity: "user_account",
-        entityId: user!.id,
-        detail: { email: dto.email, linkedParty: dto.partyId ?? null },
+        entityId: row!.id,
+        detail: { email: dto.email, linkedParty: dto.partyId ?? null, invited: invite },
       });
-      return user;
+      return row!;
     });
+    // Email the set-password link AFTER the account is committed (so resolve() finds
+    // it). Best-effort — under EMAIL_ADAPTER=dev the link is logged/outboxed.
+    if (invite) await this.passwordReset.invite("business", dto.email);
+    return { ...user, invited: invite };
   }
 
   /**

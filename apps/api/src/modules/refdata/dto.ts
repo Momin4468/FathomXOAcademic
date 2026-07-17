@@ -111,6 +111,12 @@ export class CreatePartyDto {
   @IsUUID()
   referredByPartyId?: string;
 
+  /** The managing admin (book of business, 0051). SuperAdmin/admins assign a
+   *  client or writer to an admin's roster; defaults to the caller for a client. */
+  @IsOptional()
+  @IsUUID()
+  ownerPartyId?: string;
+
   @IsOptional()
   @IsObject()
   customJson?: Record<string, unknown>;
@@ -149,6 +155,11 @@ export class UpdatePartyDto {
   @IsOptional()
   @IsUUID()
   referredByPartyId?: string;
+
+  /** Reassign the managing admin / roster (0051). */
+  @IsOptional()
+  @IsUUID()
+  ownerPartyId?: string;
 
   @IsOptional()
   @IsObject()

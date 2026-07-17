@@ -5,10 +5,18 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
+  /** Optional: set an initial password directly. Omit (or set sendInvite) to
+   *  invite instead — the user gets an emailed "set your password" link. */
+  @IsOptional()
   @IsString()
   @MinLength(8)
   @MaxLength(200)
-  password!: string;
+  password?: string;
+
+  /** Email a set-password invite instead of setting a password here. */
+  @IsOptional()
+  @IsBoolean()
+  sendInvite?: boolean;
 
   /** Optional link to an existing party (link, never merge). */
   @IsOptional()

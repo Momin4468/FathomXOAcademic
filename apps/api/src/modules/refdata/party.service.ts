@@ -111,10 +111,12 @@ export class PartyService {
              p.external_ref as "externalRef", p.programme, p.contact_json as "contact",
              p.university_id as "universityId", u.canonical as "universityCanonical",
              p.referred_by_party_id as "referredByPartyId", r.display_name as "referredByName",
+             p.owner_party_id as "ownerPartyId", o.display_name as "ownerName",
              p.custom_json as "customJson", p.created_at as "createdAt"
       from party p
       left join ref_entity u on u.id = p.university_id
       left join party r on r.id = p.referred_by_party_id
+      left join party o on o.id = p.owner_party_id
       where p.id = ${id} and p.archived_at is null
     `);
     const row = res.rows[0] as
@@ -176,9 +178,11 @@ export class PartyService {
         programme: dto.programme ?? null,
         contactJson: dto.contact ?? {},
         referredByPartyId: dto.referredByPartyId ?? null,
-        // Owning admin for a CLIENT (drives client-roster privacy, 0051). Only
-        // clients are row-private; a party-less SuperAdmin creates a shared client.
-        ownerPartyId: (dto.partyType ?? []).includes("client") ? (principal.partyId ?? null) : null,
+        // Managing admin / roster (0051). An explicit ownerPartyId wins (SuperAdmin
+        // or an admin assigns the client/writer to an admin's book); else a client
+        // defaults to the creating admin, and other party types stay unowned (a
+        // party-less SuperAdmin creating without an explicit owner leaves it shared).
+        ownerPartyId: dto.ownerPartyId ?? ((dto.partyType ?? []).includes("client") ? (principal.partyId ?? null) : null),
         customJson,
         aiCaptureId: opts?.aiCaptureId ?? null,
         importBatchId: opts?.importBatchId ?? null,
@@ -232,6 +236,9 @@ export class PartyService {
     if (dto.programme !== undefined) patch.programme = dto.programme;
     if (dto.contact !== undefined) patch.contactJson = dto.contact;
     if (dto.referredByPartyId !== undefined) patch.referredByPartyId = dto.referredByPartyId;
+    // Reassign the managing admin / roster (0051) — explicit wins over the
+    // promote-to-client default above.
+    if (dto.ownerPartyId !== undefined) patch.ownerPartyId = dto.ownerPartyId;
     if (dto.customJson !== undefined) {
       const [cur] = await tx
         .select({ universityId: schema.party.universityId, customJson: schema.party.customJson })

@@ -193,6 +193,7 @@ function ManageUser({
 /** Create a new login, optionally linked to an existing person. */
 function CreateLogin({ roles, onDone, onCancel }: { roles: RoleRow[]; onDone: () => void; onCancel: () => void }) {
   const [email, setEmail] = useState("");
+  const [invite, setInvite] = useState(true); // default: email a set-password link
   const [password, setPassword] = useState("");
   const [partyId, setPartyId] = useState<string | null>(null);
   const [roleId, setRoleId] = useState("");
@@ -200,15 +201,17 @@ function CreateLogin({ roles, onDone, onCancel }: { roles: RoleRow[]; onDone: ()
   const [err, setErr] = useState("");
   const [fieldErrs, setFieldErrs] = useState<Record<string, string>>({});
 
+  const canSubmit = !!email.trim() && (invite || password.length >= 8);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!email.trim() || password.length < 8) return;
+    if (!canSubmit) return;
     setBusy(true); setErr(""); setFieldErrs({});
     try {
       const user = await apiSend<{ id: string }>("platform/users", "POST", {
         email: email.trim(),
-        password,
         partyId: partyId ?? undefined,
+        ...(invite ? { sendInvite: true } : { password }),
       });
       if (roleId) await apiSend(`platform/users/${user.id}/roles`, "POST", { roleId });
       onDone();
@@ -223,14 +226,21 @@ function CreateLogin({ roles, onDone, onCancel }: { roles: RoleRow[]; onDone: ()
     <Card className="mb-4">
       <h2 className="mb-3 text-sm font-semibold">New login</h2>
       <form onSubmit={submit} className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Sign-in email" required error={fieldErrs.email}>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
-          </Field>
-          <Field label="Temporary password" hint="At least 8 chars — the user changes it" required error={fieldErrs.password}>
+        <Field label="Sign-in email" required error={fieldErrs.email}>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" required />
+        </Field>
+        <label className="flex items-start gap-2 text-sm text-slate-300">
+          <input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} className="mt-1" />
+          <span>
+            Email an invite link
+            <span className="block text-xs text-slate-500">The user sets their own password via a one-time link — no password is shared. Uncheck to set a temporary password yourself.</span>
+          </span>
+        </label>
+        {!invite && (
+          <Field label="Temporary password" hint="At least 8 chars — the user changes it on first sign-in" required error={fieldErrs.password}>
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
           </Field>
-        </div>
+        )}
         <Field label="Link to a person" hint="Optional — link a login to its business identity (never merged).">
           <EntityPicker placeholder="Search people…" search={searchParty} onPick={(i) => setPartyId(i?.id ?? null)} />
         </Field>
@@ -243,7 +253,7 @@ function CreateLogin({ roles, onDone, onCancel }: { roles: RoleRow[]; onDone: ()
         </Field>
         {err && <ErrorNote message={err} />}
         <div className="flex gap-2">
-          <Button type="submit" disabled={busy || !email.trim() || password.length < 8}>{busy ? "Creating…" : "Create login"}</Button>
+          <Button type="submit" disabled={busy || !canSubmit}>{busy ? "Saving…" : invite ? "Create & send invite" : "Create login"}</Button>
           <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>
         </div>
       </form>

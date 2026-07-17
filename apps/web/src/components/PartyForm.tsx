@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { apiGet, apiSend } from "@/lib/api";
+import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import type { PartyRow, RefEntity } from "@/lib/types";
+import { can, type PartyRow, type RefEntity, type WhoAmI } from "@/lib/types";
 import { EntityPicker, type PickItem } from "./EntityPicker";
 import { Button, ErrorNote, Field, Input, cx } from "./ui";
 
@@ -19,6 +19,11 @@ const searchUniversity = async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<RefEntity[]>(`reference?kind=university&q=${encodeURIComponent(q)}`);
   return rows.map((r) => ({ id: r.id, label: r.canonical, sub: r.status }));
 };
+/** Managing-admin search (admins are partner-type parties). */
+const searchAdmin = async (q: string): Promise<PickItem[]> => {
+  const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}&type=partner`);
+  return rows.map((p) => ({ id: p.id, label: p.displayName, sub: p.externalRef ?? undefined }));
+};
 const createUniversity = async (raw: string): Promise<PickItem> => {
   const res = await apiSend<{ entity: RefEntity }>("reference/resolve", "POST", { kind: "university", raw });
   return { id: res.entity.id, label: res.entity.canonical };
@@ -32,6 +37,8 @@ export interface PartyFormInitial {
   universityId: string | null;
   programme: string | null;
   contact?: Record<string, unknown> | null;
+  ownerPartyId?: string | null;
+  ownerName?: string | null;
 }
 
 export function PartyForm({
@@ -47,11 +54,14 @@ export function PartyForm({
   onCancel: () => void;
 }) {
   const editing = !!initial;
+  const { data: me } = useApi<WhoAmI>("platform/whoami");
+  const canAssignOwner = can(me?.permissions, "reference:edit"); // admins assign the roster
   const [displayName, setDisplayName] = useState(initial?.displayName ?? "");
   const [types, setTypes] = useState<string[]>(initial?.partyType ?? (presetType ? [presetType] : []));
   const [externalRef, setExternalRef] = useState(initial?.externalRef ?? "");
   const [universityId, setUniversityId] = useState<string | null>(initial?.universityId ?? null);
   const [programme, setProgramme] = useState(initial?.programme ?? "");
+  const [ownerPartyId, setOwnerPartyId] = useState<string | null>(initial?.ownerPartyId ?? null);
   const [email, setEmail] = useState((initial?.contact?.email as string | undefined) ?? "");
   const [phone, setPhone] = useState((initial?.contact?.phone as string | undefined) ?? "");
   const [error, setError] = useState("");
@@ -77,6 +87,7 @@ export function PartyForm({
       universityId: universityId ?? undefined,
       programme: programme.trim() || undefined,
       contact: Object.keys(contact).length ? contact : undefined,
+      ownerPartyId: canAssignOwner ? ownerPartyId ?? undefined : undefined,
     };
     try {
       if (editing) await apiSend<PartyRow>(`parties/${initial!.id}`, "PATCH", body);
@@ -133,6 +144,20 @@ export function PartyForm({
       <Field label="Programme" hint="e.g. MBA, BBA (optional)" error={fieldErrs.programme}>
         <Input value={programme} onChange={(e) => setProgramme(e.target.value)} placeholder="Optional" />
       </Field>
+
+      {canAssignOwner && (
+        <Field
+          label="Managing admin"
+          hint={
+            editing && initial?.ownerName
+              ? `Currently ${initial.ownerName}. Search to reassign this client/writer to another admin's roster.`
+              : "Whose book of business this belongs to. A client is private to their admin; leave blank to keep it shared."
+          }
+          error={fieldErrs.ownerPartyId}
+        >
+          <EntityPicker placeholder="Search admin / partner…" search={searchAdmin} onPick={(i) => setOwnerPartyId(i?.id ?? null)} />
+        </Field>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Contact email" error={fieldErrs.contact}>
