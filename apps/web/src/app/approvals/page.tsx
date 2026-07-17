@@ -4,7 +4,7 @@ import { useSWRConfig } from "swr";
 import { Check } from "lucide-react";
 import { apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { can, type WhoAmI, type WorkListRow } from "@/lib/types";
+import { can, type KnowledgeArticleRow, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { DataGrid, type DataGridColumn } from "@/components/DataGrid";
 import { Badge, Button, Card, Chip, EmptyState } from "@/components/ui";
@@ -25,12 +25,16 @@ export default function ApprovalsPage() {
   const canApproveRef = can(me?.permissions, "reference:approve");
 
   const canApproveWork = can(me?.permissions, "work:approve");
+  const canPublish = can(me?.permissions, "knowledge:approve");
   const key = "reference/provisional";
   const workKey = "work?workState=pending";
   const { data: rows, isLoading } = useApi<ProvisionalRow[]>(can(me?.permissions, "reference:view") ? key : null);
   // Work awaiting a governance confirm (draft/pending → confirmed is the "claim
   // becomes fact" step; §3.8). An approver confirms it here.
   const { data: pendingWork } = useApi<WorkListRow[]>(canApproveWork ? workKey : null);
+  // Knowledge submitted by any user, awaiting a curator to publish (draft→published).
+  const { data: articles } = useApi<KnowledgeArticleRow[]>(canPublish ? "knowledge/articles" : null);
+  const drafts = (articles ?? []).filter((a) => a.status === "draft");
 
   async function confirm(r: ProvisionalRow) {
     await apiSend(`reference/${r.id}/confirm`, "POST");
@@ -93,6 +97,26 @@ export default function ApprovalsPage() {
               ))}
             </ul>
           )}
+        </Card>
+      )}
+
+      {canPublish && drafts.length > 0 && (
+        <Card className="mt-4 p-0">
+          <div className="flex items-center justify-between border-b border-ink-700 px-4 py-2.5">
+            <h2 className="text-sm font-semibold">Knowledge awaiting publish</h2>
+            <Badge tone="amber">{drafts.length}</Badge>
+          </div>
+          <ul className="divide-y divide-ink-800">
+            {drafts.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <Link href={`/knowledge/${a.id}`} className="flex min-w-0 items-center gap-2 text-sm hover:underline">
+                  <Badge tone="gray">{a.type}</Badge>
+                  <span className="truncate font-medium">{a.title}</span>
+                </Link>
+                <Link href="/knowledge" className="shrink-0 text-xs text-gold-600 hover:underline dark:text-gold-400">Review & publish →</Link>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 
