@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { schema, type Db } from "@business-os/db";
+import { schema, sql, type Db } from "@business-os/db";
 import type { SessionPrincipal } from "@business-os/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { AuditService } from "../../common/audit/audit.service.js";
@@ -22,6 +22,40 @@ export class HrmService {
     private readonly audit: AuditService,
     private readonly lines: LineService,
   ) {}
+
+  /**
+   * Payroll (handoff §18) — salaried staff = parties with an effective `monthly`
+   * comp_rule; salary = its rate; paid-this-cycle = Σ salary expenses to them this
+   * month; status is derived. Paying settles through the Cashbook (a `salary`
+   * expense). Derived at read time — nothing stored. Gated hrm:approve.
+   */
+  async payroll(tx: Db) {
+    const res = await tx.execute(sql`
+      select cr.id as "compRuleId", cr.party_id as "partyId", p.display_name as name,
+             cr.rate as salary,
+             coalesce((select sum(e.amount) from expense e
+               where e.category = 'salary' and e.payee_party_id = cr.party_id
+                 and e.incurred_at >= date_trunc('month', current_date)::date), 0) as "paidThisMonth"
+      from comp_rule cr
+      join party p on p.id = cr.party_id
+      where cr.basis = 'monthly' and (cr.effective_to is null or cr.effective_to >= current_date)
+      order by p.display_name
+    `);
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    return (res.rows as Array<{ compRuleId: string; partyId: string; name: string; salary: string; paidThisMonth: string }>).map((row) => {
+      const salary = r2(Number(row.salary ?? 0));
+      const paid = r2(Number(row.paidThisMonth ?? 0));
+      return {
+        compRuleId: row.compRuleId,
+        partyId: row.partyId,
+        name: row.name,
+        salary,
+        paidThisMonth: paid,
+        outstanding: r2(Math.max(0, salary - paid)),
+        status: salary > 0 && paid >= salary ? "paid" : paid > 0 ? "partial" : "due",
+      };
+    });
+  }
 
   /** Log work — the employee is always the caller (never from the body); no money. */
   async logWork(tx: Db, principal: SessionPrincipal, dto: LogWorkDto) {

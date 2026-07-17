@@ -19,6 +19,8 @@ const ROLE = {
   writer: "de510000-0000-4000-8000-0000000000a6",
   vendor: "de510000-0000-4000-8000-0000000000a8",
   referrer: "de510000-0000-4000-8000-0000000000a9",
+  partner: "de510000-0000-4000-8000-0000000000a4",
+  employee: "de510000-0000-4000-8000-0000000000a5",
 };
 
 const MODULES = [
@@ -48,9 +50,12 @@ export async function wipeDemo(client: pg.Client): Promise<void> {
   await client.query(`delete from pf_account where id = $1`, [DEMO_PF_ACCOUNT]);
   // Login refresh tokens reference the demo users — clear them before the users.
   await client.query(`delete from auth_refresh_token where user_id in (select id from user_account where org_id = $1)`, [DEMO_ORG]);
+  // Client-portal plane (no org column on the refresh token → delete via its account).
+  await client.query(`delete from client_refresh_token where client_account_id in (select id from client_account where org_id = $1)`, [DEMO_ORG]);
   for (const t of [
     "task", "payment_allocation", "payment", "expense", "invoice_line", "invoice", "leg",
-    "work_line", "work_item", "price_group", "deal_term", "opening_balance", "channel",
+    "work_line", "work_item", "price_group", "deal_term", "comp_rule", "opening_balance", "channel",
+    "client_message", "client_account",
     "notification", "audit_log", "user_role", "user_account", "permission",
     "cover_sheet_template", "ref_alias", "party", "ref_entity", "role",
   ]) {
@@ -71,9 +76,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await q(`insert into org (id, name) values ($1, $2)`, [DEMO_ORG, "Demo Org — Training"]);
   await q(
     `insert into role (id, org_id, name, is_system) values
-      ($1,$7,'System SuperAdmin',true),($2,$7,'Business SuperAdmin',true),($3,$7,'Admin',true),
-      ($4,$7,'Writer',true),($5,$7,'Vendor',true),($6,$7,'Referrer',true)`,
-    [ROLE.sysSuper, ROLE.bizSuper, ROLE.admin, ROLE.writer, ROLE.vendor, ROLE.referrer, DEMO_ORG],
+      ($1,$9,'System SuperAdmin',true),($2,$9,'Business SuperAdmin',true),($3,$9,'Admin',true),
+      ($4,$9,'Writer',true),($5,$9,'Vendor',true),($6,$9,'Referrer',true),($7,$9,'Partner',true),($8,$9,'Employee',true)`,
+    [ROLE.sysSuper, ROLE.bizSuper, ROLE.admin, ROLE.writer, ROLE.vendor, ROLE.referrer, ROLE.partner, ROLE.employee, DEMO_ORG],
   );
   const grants: Array<[string, string, string]> = [];
   for (const m of MODULES) for (const a of ACTIONS) { grants.push([ROLE.sysSuper, m, a]); grants.push([ROLE.admin, m, a]); }
@@ -81,6 +86,10 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   for (const [m, a] of [["work", "view"], ["work", "create"], ["capture", "view"], ["capture", "create"]] as const) grants.push([ROLE.writer, m, a]);
   for (const [m, a] of [["vendor", "view"], ["vendor", "create"]] as const) grants.push([ROLE.vendor, m, a]);
   for (const [m, a] of [["channels", "view"], ["referrers", "view"]] as const) grants.push([ROLE.referrer, m, a]);
+  // Partner: sees their own share + running balance (read-only surfaces).
+  for (const [m, a] of [["channels", "view"], ["dashboard", "view"], ["reference", "view"], ["referrers", "view"]] as const) grants.push([ROLE.partner, m, a]);
+  // Employee (salaried): logs work + reads knowledge; no money/prices.
+  for (const [m, a] of [["hrm", "view"], ["hrm", "create"], ["capture", "view"], ["knowledge", "view"]] as const) grants.push([ROLE.employee, m, a]);
   for (const [roleId, m, a] of grants) {
     await q(`insert into permission (org_id, role_id, module, action) values ($1,$2,$3,$4) on conflict do nothing`, [DEMO_ORG, roleId, m, a]);
   }
@@ -158,6 +167,8 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   for (const w of writers) await party(`w:${w}`, w, ["writer"]);
   for (const v of ["Toma Apu", "Imu", "Sohel"]) await party(`v:${v}`, v, ["vendor"]);
   for (const r of ["Lemon", "Antu", "Shohan"]) await party(`r:${r}`, r, ["partner", "referrer"]);
+  // Salaried staff (for the Payroll screen) — separate from per-task writers.
+  for (const e of ["Fahim Marketer", "Sadia Support"]) await party(`emp:${e}`, e, ["employee"]);
   await party("ch:facebook", "Facebook", ["channel"]);
   await party("ch:web", "Website", ["channel"]);
 
@@ -181,7 +192,11 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await user("humaira@demo.local", "w:Humaira", [ROLE.writer]);
   await user("mitul@demo.local", "w:Mitul", [ROLE.writer]);
   await user("toma@demo.local", "v:Toma Apu", [ROLE.vendor]);
-  await user("lemon@demo.local", "r:Lemon", [ROLE.referrer]);
+  await user("lemon@demo.local", "r:Lemon", [ROLE.partner, ROLE.referrer]); // profit-share partner (also refers)
+  await user("fahim@demo.local", "emp:Fahim Marketer", [ROLE.employee]); // salaried employee (logs work, no prices)
+  // Client-portal login (the third, separate identity plane): Mujahid logs in at /portal.
+  await q(`insert into client_account (id, org_id, party_id, login_id, password_hash, status, must_reset_password, created_by) values ($1,$2,$3,$4,$5,'active',false,$6)`,
+    [randomUUID(), DEMO_ORG, P.get("mujahid"), "mujahid@demo.local", pw, mominU]);
 
   // ─── Jobs (each carries legs so margin populates) ───────────────────────────────
   const fullJob = async (o: {
@@ -268,6 +283,15 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     await q(`insert into deal_term (id, org_id, from_party_id, to_party_id, applies_to, term_type, basis, value, effective_from, created_by) values ($1,$2,$3,$4,'default',$5,$6,$7,$8,$9)`,
       [randomUUID(), DEMO_ORG, fromKey ? P.get(fromKey) : null, P.get(toKey), type, basis, String(val), past(180), mominU]);
   }
+  // Payroll (Payroll screen): salaried staff on monthly comp rules + a partial pay
+  // this cycle (a `salary` expense with a payee), so the screen shows due/partial/paid.
+  for (const [empKey, salary] of [["emp:Fahim Marketer", 20000], ["emp:Sadia Support", 16000]] as const) {
+    await q(`insert into comp_rule (id, org_id, party_id, basis, rate, cost_bearer, bearer_party_id, effective_from, created_by) values ($1,$2,$3,'monthly',$4,'party',$5,$6,$7)`,
+      [randomUUID(), DEMO_ORG, P.get(empKey), String(salary), P.get("momin"), past(120), mominU]);
+  }
+  await q(`insert into expense (id, org_id, category, amount, incurred_at, cost_bearer, bearer_party_id, payee_party_id, note, created_by)
+           values ($1,$2,'salary',$3, (date_trunc('month', current_date) + interval '2 days')::date, 'party',$4,$5,$6,$7)`,
+    [randomUUID(), DEMO_ORG, "12000", P.get("momin"), P.get("emp:Fahim Marketer"), "Fahim salary — partial", mominU]);
   for (const [wKey, amt] of [["w:Humaira", 2000], ["w:Khalid", 1500], ["w:Fatin", -500]] as const) {
     await q(`insert into opening_balance (id, org_id, party_id, amount, currency, as_of, note, created_by) values ($1,$2,$3,$4,'BDT',$5,$6,$7)`,
       [randomUUID(), DEMO_ORG, P.get(wKey), String(amt), past(90), "Carried-over at go-live (demo)", mominU]);

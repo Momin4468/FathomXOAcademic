@@ -21,9 +21,18 @@ async function main() {
   await client.connect();
   try {
     await seedDemo(client);
-    console.log(`✓ Demo org seeded (${DEMO_ORG}).`);
-    console.log("  Logins (all Password123!): sysadmin@demo.local, momin@demo.local, emon@demo.local,");
-    console.log("  humaira@demo.local, mitul@demo.local, toma@demo.local, lemon@demo.local · PF: pf-demo@demo.local");
+    console.log(`✓ Demo org seeded (${DEMO_ORG}). All passwords: Password123!`);
+    console.log("  Business logins (/login):");
+    console.log("    sysadmin@demo.local  — System SuperAdmin (owner; sees every leg/real price)");
+    console.log("    momin@demo.local     — Admin + Writer (partner; sees his REAL client prices)");
+    console.log("    emon@demo.local      — Admin + Writer (sees the declared/pool prices, not Momin's)");
+    console.log("    humaira@demo.local   — Writer (own tasks + My fee; no client prices)");
+    console.log("    mitul@demo.local     — Writer");
+    console.log("    lemon@demo.local     — Partner + Referrer (own share/referrals only)");
+    console.log("    toma@demo.local      — Vendor (own jobs/statement)");
+    console.log("    fahim@demo.local     — Employee (logs work; no prices)");
+    console.log("  Client portal (/portal): mujahid@demo.local");
+    console.log("  Personal Finance (/personal-finance): pf-demo@demo.local");
   } finally {
     await client.end();
   }

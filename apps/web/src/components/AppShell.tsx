@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList,
+  ArrowLeftRight, Award, BarChart3, Banknote, BookOpen, ClipboardCheck, ClipboardList, Coins,
   Contact, Database, Download, Eye, FileText, Flag, Globe, HandCoins, KeyRound, Landmark, Layers, LayoutDashboard, ListTodo, LogOut, Menu,
   PackageCheck, PanelLeft, PieChart, Plus, Radio, Receipt, RotateCcw, Scale, Search, Settings, Share2, Shield, ShieldCheck,
   SlidersHorizontal, Sparkles, UserCog, Users, UserPlus, Wallet, X, type LucideIcon,
@@ -115,6 +115,7 @@ const ADMIN_TREE: NavGroup[] = [
     { href: "/cover-sheets", label: "Cover sheets", perm: "knowledge:view", icon: FileText },
   ] },
   { title: "People ops", items: [
+    { href: "/payroll", label: "Payroll", perm: "hrm:approve", icon: Coins },
     { href: "/hrm", label: "Work logs", perm: "hrm:approve", icon: ClipboardCheck },
     { href: "/referrers", label: "Referrers", perm: "referrers:approve", icon: UserPlus },
     { href: "/channels", label: "Channels", perm: "channels:approve", icon: Radio },

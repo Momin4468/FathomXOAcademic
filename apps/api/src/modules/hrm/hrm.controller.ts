@@ -39,6 +39,13 @@ export class HrmController {
     return this.db.withTenant(ctx, (tx) => this.hrm.listLogs(tx, status));
   }
 
+  /** Payroll — salaried staff (monthly comp rules), salary vs paid-this-cycle. */
+  @Get("payroll")
+  @RequirePermission("hrm", "approve")
+  payroll(@CurrentRls() ctx: RlsContext) {
+    return this.db.withTenant(ctx, (tx) => this.hrm.payroll(tx));
+  }
+
   @Post(":id/convert")
   @RequirePermission("hrm", "approve")
   convert(
