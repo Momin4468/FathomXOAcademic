@@ -61,3 +61,22 @@ So, basically after completing any task or migration, immediately update PROGRES
 - When a requirement isn't covered by the spec, **ask or log a decision** — don't silently invent business logic, especially around money or visibility.
 - Keep modules behind feature flags so "sell module-by-module" stays configuration.
 - Never put raw business spreadsheets in the source tree; `/reference/` (if present) is human backup only, not input.
+
+
+
+## Design reference — Business OS
+The target UI/UX for this app lives in `design_handoff_business_os/`.
+- Read `design_handoff_business_os/README.md` first, then open
+  `design_handoff_business_os/Business OS v5.dc.html` in a browser to study every
+  screen and role (use the "Signed in as" switcher, top-left).
+- This HTML is a HIGH-FIDELITY DESIGN REFERENCE, not code to copy. Do NOT ship the
+  `.dc.html` wrapper or `support.js` — they only make the prototype run in a browser.
+- Recreate the screens in THIS codebase's stack, router, component library and data layer.
+- Build the backend from `design_handoff_business_os/reference/SCHEMA.md`.
+- PRESERVE EXACTLY: the 7-role model + visibility rules (Momin's private columns,
+  masked client contacts, writers never see client price), money is derived-not-stored,
+  money ledgers are append-only (corrections = reversing entries), and the visual
+  tokens/typography in the README (ink-navy + gold, Fraunces + Inter).
+- You MAY improve individual screens where a real framework/data layer makes them
+  better (real date pickers, virtualized tables, server pagination), but do NOT change
+  the information architecture or money model without flagging it first.
