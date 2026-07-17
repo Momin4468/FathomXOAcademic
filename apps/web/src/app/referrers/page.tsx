@@ -63,7 +63,7 @@ export default function ReferrersPage() {
 
       <SetClientReferrer />
 
-      <h2 className="mb-2 mt-8 text-sm font-semibold text-gray-700">Referrers &amp; agreements</h2>
+      <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-200">Referrers &amp; agreements</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       <AddReferrer onAdded={mutate} />
@@ -103,7 +103,7 @@ function AddReferrer({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a referrer</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a referrer</h2>
       <form onSubmit={add} className="flex gap-2">
         <Input placeholder="Referrer name (e.g. Mujib)" value={name} onChange={(e) => setName(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={busy || !name.trim()}>Add</Button>
@@ -157,18 +157,18 @@ function ReferrerCard({ referrer }: { referrer: Referrer }) {
       </div>
 
       {terms && terms.length > 0 ? (
-        <ul className="mb-3 divide-y divide-gray-100 text-sm">
+        <ul className="mb-3 divide-y divide-ink-800 text-sm">
           {terms.map((t) => (
             <li key={t.id} className="flex items-center justify-between py-1.5">
               <span>{fmtTerm(t)}</span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-slate-500">
                 {t.appliesTo.startsWith("client:") ? "per-client" : "default"} · from {formatDate(t.effectiveFrom)}
               </span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mb-3 text-xs text-gray-400">No agreement yet — add one (the suggested payout uses it).</p>
+        <p className="mb-3 text-xs text-slate-500">No agreement yet — add one (the suggested payout uses it).</p>
       )}
 
       <form onSubmit={addTerm} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -232,8 +232,8 @@ function SetClientReferrer() {
 
   return (
     <Card className="mt-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Client’s default referrer</h2>
-      <p className="mb-3 text-xs text-gray-500">Each new job for this client suggests this referrer (one hop — never cascades).</p>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Client’s default referrer</h2>
+      <p className="mb-3 text-xs text-slate-400">Each new job for this client suggests this referrer (one hop — never cascades).</p>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Client">
           <EntityPicker key={`c${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientId(i?.id ?? null)} />
@@ -313,7 +313,7 @@ function AttachReferral() {
 
   return (
     <Card className="mb-5">
-      <p className="mb-2 text-sm font-semibold text-gray-700">Attach a referral to a job</p>
+      <p className="mb-2 text-sm font-semibold text-slate-200">Attach a referral to a job</p>
       <form onSubmit={attach} className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Job" error={fieldErrs.workItemId}>
@@ -334,20 +334,20 @@ function AttachReferral() {
         </Button>
 
         {suggestion && (
-          <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm">
+          <div className="rounded-lg bg-ink-800 px-3 py-2 text-sm">
             {suggestion.source === "no_referrer" ? (
               <span className="text-amber-700">No referrer set for this job — pick one above.</span>
             ) : (
               <div className="space-y-0.5">
-                <div className="text-xs text-gray-500">
-                  referrer: <span className="text-gray-800">{suggestion.referrerName ?? "—"}</span>
+                <div className="text-xs text-slate-400">
+                  referrer: <span className="text-slate-200">{suggestion.referrerName ?? "—"}</span>
                   {" · "}revenue <Money value={suggestion.revenue} />{" · "}margin <Money value={suggestion.margin} />
                 </div>
                 <div>
                   {suggestion.source === "derived" && suggestion.term ? (
                     <span>
                       suggested <span className="font-medium"><Money value={suggestion.suggestedAmount} /></span>{" "}
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-slate-500">
                         ({suggestion.term.basis === "fixed" ? "fixed" : `${suggestion.term.value}% of ${suggestion.term.basis}`})
                       </span>
                     </span>

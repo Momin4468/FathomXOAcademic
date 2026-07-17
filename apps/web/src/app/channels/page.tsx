@@ -75,8 +75,8 @@ function ChannelsManager() {
   const { data: channels, error, isLoading, mutate } = useApi<Channel[]>("channels");
   return (
     <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Sources</h2>
-      <p className="mb-3 text-xs text-gray-500">
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Sources</h2>
+      <p className="mb-3 text-xs text-slate-400">
         A channel is an admin-defined source (Web, Facebook, …). Set who controls it — the business, or a person who
         takes its residual margin. Add or tune one anytime; no code change needed.
       </p>
@@ -131,7 +131,7 @@ function AddChannel({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a channel</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a channel</h2>
       <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Name" error={fieldErrs.name}>
           <Input placeholder="e.g. Web" value={name} onChange={(e) => setName(e.target.value)} />
@@ -191,7 +191,7 @@ function ChannelRow({ channel, onChange }: { channel: Channel; onChange: () => v
           <span className="text-sm font-medium">{channel.name}</span>
           <Badge tone="gray">{channel.medium}</Badge>
           {!channel.isActive && <Badge tone="amber">inactive</Badge>}
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-slate-500">
             controller: {channel.controllerName ?? "the business"}
           </span>
         </div>
@@ -214,8 +214,8 @@ function ProfitShareTerms() {
   const { data: terms, error, isLoading, mutate } = useApi<ProfitShareTerm[]>("channels/profit-shares");
   return (
     <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Profit-share &amp; dividends</h2>
-      <p className="mb-3 text-xs text-gray-500">
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Profit-share &amp; dividends</h2>
+      <p className="mb-3 text-xs text-slate-400">
         Give any owner/investor/partner a date-versioned share of the profit pool. The formula (basis) and rate are both
         configurable; old jobs keep their old terms. A standing (default) share is an owner dividend — it applies to
         every job automatically.
@@ -224,16 +224,16 @@ function ProfitShareTerms() {
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {terms && terms.length > 0 && (
-        <ul className="mt-3 divide-y divide-gray-100 rounded-lg border border-gray-100 bg-white text-sm">
+        <ul className="mt-3 divide-y divide-ink-800 rounded-lg border border-ink-800 bg-ink-850 text-sm">
           {terms.map((t) => (
             <li key={t.id} className="flex items-center justify-between px-3 py-2">
               <span>
                 <span className="font-medium">{t.toPartyName ?? "—"}</span>{" "}
-                <span className="text-gray-500">
+                <span className="text-slate-400">
                   {t.basis === "fixed" ? <>fixed <Money value={Number(t.value)} /></> : `${t.value}% — ${BASIS_LABELS[t.basis ?? ""] ?? t.basis}`}
                 </span>
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-slate-500">
                 {t.appliesTo.startsWith("source:") ? "channel-scoped" : "standing dividend"} · from {formatDate(t.effectiveFrom)}
               </span>
             </li>
@@ -287,7 +287,7 @@ function AddProfitShareTerm({ onAdded }: { onAdded: () => void }) {
 
   return (
     <Card>
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Add a profit share</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Add a profit share</h2>
       <form onSubmit={add} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Beneficiary" error={fieldErrs.toPartyId}>
           <EntityPicker key={`b${resetSeq}`} placeholder="Search owner/investor…" search={searchParties} onPick={(i) => setToPartyId(i?.id ?? null)} />
@@ -354,7 +354,7 @@ function JobPoolViewer() {
 
   return (
     <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">How a job’s profit divides</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">How a job’s profit divides</h2>
       <Card>
         <Field label="Job">
           <Select value={workItemId} onChange={(e) => load(e.target.value)}>
@@ -369,7 +369,7 @@ function JobPoolViewer() {
         {result && (
           <div className="mt-3 text-sm">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs text-gray-500">profit pool (after writer pay)</span>
+              <span className="text-xs text-slate-400">profit pool (after writer pay)</span>
               <span className="font-medium"><Money value={result.pool} /></span>
             </div>
             {result.overAllocated && (
@@ -377,19 +377,19 @@ function JobPoolViewer() {
                 Shares exceed the pool — review the configured rates.
               </p>
             )}
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-ink-800">
               {result.cuts.map((c) => (
                 <li key={c.toPartyId} className="flex items-center justify-between py-1.5">
                   <span>
                     {c.toPartyName ?? c.toPartyId}{" "}
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-slate-500">
                       ({c.basis === "fixed" ? "fixed" : `${c.rate}% of ${c.base}`})
                     </span>
                   </span>
                   <Money value={c.amount} />
                 </li>
               ))}
-              <li className="flex items-center justify-between py-1.5 text-gray-600">
+              <li className="flex items-center justify-between py-1.5 text-slate-300">
                 <span>residual → {result.residualOwner?.name ?? "the business"}</span>
                 <Money value={result.residual} />
               </li>

@@ -42,7 +42,7 @@ export default function AdvancesPage() {
   return (
     <AppShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Advances &amp; loans</h1>
-      <p className="mb-5 text-xs text-gray-500">
+      <p className="mb-5 text-xs text-slate-400">
         Business-side advances to writers, vendors, or anyone. Outstanding is derived from the events below — separate from the work/payment ledger.
       </p>
 
@@ -108,7 +108,7 @@ function NewAdvance({ onSaved }: { onSaved: () => void }) {
 
   return (
     <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record an advance / loan</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Record an advance / loan</h2>
       <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Field label="Counterparty (search)" error={fieldErrs.counterpartyPartyId}>
           <EntityPicker key={pickerKey} placeholder="Writer, vendor, anyone…" search={searchParty} onPick={setParty} />
@@ -195,30 +195,30 @@ function AdvanceCard({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{advance.counterpartyName ?? advance.counterpartyPartyId}</span>
           <Badge tone={advance.direction === "given" ? "amber" : "gray"}>{advance.direction}</Badge>
-          {advance.note && <span className="text-xs text-gray-400">{advance.note}</span>}
+          {advance.note && <span className="text-xs text-slate-500">{advance.note}</span>}
         </div>
         <div className="text-right">
-          <div className="text-xs text-gray-500">outstanding</div>
+          <div className="text-xs text-slate-400">outstanding</div>
           <div className="text-sm font-semibold tabular-nums"><Money value={advance.outstanding} /></div>
         </div>
       </div>
-      <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+      <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
         <span>principal <Money value={advance.principal} /></span>
         <span>started {formatDate(advance.startedOn)}</span>
         {advance.dueOn && <span>due {formatDate(advance.dueOn)}</span>}
         {canCreate && (
-          <button type="button" className="ml-auto text-gray-500 hover:text-gray-900" onClick={() => setOpen((o) => !o)}>
+          <button type="button" className="ml-auto text-slate-400 hover:text-slate-100" onClick={() => setOpen((o) => !o)}>
             {open ? "Close" : "Record event"}
           </button>
         )}
         {canApprove && (
-          <button type="button" className="text-gray-400 hover:text-red-600" onClick={archive}>
+          <button type="button" className="text-slate-500 hover:text-red-600" onClick={archive}>
             Archive
           </button>
         )}
       </div>
       {open && canCreate && (
-        <form onSubmit={addEvent} className="mt-2 flex flex-wrap items-end gap-2 border-t border-gray-100 pt-2">
+        <form onSubmit={addEvent} className="mt-2 flex flex-wrap items-end gap-2 border-t border-ink-800 pt-2">
           <Field label="Kind" error={fieldErrs.kind}>
             <Select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
               <option value="repayment">Repayment</option>

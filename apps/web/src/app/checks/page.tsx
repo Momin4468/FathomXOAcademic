@@ -111,22 +111,22 @@ export default function ChecksPage() {
       {/* Admin: the unit P&L (derived; confirmed batches only). */}
       {canApprove && pnl && (
         <Card className="mb-5">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Unit P&amp;L (confirmed)</h2>
+          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Unit P&amp;L (confirmed)</h2>
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div><div className="text-xs text-gray-500">revenue</div><div className="font-medium"><Money value={pnl.revenue} /></div></div>
-            <div><div className="text-xs text-gray-500">account cost</div><div className="font-medium"><Money value={pnl.accountCost} /></div></div>
-            <div><div className="text-xs text-gray-500">worker pay</div><div className="font-medium"><Money value={pnl.workerComp} /></div></div>
-            <div><div className="text-xs text-gray-500">net</div><div className="font-semibold"><Money value={pnl.net} /></div></div>
-            <div><div className="text-xs text-gray-500">files checked</div><div className="font-medium">{pnl.filesChecked}</div></div>
-            <div><div className="text-xs text-gray-500">files paid</div><div className="font-medium">{pnl.filesPaid}</div></div>
-            <div><div className="text-xs text-gray-500">margin per check</div><div className="font-medium">{pnl.marginPerCheck == null ? "—" : <Money value={pnl.marginPerCheck} />}</div></div>
+            <div><div className="text-xs text-slate-400">revenue</div><div className="font-medium"><Money value={pnl.revenue} /></div></div>
+            <div><div className="text-xs text-slate-400">account cost</div><div className="font-medium"><Money value={pnl.accountCost} /></div></div>
+            <div><div className="text-xs text-slate-400">worker pay</div><div className="font-medium"><Money value={pnl.workerComp} /></div></div>
+            <div><div className="text-xs text-slate-400">net</div><div className="font-semibold"><Money value={pnl.net} /></div></div>
+            <div><div className="text-xs text-slate-400">files checked</div><div className="font-medium">{pnl.filesChecked}</div></div>
+            <div><div className="text-xs text-slate-400">files paid</div><div className="font-medium">{pnl.filesPaid}</div></div>
+            <div><div className="text-xs text-slate-400">margin per check</div><div className="font-medium">{pnl.marginPerCheck == null ? "—" : <Money value={pnl.marginPerCheck} />}</div></div>
           </div>
         </Card>
       )}
 
       {/* Capture: record today's tally (a claim → admin confirms). */}
       <Card className="mb-5">
-        <p className="mb-2 text-sm font-semibold text-gray-700">Record a batch</p>
+        <p className="mb-2 text-sm font-semibold text-slate-200">Record a batch</p>
         {channelsLoading ? (
           <Spinner />
         ) : channelsError ? (
@@ -170,21 +170,21 @@ export default function ChecksPage() {
       </Card>
 
       {/* The board: recent batches. */}
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Recent batches</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Recent batches</h2>
       {boardErr && <ErrorNote message={boardErr} />}
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {batches && batches.length === 0 && <EmptyState title="No batches yet" />}
       {batches && batches.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {batches.map((b) => (
             <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="text-sm">
                 <span className="font-medium">{b.channelLabel}</span>
                 {b.customerPartyId && (
-                  <span className="ml-2 text-xs text-gray-500">· <PartyName id={b.customerPartyId} /></span>
+                  <span className="ml-2 text-xs text-slate-400">· <PartyName id={b.customerPartyId} /></span>
                 )}
-                <div className="mt-0.5 text-xs text-gray-500">
+                <div className="mt-0.5 text-xs text-slate-400">
                   {formatDate(b.periodDate)} · checked {b.filesChecked} · paid {b.filesPaid} · <Money value={b.amountCollected} />
                 </div>
               </div>
@@ -273,21 +273,21 @@ function AdminSetup({
 
   return (
     <section className="mt-8 space-y-4">
-      <h2 className="text-sm font-semibold text-gray-700">Accounts &amp; credits (admin)</h2>
+      <h2 className="text-sm font-semibold text-slate-200">Accounts &amp; credits (admin)</h2>
       {err && <ErrorNote message={err} />}
 
       {/* Tool accounts + derived credit balances */}
       <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Tool accounts</h2>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Tool accounts</h2>
         {accounts.length === 0 ? (
           <EmptyState title="No tool accounts" />
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-ink-800">
             {accounts.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span className="font-medium">{a.label}</span>
                 {a.credit && (
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-slate-400">
                     {a.credit.remaining} credits left · {a.credit.consumed} used · <Money value={a.credit.costPerCredit} />/credit
                   </span>
                 )}
@@ -303,7 +303,7 @@ function AdminSetup({
 
       {/* Record a credit top-up (the cost basis) */}
       <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Record a credit top-up</h2>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Record a credit top-up</h2>
         <form onSubmit={addTopup} className="grid grid-cols-1 gap-2 sm:grid-cols-4">
           <Select value={topup.toolAccountId} onChange={(e) => setTopup({ ...topup, toolAccountId: e.target.value })}>
             <option value="">Account…</option>
@@ -317,7 +317,7 @@ function AdminSetup({
 
       {/* Channels */}
       <Card>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Channels ({channels.length})</h2>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Channels ({channels.length})</h2>
         <form onSubmit={addChannel} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Input placeholder="Channel label (WhatsApp acct)" value={chLabel} onChange={(e) => setChLabel(e.target.value)} />
           <EntityPicker placeholder="Employee…" search={searchParties} onPick={(i) => setChEmployee(i?.id ?? null)} />

@@ -31,11 +31,11 @@ export default function VaultPage() {
   return (
     <AppShell>
       <h1 className="mb-1 text-lg font-semibold tracking-tight">Credential vault</h1>
-      <p className="mb-4 text-xs text-gray-500">Metadata only — secrets are revealed one at a time behind a 2FA step-up.</p>
+      <p className="mb-4 text-xs text-slate-400">Metadata only — secrets are revealed one at a time behind a 2FA step-up.</p>
 
       {canCreate && <CreateItem onDone={mutate} />}
 
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">My credentials</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">My credentials</h2>
       {isLoading && <Spinner />}
       {error && <ErrorNote message={error.message} />}
       {items && items.length === 0 && <EmptyState title="No credentials you can access" />}
@@ -86,7 +86,7 @@ function ItemRow({ item }: { item: VaultItem }) {
           <div className="text-sm">
             <span className="font-medium">{item.name}</span>
             <span className="ml-2"><Badge tone="blue">{item.type}</Badge></span>
-            <div className="mt-0.5 text-xs text-gray-500">
+            <div className="mt-0.5 text-xs text-slate-400">
               {item.url ? <a href={item.url} target="_blank" rel="noreferrer" className="hover:underline">{item.url}</a> : "no url"}
               {item.clientPartyId && <> · <PartyName id={item.clientPartyId} /></>}
             </div>
@@ -109,7 +109,7 @@ function ItemRow({ item }: { item: VaultItem }) {
         {err && <div className="mt-2"><ErrorNote message={err} /></div>}
 
         {secret && (
-          <div className="mt-3 space-y-2 rounded-lg bg-gray-50 p-3">
+          <div className="mt-3 space-y-2 rounded-lg bg-ink-800 p-3">
             <SecretRow label="Username" value={secret.secret.username} />
             <SecretRow label="Password" value={secret.secret.password} />
             <SecretRow label="2FA recovery" value={secret.secret.totpRecovery} />
@@ -137,10 +137,10 @@ function SecretRow({ label, value }: { label: string; value?: string }) {
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <div className="min-w-0">
-        <div className="text-xs text-gray-500">{label}</div>
+        <div className="text-xs text-slate-400">{label}</div>
         <div className="truncate font-mono">{value}</div>
       </div>
-      <button type="button" aria-label="Copy to clipboard" className="text-xs text-gray-500 hover:underline" onClick={copy}>
+      <button type="button" aria-label="Copy to clipboard" className="text-xs text-slate-400 hover:underline" onClick={copy}>
         {copied ? "copied" : "copy"}
       </button>
     </div>
@@ -187,7 +187,7 @@ function CreateItem({ onDone }: { onDone: () => void }) {
   return (
     <Card className="mb-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-700">Add a credential</p>
+        <p className="text-sm font-semibold text-slate-200">Add a credential</p>
         <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Open"}</Button>
       </div>
       {open && (
@@ -214,7 +214,7 @@ function ManagerPanel() {
   const { data: items, mutate } = useApi<VaultManageItem[]>("vault/manage/items");
   return (
     <section className="mt-8">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Manage sharing (admin)</h2>
+      <h2 className="mb-2 text-sm font-semibold text-slate-200">Manage sharing (admin)</h2>
       {items && items.length === 0 && <EmptyState title="No credentials in the org" />}
       {items && items.length > 0 && (
         <ul className="space-y-2">
@@ -264,7 +264,7 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
         {open && (
           <div className="mt-3 space-y-3">
             {shares && shares.length > 0 ? (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-ink-800">
                 {shares.map((s) => (
                   <li key={s.id} className="flex items-center justify-between py-1.5 text-sm">
                     <PartyName id={s.partyId} />
@@ -273,7 +273,7 @@ function ManageRow({ item, onChanged }: { item: VaultManageItem; onChanged: () =
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-gray-400">No active shares.</p>
+              <p className="text-xs text-slate-500">No active shares.</p>
             )}
             <div className="flex items-end gap-2">
               <div className="flex-1"><Field label="Grant to" error={fieldErrs.partyId}><EntityPicker key={resetSeq} placeholder="Search party…" search={searchParties} onPick={(i) => setGrantee(i?.id ?? null)} /></Field></div>

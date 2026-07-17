@@ -122,7 +122,7 @@ export default function KnowledgePage() {
                 </Button>
               </div>
               {attachments.length > 0 && (
-                <ul className="mt-2 text-xs text-gray-600">
+                <ul className="mt-2 text-xs text-slate-300">
                   {attachments.map((a) => (
                     <li key={a.id}>{a.isLink ? "🔗" : "📎"} {a.filename ?? a.url ?? a.id}</li>
                   ))}
@@ -156,13 +156,13 @@ export default function KnowledgePage() {
       {error && <ErrorNote message={error.message} />}
       {data && data.length === 0 && <EmptyState title="No articles yet" hint="Anyone can author a doc, prompt pack, or blog." />}
       {data && data.length > 0 && (
-        <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
           {data.map((a) => (
             <li key={a.id}>
-              <Link href={`/knowledge/${a.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+              <Link href={`/knowledge/${a.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink-800">
                 <div className="text-sm">
                   <span className="font-medium">{a.title}</span>
-                  <div className="mt-0.5 text-xs text-gray-500">updated {formatDate(a.updatedAt)}</div>
+                  <div className="mt-0.5 text-xs text-slate-400">updated {formatDate(a.updatedAt)}</div>
                 </div>
                 <Badge tone="blue">{TYPE_LABEL[a.type] ?? a.type}</Badge>
               </Link>
