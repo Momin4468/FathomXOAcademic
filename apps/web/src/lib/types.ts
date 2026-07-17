@@ -98,6 +98,7 @@ export interface WorkItem {
   sourcePartyId: string | null;
   clientPartyId?: string | null;
   doerPartyId: string | null;
+  ownerPartyId?: string | null; // owning admin (book of business, 0051)
   courseRefId: string | null;
   assignmentTypeRefId: string | null;
   universityRefId?: string | null;

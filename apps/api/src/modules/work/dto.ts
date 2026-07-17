@@ -11,6 +11,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -38,6 +39,7 @@ class WorkItemFieldsDto {
   @IsOptional() @IsUUID() sourcePartyId?: string;
   @IsOptional() @IsUUID() clientPartyId?: string;
   @IsOptional() @IsUUID() doerPartyId?: string;
+  @IsOptional() @IsUUID() ownerPartyId?: string; // owning admin (book of business, 0051)
   @IsOptional() @IsUUID() courseRefId?: string;
   @IsOptional() @IsUUID() assignmentTypeRefId?: string;
   @IsOptional() @IsUUID() universityRefId?: string;
@@ -201,6 +203,28 @@ export class AppendLegsDto {
 
   // Pricing as-of date (defaults to the job's created_at). Reused by /propose.
   @IsOptional() @IsDateString() asOf?: string;
+}
+
+/**
+ * Hand a job off to ANOTHER admin (0051) — the COMMISSION model (Case A: "Emon
+ * gives to Momin, Emon takes 10-20%"). The owner keeps `ownerCutPct` of the
+ * client price; a leg owner→toAdmin at clientPrice × (1 − cut) is posted
+ * (append-only), and the job + its client are SHARED with the receiving admin
+ * (roster grants) so they can pick it up and assign their own writer. Each admin
+ * then sees only their own hop's margin (leg RLS), so the owner's real client
+ * price never leaks to the receiver.
+ *
+ * "Split the post-writer extra between the two admins" (Case B) is a DIFFERENT,
+ * §4.4-guarded thing (a partner↔partner profit split can leak the other's
+ * margin) — do that through the existing channel-scoped profit-share in Settings,
+ * NOT here. This action is a straight commission on the client price.
+ */
+export class HandoffDto {
+  @IsUUID() toAdminPartyId!: string;
+  @IsNumber() @Min(0) @Max(100) ownerCutPct!: number; // % of the client price the owner keeps
+  // Optional explicit client price when the chain has no client→owner leg yet.
+  @IsOptional() @IsNumber() @Min(0) clientAmount?: number;
+  @IsOptional() @IsString() @MaxLength(1000) note?: string;
 }
 
 // ─── Resit / fail handling (§3/§6/§8) ────────────────────────────────────────

@@ -54,6 +54,7 @@ export async function wipeDemo(client: pg.Client): Promise<void> {
   await client.query(`delete from client_refresh_token where client_account_id in (select id from client_account where org_id = $1)`, [DEMO_ORG]);
   for (const t of [
     "task", "payment_allocation", "payment", "expense", "invoice_line", "invoice", "leg",
+    "roster_grant", // 0051 — per-row ACL; delete before work_item/party it references
     "work_line", "work_item", "price_group", "deal_term", "comp_rule", "opening_balance", "channel",
     "client_message", "client_account",
     "notification", "audit_log", "user_role", "user_account", "permission",
@@ -185,10 +186,14 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await q(`insert into user_account (id, org_id, email, password_hash, status, party_id) values ($1,$2,$3,$4,'active',$5)`,
     [mominU, DEMO_ORG, "momin@demo.local", pw, P.get("momin")]);
   for (const r of [ROLE.admin, ROLE.writer]) await q(`insert into user_role (org_id, user_id, role_id) values ($1,$2,$3)`, [DEMO_ORG, mominU, r]);
-  // Stamp "added by" on the demo clients (created_by is set at real create time; the
-  // seed backfills it so the Clients directory's admin-only Added-by column shows data).
-  await q(`update party set created_by = $1 where org_id = $2 and party_type @> array['client']::text[]`, [mominU, DEMO_ORG]);
-  await user("emon@demo.local", "emon", [ROLE.admin, ROLE.writer]);
+  const emonU = await user("emon@demo.local", "emon", [ROLE.admin, ROLE.writer]);
+  // Client OWNERSHIP + "added by" (0051): each admin runs a PRIVATE book of business —
+  // in the Clients directory an admin sees only their own clients, never the other's
+  // (money + contact were always masked; now the roster itself is row-private).
+  const mominClients = ["mujahid", "nadim", "mezbahul", "emad", "rahim"];
+  const emonClients = ["mujibur", "rajesh", "karim", "aditta", "abir"];
+  for (const k of mominClients) await q(`update party set owner_party_id=$1, created_by=$2 where id=$3`, [P.get("momin"), mominU, P.get(k)]);
+  for (const k of emonClients) await q(`update party set owner_party_id=$1, created_by=$2 where id=$3`, [P.get("emon"), emonU, P.get(k)]);
   await user("humaira@demo.local", "w:Humaira", [ROLE.writer]);
   await user("mitul@demo.local", "w:Mitul", [ROLE.writer]);
   await user("toma@demo.local", "v:Toma Apu", [ROLE.vendor]);
@@ -209,9 +214,9 @@ export async function seedDemo(client: pg.Client): Promise<void> {
     const client = P.get(o.clientKey)!, doer = P.get(o.doerKey)!, admin = P.get(o.adminKey)!;
     const courseRef = o.course ? refId.get(`c:${o.course}`) ?? null : null;
     await q(
-      `insert into work_item (id,org_id,title,work_state,money_state,source_party_id,client_party_id,doer_party_id,course_ref_id,module_name,delivery_date,word_count,created_by)
-       values ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11,$12)`,
-      [jobId, DEMO_ORG, o.title, o.workState, o.moneyState ?? "unbilled", client, doer, courseRef,
+      `insert into work_item (id,org_id,title,work_state,money_state,owner_party_id,source_party_id,client_party_id,doer_party_id,course_ref_id,module_name,delivery_date,word_count,created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12,$13)`,
+      [jobId, DEMO_ORG, o.title, o.workState, o.moneyState ?? "unbilled", admin, client, doer, courseRef,
        o.course ? courseName.get(o.course) ?? null : null, o.delivery ? past(o.delivery) : null, o.words ?? null, mominU],
     );
     const consumerLine = randomUUID();
@@ -255,6 +260,29 @@ export async function seedDemo(client: pg.Client): Promise<void> {
   await fullJob({ title: "Business Strategy — Essay", clientKey: "emad", doerKey: "w:Nabila", adminKey: "momin", course: "BUS500", workState: "pending", lineStatus: "draft", words: 1500, clientAmount: 3000, writerAmount: 1800, bill: "none" });
   // A cancelled one + a resit-style loss.
   const cancelledJob = await fullJob({ title: "HR Report (withdrawn)", clientKey: "rahim", doerKey: "w:Sadia", adminKey: "momin", course: "ISYS704", workState: "pending", lineStatus: "cancelled", words: 2000, clientAmount: 0, writerAmount: 0, bill: "none" });
+
+  // ─── Cross-admin HANDOFF (0051): Emon owns it, hands to Momin keeping 15% ────────
+  // A 3-hop chain client → Emon → Momin → writer. Emon keeps 15% of the £6000 client
+  // price (→ £5100 flows on); Momin pays the writer £3000. Each admin sees only their
+  // own hop's margin (Emon £900, Momin £2100) — Emon's real client price never leaks.
+  // The job + its client are SHARED with Momin via roster grants (private-by-default,
+  // visible-on-grant), so Momin can pick it up. Demonstrates the whole model.
+  {
+    const jobId = randomUUID();
+    const cl = P.get("karim")!, writer = P.get("w:Rafsan")!, emonP = P.get("emon")!, mominP2 = P.get("momin")!;
+    const courseRef = refId.get("c:ICT751") ?? null;
+    await q(
+      `insert into work_item (id,org_id,title,work_state,money_state,owner_party_id,source_party_id,client_party_id,doer_party_id,course_ref_id,module_name,word_count,created_by)
+       values ($1,$2,$3,'confirmed','invoiced',$4,$5,$5,$6,$7,'IT Dissertation',6000,$8)`,
+      [jobId, DEMO_ORG, "IT Dissertation — Emon → Momin (15% cut)", emonP, cl, writer, courseRef, emonU],
+    );
+    for (const [seq, f, t, amt] of [[1, cl, emonP, "6000"], [2, emonP, mominP2, "5100"], [3, mominP2, writer, "3000"]] as const)
+      await q(`insert into leg (id,org_id,work_item_id,seq,from_party_id,to_party_id,amount,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [randomUUID(), DEMO_ORG, jobId, seq, f, t, amt, emonU]);
+    for (const [stype, sid] of [["work_item", jobId], ["party", cl]] as const)
+      await q(`insert into roster_grant (id,org_id,subject_type,subject_id,party_id,reason,granted_by) values ($1,$2,$3,$4,$5,'handoff',$6)`,
+        [randomUUID(), DEMO_ORG, stype, sid, mominP2, emonU]);
+  }
 
   // ─── Operating costs + writer payouts (so the Cashbook shows both sides) ────────
   const mominP = P.get("momin");

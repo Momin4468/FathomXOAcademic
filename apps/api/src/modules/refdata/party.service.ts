@@ -176,6 +176,9 @@ export class PartyService {
         programme: dto.programme ?? null,
         contactJson: dto.contact ?? {},
         referredByPartyId: dto.referredByPartyId ?? null,
+        // Owning admin for a CLIENT (drives client-roster privacy, 0051). Only
+        // clients are row-private; a party-less SuperAdmin creates a shared client.
+        ownerPartyId: (dto.partyType ?? []).includes("client") ? (principal.partyId ?? null) : null,
         customJson,
         aiCaptureId: opts?.aiCaptureId ?? null,
         importBatchId: opts?.importBatchId ?? null,
@@ -218,6 +221,11 @@ export class PartyService {
         }
       }
       patch.partyType = dto.partyType;
+      // Promoting a party to 'client' must give it an owner, else it stays
+      // owner-null = shared to all admins (0051). Keep any existing owner.
+      if (dto.partyType.includes("client")) {
+        patch.ownerPartyId = sql`coalesce(${schema.party.ownerPartyId}, ${principal.partyId ?? null})`;
+      }
     }
     if (dto.externalRef !== undefined) patch.externalRef = dto.externalRef;
     if (dto.universityId !== undefined) patch.universityId = dto.universityId;

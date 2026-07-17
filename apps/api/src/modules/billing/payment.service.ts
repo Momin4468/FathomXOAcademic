@@ -18,6 +18,12 @@ export class PaymentService {
 
   /** A payment is an EVENT (append-only). Allocation (the link) comes next. */
   async recordPayment(tx: Db, principal: SessionPrincipal, dto: RecordPaymentDto, opts?: { aiCaptureId?: string; importBatchId?: string }) {
+    // An 'in' payment (client revenue) MUST name its counterparty (the paying
+    // client), so it is owner-scoped under RLS (0051) — a null-counterparty 'in'
+    // would leave the amount org-wide readable to peer admins.
+    if (dto.direction === "in" && !dto.counterpartyPartyId) {
+      throw new BadRequestException("An incoming payment must name the paying client (counterpartyPartyId).");
+    }
     const [p] = await tx
       .insert(schema.payment)
       .values({

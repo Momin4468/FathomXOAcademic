@@ -35,6 +35,9 @@ export const party = pgTable("party", {
   maxConcurrent: integer("max_concurrent"), // optional capacity; load is derived
   notes: text("notes"),
   referredByPartyId: uuid("referred_by_party_id"), // directory "referred-by" (self-ref)
+  // The owning admin (book of business) for a CLIENT party — drives client-roster
+  // row privacy (0051). Null on non-client parties (they stay org-wide visible).
+  ownerPartyId: uuid("owner_party_id"),
   customJson: jsonb("custom_json").default({}), // admin-defined custom fields (0023)
   aiCaptureId: uuid("ai_capture_id"), // "added by AI" provenance marker (0030)
   importBatchId: uuid("import_batch_id"), // "added by import" provenance marker (0031)
@@ -109,3 +112,26 @@ export const userRole = pgTable(
   // A user holds a given role at most once (0045).
   (t) => ({ uniq: unique("user_role_user_role_uniq").on(t.orgId, t.userId, t.roleId) }),
 );
+
+/**
+ * SCHEMA A — per-row visibility ACL (0051). Mirrors credential_share: a row =
+ * "this grantee admin may see this work_item / client party even though they
+ * don't own it." A cross-admin hand-off creates these; a revoked grant
+ * (revoked_at) can be re-granted. Mutable-but-undeletable.
+ */
+export const rosterGrant = pgTable("roster_grant", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => org.id),
+  subjectType: text("subject_type").notNull(), // 'work_item' | 'party'
+  subjectId: uuid("subject_id").notNull(),
+  partyId: uuid("party_id")
+    .notNull()
+    .references(() => party.id), // the grantee admin
+  reason: text("reason"), // e.g. 'handoff', 'shared'
+  grantedBy: uuid("granted_by"),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedBy: uuid("revoked_by"),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+});

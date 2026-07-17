@@ -88,6 +88,9 @@ export const workItem = pgTable("work_item", {
   // drives profit-share). A direct job may set both to the same party (0048).
   clientPartyId: uuid("client_party_id").references(() => party.id),
   doerPartyId: uuid("doer_party_id").references(() => party.id),
+  // The owning admin (book of business) — drives row privacy (0051). A non-owner
+  // admin sees this job only if they are on it (source/doer/client) or granted.
+  ownerPartyId: uuid("owner_party_id").references(() => party.id),
   assignerUserId: uuid("assigner_user_id").references(() => userAccount.id),
   // §3.1 academic capture (0048).
   universityRefId: uuid("university_ref_id").references(() => refEntity.id),

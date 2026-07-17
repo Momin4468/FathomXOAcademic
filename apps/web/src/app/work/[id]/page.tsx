@@ -2,12 +2,19 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { apiSend, useApi } from "@/lib/api";
+import { apiGet, apiSend, useApi } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
+import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { useConfirm } from "@/components/confirm";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Provenance, Spinner, StateBadge } from "@/components/ui";
+
+/** Admin/partner search for the hand-off target. */
+const searchAdmin = async (q: string): Promise<PickItem[]> => {
+  const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}&type=partner`);
+  return rows.map((p) => ({ id: p.id, label: p.displayName, sub: p.externalRef ?? undefined }));
+};
 
 const NEXT_STATE: Record<string, string | undefined> = {
   draft: "pending",
@@ -294,6 +301,7 @@ export default function JobDetailPage() {
                 </ul>
               </Card>
             )}
+            {canConfirm && <HandoffAction workItemId={id} onDone={() => void mutate()} />}
           </section>
 
           {can(me?.permissions, "capture:view") && (
@@ -302,5 +310,66 @@ export default function JobDetailPage() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+/**
+ * Hand this job to another admin (0051, commission model). The owner keeps a % of
+ * the client price; the rest flows to the receiver, and the job + client are
+ * shared with them so they can pick it up. The owner's real client price never
+ * leaks — each admin sees only their own hop's margin (leg RLS).
+ */
+function HandoffAction({ workItemId, onDone }: { workItemId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [toAdmin, setToAdmin] = useState<string | null>(null);
+  const [cut, setCut] = useState("15");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit() {
+    if (!toAdmin) return setErr("Pick the admin to hand off to.");
+    const pct = Number(cut);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return setErr("Your cut must be 0–100%.");
+    setBusy(true);
+    setErr("");
+    try {
+      await apiSend(`work/${workItemId}/handoff`, "POST", { toAdminPartyId: toAdmin, ownerCutPct: pct });
+      setOpen(false);
+      setToAdmin(null);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Handoff failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs font-medium text-plum-500 hover:underline"
+      >
+        Hand off to another admin…
+      </button>
+    );
+  }
+  return (
+    <Card>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Hand off — you keep a cut</h3>
+      {err && <ErrorNote message={err} />}
+      <div className="space-y-3">
+        <Field label="Hand off to (admin)">
+          <EntityPicker placeholder="Search admin / partner…" search={searchAdmin} onPick={(i) => setToAdmin(i?.id ?? null)} />
+        </Field>
+        <Field label="Your cut (%)" hint="You keep this % of the client price; the rest flows to them. They assign their own writer.">
+          <Input inputMode="decimal" value={cut} onChange={(e) => setCut(e.target.value.replace(/[^\d.]/g, ""))} />
+        </Field>
+        <div className="flex gap-2">
+          <Button onClick={submit} disabled={busy}>{busy ? "Handing off…" : "Hand off"}</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        </div>
+      </div>
+    </Card>
   );
 }

@@ -41,6 +41,7 @@ export function JobForm({ initial }: { initial?: WorkItem }) {
   const [assignmentTypeRefId, setAssignmentTypeRefId] = useState<string | null>(initial?.assignmentTypeRefId ?? null);
   const [universityRefId, setUniversityRefId] = useState<string | null>(initial?.universityRefId ?? null);
   const [sourcePartyId, setSourcePartyId] = useState<string | null>(initial?.sourcePartyId ?? null);
+  const [ownerPartyId, setOwnerPartyId] = useState<string | null>(initial?.ownerPartyId ?? null);
   const [clientPartyId, setClientPartyId] = useState<string | null>(initial?.clientPartyId ?? null);
   const [doerPartyId, setDoerPartyId] = useState<string | null>(initial?.doerPartyId ?? null);
   const [moduleName, setModuleName] = useState(initial?.moduleName ?? "");
@@ -67,6 +68,7 @@ export function JobForm({ initial }: { initial?: WorkItem }) {
       assignmentTypeRefId: assignmentTypeRefId ?? undefined,
       universityRefId: universityRefId ?? undefined,
       sourcePartyId: sourcePartyId ?? undefined,
+      ownerPartyId: ownerPartyId ?? undefined,
       clientPartyId: clientPartyId ?? undefined,
       doerPartyId: doerPartyId ?? undefined,
       moduleName: moduleName.trim() || undefined,
@@ -132,9 +134,12 @@ export function JobForm({ initial }: { initial?: WorkItem }) {
           </p>
         )}
 
-        {/* Source & referral — ADMIN ONLY (drives profit-share; writers can't set it) */}
+        {/* Ownership, source & referral — ADMIN ONLY */}
         {canApprove && (
-          <Collapsible title="Source &amp; referral" hint="admin only · drives profit-share">
+          <Collapsible title="Ownership, source &amp; referral" hint="admin only">
+            <Field label="Owning admin" hint="Whose book of business this job belongs to. Defaults to you — set it only when logging on another admin's behalf.">
+              <EntityPicker placeholder="Search admin / partner… (defaults to you)" search={searchParty("partner")} onPick={(i) => setOwnerPartyId(i?.id ?? null)} />
+            </Field>
             <Field label="Referral / source" hint="Who introduced/sourced this job (drives profit-share). Leave blank for a direct job.">
               <EntityPicker placeholder="Search referrer / partner / channel…" search={searchParty("referrer")} onPick={(i) => setSourcePartyId(i?.id ?? null)} />
             </Field>

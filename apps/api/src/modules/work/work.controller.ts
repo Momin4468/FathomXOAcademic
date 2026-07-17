@@ -23,6 +23,7 @@ import {
   CreateBundleDto,
   CreateWorkItemDto,
   FanOutDto,
+  HandoffDto,
   ListWorkQueryDto,
   RepriceLegDto,
   ResitDto,
@@ -172,6 +173,22 @@ export class WorkController {
     @Param("id", ParseUUIDPipe) id: string,
   ) {
     return this.db.withTenant(ctx, (tx) => this.work.archive(tx, principal, id));
+  }
+
+  /**
+   * Hand a job to another admin (0051). Owner keeps a %; a commission leg is
+   * posted and the job + client are SHARED with the receiver. Money-affecting +
+   * append-only → work:approve.
+   */
+  @Post(":id/handoff")
+  @RequirePermission("work", "approve")
+  handoff(
+    @CurrentRls() ctx: RlsContext,
+    @CurrentPrincipal() principal: SessionPrincipal,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: HandoffDto,
+  ) {
+    return this.db.withTenant(ctx, (tx) => this.work.handoff(tx, principal, id, dto));
   }
 
   /** Work-state machine; →confirmed additionally requires work:approve. */

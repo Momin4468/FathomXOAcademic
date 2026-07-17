@@ -18,7 +18,7 @@ import { resolveUserNames } from "../../common/user-names.js";
 import { CustomFieldService } from "../custom-fields/custom-field.service.js";
 import { LegService } from "./leg.service.js";
 import { LineService } from "./line.service.js";
-import type { AddLineDto, CreateBundleDto, CreateWorkItemDto, UpdateWorkItemDto } from "./dto.js";
+import type { AddLineDto, CreateBundleDto, CreateWorkItemDto, HandoffDto, UpdateWorkItemDto } from "./dto.js";
 
 @Injectable()
 export class WorkService {
@@ -64,6 +64,9 @@ export class WorkService {
         sourcePartyId: dto.sourcePartyId ?? null,
         clientPartyId: dto.clientPartyId ?? null,
         doerPartyId: dto.doerPartyId ?? null,
+        // Owning admin (book of business, 0051). Defaults to the creating admin;
+        // a party-less System SuperAdmin creates unowned rows (visible to all admins).
+        ownerPartyId: dto.ownerPartyId ?? principal.partyId ?? null,
         courseRefId: dto.courseRefId ?? null,
         assignmentTypeRefId: dto.assignmentTypeRefId ?? null,
         universityRefId: dto.universityRefId ?? null,
@@ -175,6 +178,111 @@ export class WorkService {
     const [item] = await tx.select().from(schema.workItem).where(eq(schema.workItem.id, id));
     if (!item) throw new NotFoundException("Work item not found");
     return item;
+  }
+
+  /** Next display seq for a leg on this job (append after the current max). */
+  private async nextLegSeq(tx: Db, workItemId: string): Promise<number> {
+    const res = await tx.execute(
+      sql`select coalesce(max(seq), 0) + 1 as next from leg where work_item_id = ${workItemId}`,
+    );
+    return Number((res.rows[0] as { next: number | string } | undefined)?.next ?? 1);
+  }
+
+  /** Idempotently share a work_item / client party with a grantee admin (0051). */
+  private async grantRoster(
+    tx: Db,
+    principal: SessionPrincipal,
+    subjectType: "work_item" | "party",
+    subjectId: string,
+    granteePartyId: string,
+    reason: string,
+  ) {
+    await tx
+      .insert(schema.rosterGrant)
+      .values({
+        orgId: principal.orgId,
+        subjectType,
+        subjectId,
+        partyId: granteePartyId,
+        reason,
+        grantedBy: principal.userId,
+      })
+      .onConflictDoNothing();
+  }
+
+  /**
+   * Hand a job to another admin (0051 — commission model, see HandoffDto). Posts
+   * the owner→receiver leg (owner keeps `ownerCutPct` of the client price) and
+   * SHARES the job + its client with the receiver via roster grants, so a
+   * private-by-default job becomes visible to exactly the admin taking it on. The
+   * receiver then assigns their own writer (a receiver→writer leg). Each admin
+   * sees only their own hop's margin (leg RLS) — the owner's real client price
+   * never leaks to the receiver. Money-affecting + append-only → gated
+   * work:approve at the controller.
+   */
+  async handoff(tx: Db, principal: SessionPrincipal, workItemId: string, dto: HandoffDto) {
+    const item = await this.getRaw(tx, workItemId);
+    // Require an EXPLICIT owner — never fall back to the caller (that would let any
+    // work:approve caller who can load a null-owner job hand it off). Set the owning
+    // admin on the job first.
+    const owner = item.ownerPartyId;
+    if (!owner) throw new BadRequestException("Set an owning admin on this job before handing it off");
+    if (!principal.isSystemSuperadmin && principal.partyId !== owner) {
+      throw new ForbiddenException("Only the owning admin may hand this job off");
+    }
+    if (dto.toAdminPartyId === owner) {
+      throw new BadRequestException("Cannot hand a job to its own owner");
+    }
+    if (!item.clientPartyId) {
+      throw new BadRequestException("Link the paying client before handing the job off");
+    }
+
+    // Client price = explicit, else the amount flowing INTO the owner (client→owner
+    // leg — the owner is a party to it, so readable under leg RLS).
+    let clientAmount = dto.clientAmount ?? null;
+    if (clientAmount == null) {
+      const res = await tx.execute(
+        sql`select coalesce(sum(amount), 0) as amt from leg
+            where work_item_id = ${workItemId} and to_party_id = ${owner}`,
+      );
+      clientAmount = Number((res.rows[0] as { amt: string } | undefined)?.amt ?? 0);
+    }
+    if (!clientAmount || clientAmount <= 0) {
+      throw new BadRequestException(
+        "No client price on this job yet — set it (or pass clientAmount) before handing off",
+      );
+    }
+
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const handedAmount = round2(clientAmount * (1 - dto.ownerCutPct / 100));
+
+    // Post the owner→receiver hop (append-only).
+    const seq = await this.nextLegSeq(tx, workItemId);
+    await this.legs.appendLegs(tx, principal, workItemId, {
+      legs: [
+        {
+          seq,
+          fromPartyId: owner,
+          toPartyId: dto.toAdminPartyId,
+          amount: handedAmount,
+          note: dto.note ?? `Handoff — owner keeps ${dto.ownerCutPct}% of the client price`,
+        },
+      ],
+    });
+
+    await this.grantRoster(tx, principal, "work_item", workItemId, dto.toAdminPartyId, "handoff");
+    await this.grantRoster(tx, principal, "party", item.clientPartyId, dto.toAdminPartyId, "handoff");
+
+    await this.audit.record(tx, principal.orgId, {
+      actorUserId: principal.userId,
+      action: "work.handed_off",
+      entity: "work_item",
+      entityId: workItemId,
+      // NB: do NOT record the owner's private clientAmount here — audit_log is
+      // org-wide readable; handedAmount (the receiver's own inflow leg) is safe.
+      detail: { toAdminPartyId: dto.toAdminPartyId, ownerCutPct: dto.ownerCutPct, handedAmount },
+    });
+    return { workItemId, toAdminPartyId: dto.toAdminPartyId, handedAmount, ownerKeptPct: dto.ownerCutPct };
   }
 
   /**
