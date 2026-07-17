@@ -73,8 +73,13 @@ export interface WorkListRow {
   projectId?: string | null; // parent bundle (course/thesis/project), if any
   projectTitle?: string | null;
   doerName?: string | null;
+  clientName?: string | null; // paying student
+  ownerName?: string | null; // managing admin ("From — Emon / Momin")
+  deliveryDate?: string | null;
+  submissionDate?: string | null;
   courseCode?: string | null; // canonical course code (e.g. UMKCQT)
   wordCount?: number | null; // primary consumer line
+  copies?: number | null; // consumer line unit_count
   unitLabel?: string | null; // words | slides | pages | weight% | copies
   consumerLineId?: string | null; // primary client line (for inline edit)
   producerLineId?: string | null; // primary writer line (for inline fee edit)

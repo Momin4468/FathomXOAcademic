@@ -578,17 +578,22 @@ export class WorkService {
              w.project_id as "projectId", pr.title as "projectTitle",
              w.updated_at as "updatedAt",
              dp.display_name as "doerName",
+             clp.display_name as "clientName",
+             op.display_name as "ownerName",
+             w.delivery_date as "deliveryDate", w.submission_date as "submissionDate",
              ce.canonical as "courseCode",
-             cl.word_count as "wordCount", cl.unit_label as "unitLabel",
+             cl.word_count as "wordCount", cl.unit_label as "unitLabel", cl.unit_count as "copies",
              cl.consumer_line_id as "consumerLineId", pl.producer_line_id as "producerLineId",
              round(mf.myin - mf.myout, 2) as "myFee"
              ${moneyCols}
       from work_item w
       left join party dp on dp.id = w.doer_party_id
+      left join party clp on clp.id = w.client_party_id
+      left join party op on op.id = w.owner_party_id
       left join ref_entity ce on ce.id = w.course_ref_id
       left join project pr on pr.id = w.project_id
       left join lateral (
-        select id as consumer_line_id, word_count, unit_label, client_rate from work_line
+        select id as consumer_line_id, word_count, unit_label, unit_count, client_rate from work_line
         where work_item_id = w.id and consumer_party_id is not null limit 1
       ) cl on true
       left join lateral (
