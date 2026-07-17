@@ -15,7 +15,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { PermissionGrid } from "@/components/PermissionGrid";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Spinner, Textarea } from "@/components/ui";
+import { Badge, Card, CardHead, EmptyBox, Field, GhostButton, Loading, Note, T, dcInput } from "@/components/dc";
 
 const SYSTEM_SUPERADMIN = "System SuperAdmin";
 const permKey = (module: string, action: string) => `${module}:${action}`;
@@ -61,26 +61,26 @@ export default function RoleEditorPage() {
   if (!canView) {
     return (
       <AppShell>
-        <EmptyState title="Not authorized" hint="You need the platform module to manage roles." />
+        <EmptyBox title="Not authorized" hint="You need the platform module to manage roles." />
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <div className="mb-4">
-        <Link href="/roles" className="text-xs text-gray-500 hover:underline">← All roles</Link>
-      </div>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      <Link href="/roles" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none", display: "inline-block", marginBottom: 8 }}>
+        ← All roles
+      </Link>
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
       {role && catalog && (
-        <>
-          <div className="mb-1 flex items-center gap-2">
-            <h1 className="text-lg font-semibold tracking-tight">{role.name}</h1>
+        <div style={{ fontFamily: "Inter, sans-serif", color: T.ink }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 3 }}>
+            <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 24, fontWeight: 600, margin: 0 }}>{role.name}</h1>
             {role.isSystem && <Badge tone="blue">built-in</Badge>}
             {locked && <Badge tone="amber">locked</Badge>}
           </div>
-          <p className="mb-4 text-xs text-gray-500">
+          <p style={{ fontSize: 12, color: T.muted, margin: "0 0 16px" }}>
             {locked
               ? "The System SuperAdmin role is the break-glass path — it can't be changed."
               : role.isSystem
@@ -88,55 +88,63 @@ export default function RoleEditorPage() {
                 : "Custom role."}
           </p>
 
-          {banner && <div className="mb-3"><ErrorNote message={banner} /></div>}
+          {banner && <div style={{ marginBottom: 12 }}><Note>{banner}</Note></div>}
 
-          <RoleDetails role={role} canEdit={canEdit && !locked} onSaved={mutate} />
+          <div style={{ display: "grid", gap: 16 }}>
+            <RoleDetails role={role} canEdit={canEdit && !locked} onSaved={mutate} />
 
-          <Card className="mb-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-700">Permissions</h2>
-              <span className="text-xs text-gray-500">{granted.size} granted</span>
-            </div>
-            <PermissionGrid
-              catalog={catalog}
-              granted={granted}
-              canEdit={canEdit}
-              locked={locked}
-              onToggle={toggle}
-            />
-          </Card>
-
-          <Assignments
-            role={role}
-            users={users ?? []}
-            canEdit={canEdit && !locked}
-            onChanged={() => {
-              void mutate();
-              void mutateUsers();
-            }}
-          />
-
-          {canEdit && !role.isSystem && (
-            <Card className="mb-4 border-red-200">
-              <h2 className="mb-2 text-sm font-semibold text-red-700">Danger zone</h2>
-              <p className="mb-3 text-xs text-gray-500">Deleting a role is permanent. Unassign it from all users first.</p>
-              <Button
-                variant="danger"
-                onClick={async () => {
-                  if (!(await confirm({ title: `Delete "${role.name}"?`, body: "This can't be undone.", danger: true, confirmLabel: "Delete role" }))) return;
-                  try {
-                    await apiSend(`platform/roles/${id}`, "DELETE");
-                    router.push("/roles");
-                  } catch (e) {
-                    setBanner(bannerMessage(e, "Could not delete role") ?? "");
-                  }
-                }}
-              >
-                Delete role
-              </Button>
+            <Card>
+              <CardHead>
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Permissions</span>
+                  <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>{granted.size} granted</span>
+                </span>
+              </CardHead>
+              <div style={{ padding: "12px 14px" }}>
+                <PermissionGrid
+                  catalog={catalog}
+                  granted={granted}
+                  canEdit={canEdit}
+                  locked={locked}
+                  onToggle={toggle}
+                />
+              </div>
             </Card>
-          )}
-        </>
+
+            <Assignments
+              role={role}
+              users={users ?? []}
+              canEdit={canEdit && !locked}
+              onChanged={() => {
+                void mutate();
+                void mutateUsers();
+              }}
+            />
+
+            {canEdit && !role.isSystem && (
+              <Card style={{ borderColor: "#F3C9C3" }}>
+                <CardHead tone="red">Danger zone</CardHead>
+                <div style={{ padding: "12px 14px" }}>
+                  <p style={{ margin: "0 0 12px", fontSize: 11.5, color: T.muted }}>Deleting a role is permanent. Unassign it from all users first.</p>
+                  <GhostButton
+                    danger
+                    onClick={async () => {
+                      if (!(await confirm({ title: `Delete "${role.name}"?`, body: "This can't be undone.", danger: true, confirmLabel: "Delete role" }))) return;
+                      try {
+                        await apiSend(`platform/roles/${id}`, "DELETE");
+                        router.push("/roles");
+                      } catch (e) {
+                        setBanner(bannerMessage(e, "Could not delete role") ?? "");
+                      }
+                    }}
+                  >
+                    Delete role
+                  </GhostButton>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
       )}
     </AppShell>
   );
@@ -169,21 +177,23 @@ function RoleDetails({ role, canEdit, onSaved }: { role: RoleDetail; canEdit: bo
   }
 
   return (
-    <Card className="mb-4">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Name" error={fieldErrs.name}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit || role.isSystem} />
-        </Field>
-        <Field label="Description" error={fieldErrs.description}>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} />
-        </Field>
-      </div>
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-      {canEdit && (
-        <div className="mt-3">
-          <Button variant="secondary" disabled={busy || !dirty} onClick={save}>{busy ? "Saving…" : "Save details"}</Button>
+    <Card>
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+          <Field label="Name" error={fieldErrs.name}>
+            <input value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit || role.isSystem} style={{ ...dcInput, opacity: !canEdit || role.isSystem ? 0.6 : 1 }} />
+          </Field>
+          <Field label="Description" error={fieldErrs.description}>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} disabled={!canEdit} rows={2} style={{ ...dcInput, resize: "vertical", opacity: !canEdit ? 0.6 : 1 }} />
+          </Field>
         </div>
-      )}
+        {err && <div style={{ marginTop: 8 }}><Note>{err}</Note></div>}
+        {canEdit && (
+          <div style={{ marginTop: 12 }}>
+            <GhostButton type="button" disabled={busy || !dirty} onClick={save}>{busy ? "Saving…" : "Save details"}</GhostButton>
+          </div>
+        )}
+      </div>
     </Card>
   );
 }
@@ -231,43 +241,45 @@ function Assignments({
   }
 
   return (
-    <Card className="mb-4">
-      <h2 className="mb-2 text-sm font-semibold text-gray-700">Assigned users ({role.assignments.length})</h2>
-      {role.assignments.length === 0 ? (
-        <EmptyState title="No one holds this role yet" />
-      ) : (
-        <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
-          {role.assignments.map((a) => (
-            <li key={a.userId} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-              <span>
-                <span className="font-medium">{a.displayName ?? a.email}</span>
-                {a.displayName && <span className="ml-2 text-xs text-gray-500">{a.email}</span>}
-              </span>
-              {canEdit && (
-                <button type="button" className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50" onClick={() => unassign(a.userId)}>
-                  Unassign
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {canEdit && (
-        <div className="mt-3 flex items-end gap-2">
-          <div className="flex-1">
-            <Field label="Assign a user">
-              <Select value={pick} onChange={(e) => setPick(e.target.value)}>
-                <option value="">{available.length === 0 ? "No more users to assign" : "Pick a user…"}</option>
-                {available.map((u) => (
-                  <option key={u.id} value={u.id}>{u.displayName ? `${u.displayName} · ${u.email}` : u.email}</option>
-                ))}
-              </Select>
-            </Field>
+    <Card>
+      <CardHead>Assigned users ({role.assignments.length})</CardHead>
+      <div style={{ padding: "12px 14px" }}>
+        {role.assignments.length === 0 ? (
+          <EmptyBox title="No one holds this role yet" />
+        ) : (
+          <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: "hidden" }}>
+            {role.assignments.map((a, i) => (
+              <div key={a.userId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "9px 12px", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                <span>
+                  <span style={{ fontWeight: 600 }}>{a.displayName ?? a.email}</span>
+                  {a.displayName && <span style={{ marginLeft: 8, fontSize: 11, color: T.muted }}>{a.email}</span>}
+                </span>
+                {canEdit && (
+                  <button type="button" onClick={() => unassign(a.userId)} style={{ background: "none", border: "none", fontSize: 11, fontWeight: 600, color: T.red, cursor: "pointer" }}>
+                    Unassign
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
-          <Button variant="secondary" disabled={busy || !pick} onClick={assign}>{busy ? "Assigning…" : "Assign"}</Button>
-        </div>
-      )}
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
+        )}
+        {canEdit && (
+          <div style={{ marginTop: 12, display: "flex", alignItems: "flex-end", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Field label="Assign a user">
+                <select value={pick} onChange={(e) => setPick(e.target.value)} style={dcInput}>
+                  <option value="">{available.length === 0 ? "No more users to assign" : "Pick a user…"}</option>
+                  {available.map((u) => (
+                    <option key={u.id} value={u.id}>{u.displayName ? `${u.displayName} · ${u.email}` : u.email}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <GhostButton type="button" disabled={busy || !pick} onClick={assign}>{busy ? "Assigning…" : "Assign"}</GhostButton>
+          </div>
+        )}
+        {err && <div style={{ marginTop: 8 }}><Note>{err}</Note></div>}
+      </div>
     </Card>
   );
 }

@@ -5,7 +5,7 @@ import { useApi } from "@/lib/api";
 import { fileSrc } from "@/lib/upload";
 import type { UniversityHub } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Card, EmptyState, ErrorNote, Spinner } from "@/components/ui";
+import { Badge, Card, EmptyBox, Loading, Note, Page, T } from "@/components/dc";
 
 /** University hub (§7): programmes, referencing styles, articles, cover sheets. */
 export default function UniversityHubPage() {
@@ -14,77 +14,79 @@ export default function UniversityHubPage() {
 
   return (
     <AppShell>
-      <Link href="/knowledge" className="mb-3 inline-block text-xs text-gray-500 hover:underline">
+      <Link href="/knowledge" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none", display: "inline-block", marginBottom: 8 }}>
         ← Knowledge base
       </Link>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
       {data && (
-        <div className="space-y-5">
-          <h1 className="text-lg font-semibold tracking-tight">{data.university.canonical}</h1>
-
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-700">Programmes</h2>
-            {data.programmes.length === 0 ? (
-              <EmptyState title="No programmes linked" />
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {data.programmes.map((p) => (
-                  <Badge key={p.id} tone="blue">{p.canonical}</Badge>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {data.referencingStyles.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-gray-700">Referencing style</h2>
-              <div className="flex flex-wrap gap-2">
-                {data.referencingStyles.map((r) => (
-                  <Badge key={r.id} tone="amber">{r.canonical}</Badge>
-                ))}
-              </div>
+        <Page title={data.university.canonical} sub="programmes · referencing · articles · cover sheets">
+          <div style={{ display: "grid", gap: 16 }}>
+            <section style={{ display: "grid", gap: 8 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Programmes</h2>
+              {data.programmes.length === 0 ? (
+                <EmptyBox title="No programmes linked" />
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {data.programmes.map((p) => (
+                    <Badge key={p.id} tone="blue">{p.canonical}</Badge>
+                  ))}
+                </div>
+              )}
             </section>
-          )}
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-700">Articles</h2>
-            {data.articles.length === 0 ? (
-              <EmptyState title="No linked articles" />
-            ) : (
-              <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-                {data.articles.map((a) => (
-                  <li key={a.id}>
-                    <Link href={`/knowledge/${a.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
-                      <span className="text-sm font-medium">{a.title}</span>
+            {data.referencingStyles.length > 0 && (
+              <section style={{ display: "grid", gap: 8 }}>
+                <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Referencing style</h2>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {data.referencingStyles.map((r) => (
+                    <Badge key={r.id} tone="amber">{r.canonical}</Badge>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section style={{ display: "grid", gap: 8 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Articles</h2>
+              {data.articles.length === 0 ? (
+                <EmptyBox title="No linked articles" />
+              ) : (
+                <Card>
+                  {data.articles.map((a, i) => (
+                    <Link
+                      key={a.id}
+                      href={`/knowledge/${a.id}`}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 14px", borderTop: i ? `1px solid ${T.hair}` : undefined, textDecoration: "none", color: T.ink }}
+                    >
+                      <span style={{ fontSize: 12.5, fontWeight: 600 }}>{a.title}</span>
                       <Badge tone="blue">{a.type}</Badge>
                     </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+                  ))}
+                </Card>
+              )}
+            </section>
 
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-gray-700">Cover sheets</h2>
-            {data.coverSheets.length === 0 ? (
-              <EmptyState title="No cover sheets" />
-            ) : (
-              <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
-                {data.coverSheets.map((cs) => (
-                  <li key={cs.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                    <span className="font-medium">{cs.name}</span>
-                    {cs.fileObjectId && (
-                      <a href={fileSrc(cs.fileObjectId)} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">
-                        Download
-                      </a>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+            <section style={{ display: "grid", gap: 8 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Cover sheets</h2>
+              {data.coverSheets.length === 0 ? (
+                <EmptyBox title="No cover sheets" />
+              ) : (
+                <Card>
+                  {data.coverSheets.map((cs, i) => (
+                    <div key={cs.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 14px", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                      <span style={{ fontWeight: 600 }}>{cs.name}</span>
+                      {cs.fileObjectId && (
+                        <a href={fileSrc(cs.fileObjectId)} target="_blank" rel="noreferrer" style={{ color: T.blue, textDecoration: "none", fontWeight: 600 }}>
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </Card>
+              )}
+            </section>
+          </div>
+        </Page>
       )}
     </AppShell>
   );

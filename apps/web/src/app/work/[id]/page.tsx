@@ -1,14 +1,17 @@
 "use client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
-import { can, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { can, type Leg, type PartyRow, type RefEntity, type WhoAmI, type WorkDetail } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
+import { PartyName } from "@/components/PartyName";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Money, Provenance, Spinner, StateBadge } from "@/components/ui";
+// Kept verbatim for HandoffAction + SharesPanel (behaviour-critical) and Money (shared).
+import { Button, Card, ErrorNote, Field, Input, Money } from "@/components/ui";
+import { Badge, Card as DCard, CardHead, EmptyBox, GhostButton, GoldButton, Loading, Note, Page, T, dcInput, type Tone } from "@/components/dc";
 
 /** Admin/partner search for the hand-off target. */
 const searchAdmin = async (q: string): Promise<PickItem[]> => {
@@ -24,11 +27,30 @@ const NEXT_STATE: Record<string, string | undefined> = {
 /** Manual forward move for a single line (billing sets 'billed'; reprice handles money). */
 const LINE_NEXT: Record<string, string | undefined> = { draft: "pending", pending: "submitted" };
 
-/** Best-effort party name; falls back to a short id if the caller can't read it. */
-function PartyName({ id }: { id: string | null }) {
-  const { data } = useApi<PartyRow>(id ? `parties/${id}` : null, { shouldRetryOnError: false });
-  if (!id) return <span className="text-slate-500">—</span>;
-  return <span>{data?.displayName ?? `…${id.slice(-4)}`}</span>;
+// work / money / line / invoice states → design badge tone (consistent across screens).
+const STATE_TONE: Record<string, Tone> = {
+  draft: "gray", pending: "amber", confirmed: "blue", delivered: "green",
+  submitted: "blue", billed: "green", cancelled: "red",
+  unbilled: "gray", invoiced: "amber", partial: "amber", settled: "green",
+};
+const tone = (s: string): Tone => STATE_TONE[s] ?? "gray";
+
+/**
+ * Build ordered node chains from the RLS-visible legs — contiguous legs join into
+ * one linear chain (client → owner → writer); a fan-out (e.g. multiple consumer
+ * lines off one owner) becomes its own chain. Only legs the API returned are here,
+ * so this can never surface a leg/figure the caller may not see.
+ */
+type ChainStep = { partyId: string | null; amount?: string };
+function buildChains(legs: Leg[]): ChainStep[][] {
+  const sorted = [...legs].sort((a, b) => a.seq - b.seq);
+  const chains: ChainStep[][] = [];
+  for (const leg of sorted) {
+    const chain = chains.find((c) => c[c.length - 1].partyId === leg.fromPartyId);
+    if (chain) chain.push({ partyId: leg.toPartyId, amount: leg.amount });
+    else chains.push([{ partyId: leg.fromPartyId }, { partyId: leg.toPartyId, amount: leg.amount }]);
+  }
+  return chains;
 }
 
 interface RelatedTask {
@@ -55,30 +77,34 @@ function RelatedTasks({ workItemId, canCreate }: { workItemId: string; canCreate
     }
   }
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-semibold text-slate-300">Related tasks</h2>
+    <section style={{ display: "grid", gap: 8 }}>
+      <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Related tasks</h2>
       {canCreate && (
-        <div className="flex items-end gap-2">
-          <Field label="Add a reminder for this job">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. chase brief, deliver draft" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void add(); } }} />
-          </Field>
-          <Button type="button" onClick={() => void add()} disabled={busy || !title.trim()}>Add task</Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Add a reminder — chase brief, deliver draft…"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void add(); } }}
+            style={{ ...dcInput, flex: 1 }}
+          />
+          <GoldButton type="button" onClick={() => void add()} disabled={busy || !title.trim()}>Add task</GoldButton>
         </div>
       )}
       {!data || data.length === 0 ? (
-        <p className="text-xs text-slate-500">No tasks linked to this job.</p>
+        <p style={{ fontSize: 11.5, color: T.muted2, margin: 0 }}>No tasks linked to this job.</p>
       ) : (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {data.map((t) => (
-            <li key={t.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
-              <Link href="/tasks" className="hover:underline">{t.title}</Link>
-              <span className="flex items-center gap-2">
-                {t.dueAt && <span className="text-xs text-slate-500">{formatDate(t.dueAt)}</span>}
-                <StateBadge state={t.state} />
+        <DCard>
+          {data.map((t, i) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 14px", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+              <Link href="/tasks" style={{ color: T.ink, textDecoration: "none" }}>{t.title}</Link>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {t.dueAt && <span style={{ fontSize: 11, color: T.muted2 }}>{formatDate(t.dueAt)}</span>}
+                <Badge tone={tone(t.state)}>{t.state}</Badge>
               </span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </DCard>
       )}
     </section>
   );
@@ -102,6 +128,8 @@ export default function JobDetailPage() {
   const canEdit = can(me?.permissions, "work:edit");
   const canBill = can(me?.permissions, "billing:create");
   const mayTransition = next && (next === "confirmed" ? canConfirm : canEdit);
+
+  const chains = useMemo(() => (data ? buildChains(data.legs) : []), [data]);
 
   async function billLine(workLineId: string) {
     if (!(await confirm({ title: "Bill this line to the client's invoice?", danger: true, confirmLabel: "Bill" }))) return;
@@ -147,168 +175,186 @@ export default function JobDetailPage() {
     }
   }
 
+  const meta = item
+    ? [course?.canonical, item.moduleName, item.groupKind === "group" ? `group${item.groupScope ? ` · ${item.groupScope}` : ""}` : null].filter(Boolean).join(" · ")
+    : "";
+
+  const provenance = item
+    ? [
+        { label: "Created by", name: item.createdByName, at: item.createdAt },
+        { label: "Confirmed by", name: item.confirmedByName, at: item.confirmedAt },
+        { label: "Updated by", name: item.updatedByName, at: item.updatedAt },
+      ].filter((p) => p.name || p.at)
+    : [];
+
+  // Compact inline action for a dense line row (matches the tasks-grid affordances).
+  const lineAction = (label: string, onClick: () => void, color: string) => (
+    <span onClick={busy ? undefined : onClick} style={{ fontSize: 11, fontWeight: 600, color, cursor: busy ? "default" : "pointer", opacity: busy ? 0.5 : 1 }}>{label}</span>
+  );
+
   return (
     <AppShell>
-      <Link href="/" className="mb-3 inline-block text-xs text-slate-400 hover:underline">
+      <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none", display: "inline-block", marginBottom: 8 }}>
         ← My open loops
       </Link>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
       {item && data && (
-        <div className="space-y-5">
-          <header className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-semibold tracking-tight">{item.title}</h1>
-              <StateBadge state={item.workState} />
-              <StateBadge state={item.moneyState} />
-              {data.jobStatus.total > 0 && <Badge tone="gray">{data.jobStatus.label}</Badge>}
-              {item.isEstimate && <Badge tone="amber">estimate</Badge>}
-            </div>
-            <p className="text-xs text-slate-400">
-              {[course?.canonical, item.moduleName, item.groupKind === "group" ? `group${item.groupScope ? ` · ${item.groupScope}` : ""}` : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {/* §3.1 captured detail (only what's present). */}
-            {(item.deliveryDate || item.submissionDate || item.wordCount || item.groupNote) && (
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
-                {item.wordCount ? <span>{item.wordCount} words</span> : null}
-                {item.deliveryDate ? <span>delivery {formatDate(item.deliveryDate)}</span> : null}
-                {item.submissionDate ? <span>submission {formatDate(item.submissionDate)}</span> : null}
-                {item.groupNote ? <span>{item.groupNote}</span> : null}
+        <Page
+          title={item.title}
+          sub={meta || undefined}
+          action={
+            (mayTransition || canEdit) ? (
+              <span style={{ display: "flex", gap: 8 }}>
+                {mayTransition && (
+                  <GoldButton disabled={busy} onClick={() => transition(next!)}>
+                    {next === "confirmed" ? "Confirm" : `Mark ${next}`}
+                  </GoldButton>
+                )}
+                {canEdit && <GhostButton href={`/work/${id}/edit`}>Edit</GhostButton>}
+              </span>
+            ) : undefined
+          }
+        >
+          <div style={{ display: "grid", gap: 16 }}>
+            <header style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <Badge tone={tone(item.workState)}>{item.workState}</Badge>
+                <Badge tone={tone(item.moneyState)}>{item.moneyState}</Badge>
+                {data.jobStatus.total > 0 && <Badge tone="gray">{data.jobStatus.label}</Badge>}
+                {item.isEstimate && <Badge tone="amber">estimate</Badge>}
               </div>
-            )}
-            <Provenance
-              items={[
-                { label: "Created by", name: item.createdByName, at: item.createdAt },
-                { label: "Confirmed by", name: item.confirmedByName, at: item.confirmedAt },
-                { label: "Updated by", name: item.updatedByName, at: item.updatedAt },
-              ]}
-            />
-            <div className="flex flex-wrap gap-2 pt-1">
-              {mayTransition && (
-                <Button disabled={busy} onClick={() => transition(next!)}>
-                  {next === "confirmed" ? "Confirm" : `Mark ${next}`}
-                </Button>
+              {/* §3.1 captured detail (only what's present). */}
+              {(item.deliveryDate || item.submissionDate || item.wordCount || item.groupNote) && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 16px", fontSize: 11.5, color: T.muted }}>
+                  {item.wordCount ? <span>{item.wordCount} words</span> : null}
+                  {item.deliveryDate ? <span>delivery {formatDate(item.deliveryDate)}</span> : null}
+                  {item.submissionDate ? <span>submission {formatDate(item.submissionDate)}</span> : null}
+                  {item.groupNote ? <span>{item.groupNote}</span> : null}
+                </div>
               )}
-              {canEdit && (
-                <Link href={`/work/${id}/edit`}>
-                  <Button variant="secondary">Edit</Button>
-                </Link>
-              )}
-            </div>
-            {actionError && <ErrorNote message={actionError} />}
-          </header>
-
-          {/* Lines — spec always; money only when the API includes it. */}
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-300">Lines</h2>
-            {billedInvoiceId && (
-              <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
-                Added to the client's open invoice.{" "}
-                <Link href={`/invoices/${billedInvoiceId}`} className="font-medium underline">
-                  View invoice
-                </Link>
-              </p>
-            )}
-            {data.lines.length === 0 ? (
-              <EmptyState title="No lines yet" hint="Add copies or parts to this job." />
-            ) : (
-              <ul className="space-y-2">
-                {data.lines.map((l) => {
-                  const lineNext = LINE_NEXT[l.lineStatus];
-                  const canCancel = l.lineStatus === "pending" || l.lineStatus === "submitted";
-                  return (
-                    <Card key={l.id} className="flex items-center justify-between gap-3 py-3">
-                      <div className="text-sm">
-                        <span className="font-medium capitalize">{l.lineKind}</span>{" "}
-                        <Badge tone={l.side === "consumer" ? "blue" : "gray"}>{l.side}</Badge>{" "}
-                        <StateBadge state={l.lineStatus} />
-                        <div className="mt-0.5 text-xs text-slate-400">
-                          {l.wordCount ? `${l.wordCount} words` : null}
-                          {l.unitCount && l.unitCount > 1 ? ` · ${l.unitCount} copies` : null}
-                          {l.consumerPartyId ? (
-                            <>
-                              {" · "}
-                              <PartyName id={l.consumerPartyId} />
-                            </>
-                          ) : null}
-                        </div>
-                      </div>
-                      {/* Money: rendered only when present (redacted ⇒ absent ⇒ hidden). */}
-                      <div className="flex flex-col items-end gap-1">
-                        {l.amount !== undefined && (
-                          <div className="text-right text-sm font-medium">
-                            <Money value={l.amount} />
-                          </div>
-                        )}
-                        <div className="flex flex-wrap justify-end gap-1">
-                          {canEdit && lineNext && (
-                            <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={() => setLineStatus(l.id, lineNext)}>
-                              Mark {lineNext}
-                            </Button>
-                          )}
-                          {canEdit && canCancel && (
-                            <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={() => setLineStatus(l.id, "cancelled")}>
-                              Cancel
-                            </Button>
-                          )}
-                          {l.lineStatus === "billed" && <span className="text-[11px] text-slate-500">billed — correct via reprice</span>}
-                          {/* Bill a money-visible consumer line to the client's open invoice. */}
-                          {canBill && l.side === "consumer" && l.consumerPartyId && l.lineStatus !== "billed" && (
-                            <Button variant="ghost" className="px-2 text-xs" disabled={busy} onClick={() => billLine(l.id)}>
-                              Bill to invoice
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-
-          {/* Legs + margins — exactly what RLS let this viewer see. */}
-          <section className="space-y-2">
-            <h2 className="text-sm font-semibold text-slate-300">Money chain</h2>
-            {data.legs.length === 0 ? (
-              <EmptyState title="No legs visible to you" hint="You only see legs you are a party to." />
-            ) : (
-              <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-                {data.legs.map((leg) => (
-                  <li key={leg.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
-                    <span className="flex items-center gap-1 text-slate-300">
-                      <PartyName id={leg.fromPartyId} /> <span className="text-slate-500">→</span> <PartyName id={leg.toPartyId} />
-                    </span>
-                    <span className="font-medium">
-                      <Money value={leg.amount} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {data.margins.length > 0 && (
-              <Card>
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Your margin</h2>
-                <ul className="space-y-1 text-sm">
-                  {data.margins.map((m) => (
-                    <li key={m.partyId} className="flex items-center justify-between">
-                      <PartyName id={m.partyId} />
-                      <Money value={m.margin} />
-                    </li>
+              {provenance.length > 0 && (
+                <div style={{ borderTop: `1px solid ${T.hair}`, paddingTop: 8, display: "grid", gap: 2, fontSize: 11, color: T.muted2 }}>
+                  {provenance.map((p) => (
+                    <div key={p.label}>
+                      {p.label} <span style={{ color: T.ink2 }}>{p.name ?? "—"}</span>{p.at ? ` · ${formatDateTime(p.at)}` : ""}
+                    </div>
                   ))}
-                </ul>
-              </Card>
-            )}
-            {canConfirm && <HandoffAction workItemId={id} onDone={() => void mutate()} />}
-            {canConfirm && <SharesPanel workItemId={id} />}
-          </section>
+                </div>
+              )}
+              {actionError && <Note>{actionError}</Note>}
+            </header>
 
-          {can(me?.permissions, "capture:view") && (
-            <RelatedTasks workItemId={id} canCreate={can(me?.permissions, "capture:create")} />
-          )}
-        </div>
+            {/* Lines — spec always; money only when the API includes it. */}
+            <section style={{ display: "grid", gap: 8 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Lines</h2>
+              {billedInvoiceId && (
+                <Note tone="green">
+                  Added to the client&apos;s open invoice.{" "}
+                  <Link href={`/invoices/${billedInvoiceId}`} style={{ fontWeight: 700, color: T.green, textDecoration: "underline" }}>View invoice</Link>
+                </Note>
+              )}
+              {data.lines.length === 0 ? (
+                <EmptyBox title="No lines yet" hint="Add copies or parts to this job." />
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {data.lines.map((l) => {
+                    const lineNext = LINE_NEXT[l.lineStatus];
+                    const canCancel = l.lineStatus === "pending" || l.lineStatus === "submitted";
+                    const sub = [
+                      l.wordCount ? `${l.wordCount} words` : null,
+                      l.unitCount && l.unitCount > 1 ? `${l.unitCount} copies` : null,
+                    ].filter(Boolean).join(" · ");
+                    return (
+                      <DCard key={l.id} style={{ padding: "11px 14px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ fontSize: 12.5 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{l.lineKind}</span>
+                            <Badge tone={l.side === "consumer" ? "blue" : "gray"}>{l.side}</Badge>
+                            <Badge tone={tone(l.lineStatus)}>{l.lineStatus}</Badge>
+                          </span>
+                          {(sub || l.consumerPartyId) && (
+                            <div style={{ marginTop: 3, fontSize: 11, color: T.muted2 }}>
+                              {sub}
+                              {sub && l.consumerPartyId ? " · " : ""}
+                              {l.consumerPartyId ? <PartyName id={l.consumerPartyId} /> : null}
+                            </div>
+                          )}
+                        </div>
+                        {/* Money: rendered only when present (redacted ⇒ absent ⇒ hidden). */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                          {l.amount !== undefined && (
+                            <div style={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                              <Money value={l.amount} />
+                            </div>
+                          )}
+                          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 12 }}>
+                            {canEdit && lineNext && lineAction(`Mark ${lineNext}`, () => setLineStatus(l.id, lineNext), T.goldDeep)}
+                            {canEdit && canCancel && lineAction("Cancel", () => setLineStatus(l.id, "cancelled"), T.red)}
+                            {l.lineStatus === "billed" && <span style={{ fontSize: 10.5, color: T.muted2 }}>billed — correct via reprice</span>}
+                            {canBill && l.side === "consumer" && l.consumerPartyId && l.lineStatus !== "billed" && lineAction("Bill to invoice", () => billLine(l.id), T.blue)}
+                          </div>
+                        </div>
+                      </DCard>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            {/* Legs + margins — exactly what RLS let this viewer see. */}
+            <section style={{ display: "grid", gap: 8 }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Money chain</h2>
+              <p style={{ fontSize: 11.5, color: T.muted, margin: 0 }}>
+                Who sees which leg is enforced by the database, not the UI. Margin is derived from the legs, never stored.
+              </p>
+              {data.legs.length === 0 ? (
+                <EmptyBox title="No legs visible to you" hint="You only see legs you are a party to." />
+              ) : (
+                <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "26px 20px", display: "flex", flexDirection: "column" }}>
+                  {chains.map((chain, ci) => (
+                    <div key={ci} style={{ display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 4, marginTop: ci ? 18 : 0 }}>
+                      {chain.map((step, si) => (
+                        <Fragment key={si}>
+                          <span style={{ width: 150, border: `1.5px solid ${T.border}`, borderRadius: 12, padding: 13, textAlign: "center", background: T.rowHover }}>
+                            <span style={{ display: "block", fontSize: 13, fontWeight: 700 }}><PartyName id={step.partyId} /></span>
+                          </span>
+                          {si < chain.length - 1 && (
+                            <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 92 }}>
+                              <span style={{ fontSize: 11.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", padding: "3px 9px", borderRadius: 999, background: T.greenBg, color: T.green, border: "1px solid #CFEBD9", whiteSpace: "nowrap" }}>
+                                <Money value={chain[si + 1].amount} />
+                              </span>
+                              <svg width="72" height="9" viewBox="0 0 72 9" fill="none" stroke="#B9C0CE" strokeWidth="1.5"><path d="M0 4.5h66 M66 4.5l-5-3.5 M66 4.5l-5 3.5" /></svg>
+                            </span>
+                          )}
+                        </Fragment>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {data.margins.length > 0 && (
+                <DCard>
+                  <CardHead>Margins visible to you</CardHead>
+                  <div style={{ padding: "6px 14px 10px" }}>
+                    {data.margins.map((m, i) => (
+                      <div key={m.partyId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: i ? `1px solid ${T.hair}` : undefined, fontSize: 12.5 }}>
+                        <PartyName id={m.partyId} />
+                        <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums", color: m.margin < 0 ? T.red : T.ink }}><Money value={m.margin} /></span>
+                      </div>
+                    ))}
+                  </div>
+                </DCard>
+              )}
+              {canConfirm && <HandoffAction workItemId={id} onDone={() => void mutate()} />}
+              {canConfirm && <SharesPanel workItemId={id} />}
+            </section>
+
+            {can(me?.permissions, "capture:view") && (
+              <RelatedTasks workItemId={id} canCreate={can(me?.permissions, "capture:create")} />
+            )}
+          </div>
+        </Page>
       )}
     </AppShell>
   );
