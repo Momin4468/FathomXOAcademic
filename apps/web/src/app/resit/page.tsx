@@ -11,19 +11,8 @@ import {
 } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorNote,
-  Field,
-  Input,
-  Money,
-  MoneyInput,
-  Select,
-  Spinner,
-} from "@/components/ui";
+import { Money, MoneyInput } from "@/components/ui";
+import { Badge, Card, EmptyBox, Field, GoldButton, Loading, Note, Page, T, dcInput } from "@/components/dc";
 
 const searchParties = async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}`);
@@ -122,88 +111,94 @@ export default function ResitPage() {
   if (me && !canApprove) {
     return (
       <AppShell>
-        <h1 className="mb-3 text-lg font-semibold tracking-tight">Resit</h1>
-        <EmptyState title="No access" hint="Resit handling needs work:approve." />
+        <Page title="Resit" sub="redo a failed job on the same job — reductions, resit writer, client re-bill">
+          <EmptyBox title="No access" hint="Resit handling needs work:approve." />
+        </Page>
       </AppShell>
     );
   }
 
+  const sectionLabel: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: T.ink2, margin: "0 0 4px" };
+  const checkRow: React.CSSProperties = { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: T.ink2, marginBottom: 8 };
+
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Resit a failed job</h1>
+      <Page title="Resit a failed job" sub="redo on the same job — the P&L stays truthful (net loss is derived from the legs)">
+        <Card style={{ padding: 16, marginBottom: 20 }}>
+          <Field label="Job (must have a recorded fail)">
+            <select value={jobId} onChange={(e) => { setJobId(e.target.value); setResetSeq((n) => n + 1); }} style={dcInput}>
+              <option value="">Select job…</option>
+              {(jobs ?? []).map((j) => (
+                <option key={j.id} value={j.id}>{j.title}</option>
+              ))}
+            </select>
+          </Field>
+          {jobId && pnl && (
+            <div style={{ marginTop: 12, background: T.hair, borderRadius: 8, padding: "8px 12px", fontSize: 12.5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: "2px 6px" }}>
+              <span style={{ fontSize: 11, color: T.muted, marginRight: 4 }}>job P&amp;L</span>
+              revenue <Money value={pnl.revenue} /> · writer cost <Money value={pnl.writerCost} />
+              {pnl.clawback ? <> · clawback <Money value={pnl.clawback} /></> : null}
+              {pnl.reworkCost ? <> · rework <Money value={pnl.reworkCost} /></> : null}
+              {" · "}net{" "}
+              {pnl.isLoss ? <Badge tone="red">loss <Money value={pnl.net} /></Badge> : <span style={{ fontWeight: 600 }}><Money value={pnl.net} /></span>}
+            </div>
+          )}
+        </Card>
 
-      <Card className="mb-5">
-        <Field label="Job (must have a recorded fail)">
-          <Select value={jobId} onChange={(e) => { setJobId(e.target.value); setResetSeq((n) => n + 1); }}>
-            <option value="">Select job…</option>
-            {(jobs ?? []).map((j) => (
-              <option key={j.id} value={j.id}>{j.title}</option>
-            ))}
-          </Select>
-        </Field>
-        {jobId && pnl && (
-          <div className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm">
-            <span className="text-xs text-gray-500">job P&amp;L</span>{" "}
-            revenue <Money value={pnl.revenue} /> · writer cost <Money value={pnl.writerCost} />
-            {pnl.clawback ? <> · clawback <Money value={pnl.clawback} /></> : null}
-            {pnl.reworkCost ? <> · rework <Money value={pnl.reworkCost} /></> : null}
-            {" · "}net{" "}
-            {pnl.isLoss ? <Badge tone="red">loss <Money value={pnl.net} /></Badge> : <span className="font-medium"><Money value={pnl.net} /></span>}
-          </div>
+        {jobId && (
+          <form onSubmit={submit} style={{ display: "grid", gap: 20 }}>
+            <Card style={{ padding: 16 }}>
+              <p style={sectionLabel}>Original writer</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                <Field label="Writer" error={fieldErrs.originalWriterPartyId}><EntityPicker key={`ow${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setOrigWriter(i?.id ?? null)} /></Field>
+                <Field label="Paid by (partner)" error={fieldErrs.originalWriterFromPartyId}><EntityPicker key={`of${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setOrigFrom(i?.id ?? null)} /></Field>
+                <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback" error={fieldErrs.originalWriterReduction}><MoneyInput value={reduction} onChange={(v) => setReduction(v)} /></Field>
+              </div>
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <label style={checkRow}>
+                <input type="checkbox" checked={hasResitWriter} onChange={(e) => setHasResitWriter(e.target.checked)} /> Different writer does the resit
+              </label>
+              {hasResitWriter && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  <Field label="Resit writer"><EntityPicker key={`rw${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setResitWriter(i?.id ?? null)} /></Field>
+                  <Field label="Paid by (partner)"><EntityPicker key={`rf${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setResitFrom(i?.id ?? null)} /></Field>
+                  <Field label="Resit pay (৳)"><MoneyInput value={resitAmount} onChange={(v) => setResitAmount(v)} /></Field>
+                </div>
+              )}
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <label style={checkRow}>
+                <input type="checkbox" checked={zeroClient} onChange={(e) => setZeroClient(e.target.checked)} /> Re-bill the whole job to 0 (client)
+              </label>
+              {zeroClient && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                  <Field label="Client"><EntityPicker key={`cf${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientFrom(i?.id ?? null)} /></Field>
+                  <Field label="Paid to (partner)"><EntityPicker key={`ct${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setClientTo(i?.id ?? null)} /></Field>
+                  <Field label="Revenue to reverse (৳)"><MoneyInput value={clientAmount} onChange={(v) => setClientAmount(v)} /></Field>
+                </div>
+              )}
+            </Card>
+
+            <Card style={{ padding: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+                <Field label="Rework cost (৳, optional)" error={fieldErrs.reworkCost}><MoneyInput value={reworkCost} onChange={(v) => setReworkCost(v)} /></Field>
+                <Field label="Note" error={fieldErrs.note}><input value={note} onChange={(e) => setNote(e.target.value)} style={dcInput} /></Field>
+              </div>
+            </Card>
+
+            {err && <Note>{err}</Note>}
+            {msg && <Note tone="green">{msg}</Note>}
+            <div>
+              <GoldButton type="submit" disabled={busy || !origWriter}>{busy ? "Recording…" : "Record resit"}</GoldButton>
+            </div>
+          </form>
         )}
-      </Card>
 
-      {jobId && (
-        <form onSubmit={submit} className="space-y-5">
-          <Card>
-            <p className="mb-2 text-sm font-semibold text-gray-700">Original writer</p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Field label="Writer" error={fieldErrs.originalWriterPartyId}><EntityPicker key={`ow${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setOrigWriter(i?.id ?? null)} /></Field>
-              <Field label="Paid by (partner)" error={fieldErrs.originalWriterFromPartyId}><EntityPicker key={`of${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setOrigFrom(i?.id ?? null)} /></Field>
-              <Field label="Reduce pay by (৳)" hint="0 = unchanged; auto reversing-leg or clawback" error={fieldErrs.originalWriterReduction}><MoneyInput value={reduction} onChange={(v) => setReduction(v)} /></Field>
-            </div>
-          </Card>
-
-          <Card>
-            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <input type="checkbox" checked={hasResitWriter} onChange={(e) => setHasResitWriter(e.target.checked)} /> Different writer does the resit
-            </label>
-            {hasResitWriter && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field label="Resit writer"><EntityPicker key={`rw${resetSeq}`} placeholder="Search writer…" search={searchWriters} onPick={(i) => setResitWriter(i?.id ?? null)} /></Field>
-                <Field label="Paid by (partner)"><EntityPicker key={`rf${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setResitFrom(i?.id ?? null)} /></Field>
-                <Field label="Resit pay (৳)"><MoneyInput value={resitAmount} onChange={(v) => setResitAmount(v)} /></Field>
-              </div>
-            )}
-          </Card>
-
-          <Card>
-            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <input type="checkbox" checked={zeroClient} onChange={(e) => setZeroClient(e.target.checked)} /> Re-bill the whole job to 0 (client)
-            </label>
-            {zeroClient && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field label="Client"><EntityPicker key={`cf${resetSeq}`} placeholder="Search client…" search={searchParties} onPick={(i) => setClientFrom(i?.id ?? null)} /></Field>
-                <Field label="Paid to (partner)"><EntityPicker key={`ct${resetSeq}`} placeholder="Search partner…" search={searchParties} onPick={(i) => setClientTo(i?.id ?? null)} /></Field>
-                <Field label="Revenue to reverse (৳)"><MoneyInput value={clientAmount} onChange={(v) => setClientAmount(v)} /></Field>
-              </div>
-            )}
-          </Card>
-
-          <Card>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Rework cost (৳, optional)" error={fieldErrs.reworkCost}><MoneyInput value={reworkCost} onChange={(v) => setReworkCost(v)} /></Field>
-              <Field label="Note" error={fieldErrs.note}><Input value={note} onChange={(e) => setNote(e.target.value)} /></Field>
-            </div>
-          </Card>
-
-          {err && <ErrorNote message={err} />}
-          {msg && <p className="text-xs text-green-700">{msg}</p>}
-          <Button type="submit" disabled={busy || !origWriter}>{busy ? "Recording…" : "Record resit"}</Button>
-        </form>
-      )}
-
-      {!jobId && <Spinner label="Pick a job to begin." />}
+        {!jobId && <Loading label="Pick a job to begin." />}
+      </Page>
     </AppShell>
   );
 }

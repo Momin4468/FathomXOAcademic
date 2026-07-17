@@ -4,7 +4,7 @@ import { usePfApi, pfApiSend, pfRevalidate } from "@/lib/pf-api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { PF_CURRENCIES, type PfPreferences } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Button, Card, ErrorNote, Field, Select, Spinner, cx } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfCardHead, PfField, PfSelect, PfToggle, PfNote, PfLoading } from "@/components/pf-dc";
 
 const SENSITIVITY = [
   { pct: 200, label: "Only large jumps" },
@@ -39,8 +39,8 @@ export default function PfSettingsPage() {
   if (!form) {
     return (
       <PfShell>
-        <h1 className="mb-4 text-lg font-semibold tracking-tight">Settings</h1>
-        <Spinner />
+        <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: "0 0 12px", color: PF.onGrad }}>Settings</h1>
+        <PfLoading />
       </PfShell>
     );
   }
@@ -82,145 +82,119 @@ export default function PfSettingsPage() {
     }
   }
 
+  const numInput: React.CSSProperties = { width: 64, border: `1px solid ${PF.border}`, borderRadius: 7, padding: "6px 8px", fontSize: 12.5, background: PF.card, color: PF.text, fontVariantNumeric: "tabular-nums" };
+
   return (
     <PfShell>
-      <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Settings</h1>
-      </div>
-      <p className="mb-4 text-xs text-slate-400">Everything works out of the box — tweak only what you like. Private to your account.</p>
+      <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Settings</h1>
+      <p style={{ fontSize: 12, color: PF.onGradSub, margin: "4px 0 16px" }}>Everything works out of the box — tweak only what you like. Private to your account.</p>
 
-      <div className="space-y-3">
+      <div style={{ display: "grid", gap: 12 }}>
         {/* Summary period */}
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-200">Summary period</h2>
-          <p className="mb-2 text-xs text-slate-400">Groups your overview, charts and spending alerts.</p>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-lg bg-ink-800 p-0.5 text-sm">
-              {(["week", "month", "custom"] as const).map((k) => (
-                <button key={k} type="button" onClick={() => set("rollupPeriod", k)} className={cx("rounded-md px-3 py-1 font-medium capitalize", form.rollupPeriod === k ? "bg-ink-850 text-slate-100 shadow-sm" : "text-slate-400")}>
-                  {k}
-                </button>
-              ))}
-            </div>
+        <PfCard>
+          <PfCardHead>Summary period</PfCardHead>
+          <p style={{ fontSize: 11, color: PF.muted, margin: "0 0 8px" }}>Groups your overview, charts and spending alerts.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {(["week", "month", "custom"] as const).map((k) => {
+              const active = form.rollupPeriod === k;
+              return (
+                <span key={k} onClick={() => set("rollupPeriod", k)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 13px", borderRadius: 999, cursor: "pointer", textTransform: "capitalize", background: active ? PF.accent : "transparent", color: active ? PF.onGrad : PF.muted, border: `1px solid ${active ? PF.accent : PF.border}` }}>{k}</span>
+              );
+            })}
             {form.rollupPeriod === "custom" && (
-              <label className="flex items-center gap-1 text-xs text-slate-400">
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: PF.muted }}>
                 every
-                <input type="number" min={1} max={366} value={form.rollupCustomDays} onChange={(e) => set("rollupCustomDays", Math.max(1, Math.min(366, Number(e.target.value) || 30)))} className="w-16 rounded-lg border border-ink-700 px-2 py-1 text-xs tabular-nums" />
+                <input type="number" min={1} max={366} value={form.rollupCustomDays} onChange={(e) => set("rollupCustomDays", Math.max(1, Math.min(366, Number(e.target.value) || 30)))} style={numInput} />
                 days
               </label>
             )}
           </div>
-        </Card>
+        </PfCard>
 
         {/* Currencies */}
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-200">Currencies</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Default currency" hint="Used for your totals & charts." error={fieldErrs.defaultCurrency}>
-              <Select value={form.baseCurrency} onChange={(e) => set("baseCurrency", e.target.value)}>
-                {Array.from(new Set([form.baseCurrency, ...PF_CURRENCIES])).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Show in pickers" hint="Which currencies appear when adding money." error={fieldErrs.activeCurrencies}>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {PF_CURRENCIES.map((c) => (
-                  <button key={c} type="button" onClick={() => toggleCurrency(c)} className={cx("rounded-full border px-3 py-1 text-sm", form.activeCurrencies.includes(c) ? "border-emerald-600 bg-emerald-50 text-emerald-800" : "border-ink-700 text-slate-300")}>
-                    {c}
-                  </button>
-                ))}
+        <PfCard>
+          <PfCardHead>Currencies</PfCardHead>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <PfField label="Default currency" hint="Used for your totals & charts." error={fieldErrs.defaultCurrency}>
+              <PfSelect value={form.baseCurrency} onChange={(e) => set("baseCurrency", e.target.value)}>
+                {Array.from(new Set([form.baseCurrency, ...PF_CURRENCIES])).map((c) => (<option key={c} value={c}>{c}</option>))}
+              </PfSelect>
+            </PfField>
+            <PfField label="Show in pickers" hint="Which currencies appear when adding money." error={fieldErrs.activeCurrencies}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 2 }}>
+                {PF_CURRENCIES.map((c) => {
+                  const on = form.activeCurrencies.includes(c);
+                  return (
+                    <button key={c} type="button" onClick={() => toggleCurrency(c)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 12px", borderRadius: 999, cursor: "pointer", background: on ? "#E9F6F2" : PF.card, color: on ? PF.accentDeep : PF.muted, border: `1px solid ${on ? PF.greenBorder : PF.border}` }}>{c}</button>
+                  );
+                })}
               </div>
-            </Field>
+            </PfField>
           </div>
-        </Card>
+        </PfCard>
 
         {/* Budgets */}
-        <Card>
-          <h2 className="mb-2 text-sm font-semibold text-slate-200">Budgets</h2>
-          <Field label="Default budget period" error={fieldErrs.defaultBudgetPeriod}>
-            <Select value={form.defaultBudgetPeriod} onChange={(e) => set("defaultBudgetPeriod", e.target.value as "month" | "year")} className="max-w-[200px]">
+        <PfCard>
+          <PfCardHead>Budgets</PfCardHead>
+          <PfField label="Default budget period" error={fieldErrs.defaultBudgetPeriod}>
+            <PfSelect value={form.defaultBudgetPeriod} onChange={(e) => set("defaultBudgetPeriod", e.target.value as "month" | "year")} style={{ maxWidth: 200 }}>
               <option value="month">Monthly</option>
               <option value="year">Yearly</option>
-            </Select>
-          </Field>
-        </Card>
+            </PfSelect>
+          </PfField>
+        </PfCard>
 
         {/* Reminders */}
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold text-slate-200">Reminders</h2>
-          <div className="space-y-3">
-            <Toggle label="Subscription reminders" desc="Email before a subscription is due." on={form.reminderSubscriptions} onChange={(v) => set("reminderSubscriptions", v)} />
+        <PfCard>
+          <PfCardHead>Reminders</PfCardHead>
+          <div style={{ display: "grid", gap: 12 }}>
+            <PfToggle label="Subscription reminders" desc="Email before a subscription is due." on={form.reminderSubscriptions} onChange={(v) => set("reminderSubscriptions", v)} />
             {form.reminderSubscriptions && (
-              <label className="ml-1 flex items-center gap-2 text-sm text-slate-300">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: PF.text2, marginLeft: 4 }}>
                 Remind
-                <input type="number" min={0} max={30} value={form.subscriptionLeadDays} onChange={(e) => set("subscriptionLeadDays", Math.max(0, Math.min(30, Number(e.target.value) || 0)))} className="w-16 rounded-lg border border-ink-700 px-2 py-1 text-sm tabular-nums" />
+                <input type="number" min={0} max={30} value={form.subscriptionLeadDays} onChange={(e) => set("subscriptionLeadDays", Math.max(0, Math.min(30, Number(e.target.value) || 0)))} style={numInput} />
                 days before
               </label>
             )}
-            <Toggle label="Note reminders" desc="Email a note on its remind-on date." on={form.reminderNotes} onChange={(v) => set("reminderNotes", v)} />
+            <PfToggle label="Note reminders" desc="Email a note on its remind-on date." on={form.reminderNotes} onChange={(v) => set("reminderNotes", v)} />
           </div>
-        </Card>
+        </PfCard>
 
         {/* Spending alerts */}
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold text-slate-200">Spending alerts</h2>
-          <Toggle label="Gentle anomaly alerts" desc="A friendly heads-up when a period or category runs above your recent average." on={form.anomalyEnabled} onChange={(v) => set("anomalyEnabled", v)} />
+        <PfCard>
+          <PfCardHead>Spending alerts</PfCardHead>
+          <PfToggle label="Gentle anomaly alerts" desc="A friendly heads-up when a period or category runs above your recent average." on={form.anomalyEnabled} onChange={(v) => set("anomalyEnabled", v)} />
           {form.anomalyEnabled && (
-            <>
-              <Field label="Sensitivity" hint="How far above your average before we mention it." error={fieldErrs.anomalyThresholdPct}>
-                <Select value={String(form.anomalyThresholdPct)} onChange={(e) => set("anomalyThresholdPct", Number(e.target.value))} className="max-w-[220px]">
-                  {SENSITIVITY.map((s) => (
-                    <option key={s.pct} value={s.pct}>{s.label}</option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="mt-2 flex items-center gap-3">
-                <Button variant="secondary" className="px-3 text-sm" onClick={checkNow}>
-                  Check now
-                </Button>
-                {checkMsg && <span className="text-xs text-slate-400">{checkMsg}</span>}
+            <div style={{ marginTop: 12 }}>
+              <PfField label="Sensitivity" hint="How far above your average before we mention it." error={fieldErrs.anomalyThresholdPct}>
+                <PfSelect value={String(form.anomalyThresholdPct)} onChange={(e) => set("anomalyThresholdPct", Number(e.target.value))} style={{ maxWidth: 220 }}>
+                  {SENSITIVITY.map((s) => (<option key={s.pct} value={s.pct}>{s.label}</option>))}
+                </PfSelect>
+              </PfField>
+              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                <PfBtn variant="secondary" onClick={checkNow}>Check now</PfBtn>
+                {checkMsg && <span style={{ fontSize: 11, color: PF.muted }}>{checkMsg}</span>}
               </div>
-            </>
+            </div>
           )}
-        </Card>
+        </PfCard>
 
         {/* AI quick-add */}
         {form.aiAvailable && (
-          <Card>
-            <h2 className="mb-3 text-sm font-semibold text-slate-200">AI quick-add</h2>
-            <Toggle label="Type-to-add with AI" desc={`Turn "spent 500 on groceries" into a draft you confirm. Nothing is saved without your OK.`} on={form.aiQuickaddEnabled} onChange={(v) => set("aiQuickaddEnabled", v)} />
-          </Card>
+          <PfCard>
+            <PfCardHead>AI quick-add</PfCardHead>
+            <PfToggle label="Type-to-add with AI" desc={`Turn "spent 500 on groceries" into a draft you confirm. Nothing is saved without your OK.`} on={form.aiQuickaddEnabled} onChange={(v) => set("aiQuickaddEnabled", v)} />
+          </PfCard>
         )}
       </div>
 
-      {error && <div className="mt-4"><ErrorNote message={error} /></div>}
+      {error && <div style={{ marginTop: 16 }}><PfNote tone="red">{error}</PfNote></div>}
 
-      <div className="sticky bottom-0 mt-4 -mx-4 border-t border-ink-800 bg-ink-850/90 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur">
-        <Button className="w-full" disabled={busy} onClick={save}>
+      <div style={{ position: "sticky", bottom: 0, marginTop: 16, marginLeft: -16, marginRight: -16, borderTop: `1px solid ${PF.grad2}`, background: PF.grad1, padding: "12px 16px calc(12px + env(safe-area-inset-bottom))" }}>
+        <button type="button" disabled={busy} onClick={save} style={{ width: "100%", background: PF.accent, color: PF.onGrad, fontWeight: 700, fontSize: 13, padding: "10px 0", borderRadius: 8, border: "none", cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Saving…" : saved ? "Saved ✓" : "Save settings"}
-        </Button>
+        </button>
       </div>
     </PfShell>
-  );
-}
-
-function Toggle({ label, desc, on, onChange }: { label: string; desc?: string; on: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="text-sm font-medium text-slate-200">{label}</div>
-        {desc && <div className="text-xs text-slate-400">{desc}</div>}
-      </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
-        onClick={() => onChange(!on)}
-        className={cx("relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition", on ? "bg-emerald-600" : "bg-ink-700")}
-      >
-        <span className={cx("absolute top-0.5 h-5 w-5 rounded-full bg-ink-850 transition", on ? "left-[22px]" : "left-0.5")} />
-      </button>
-    </div>
   );
 }

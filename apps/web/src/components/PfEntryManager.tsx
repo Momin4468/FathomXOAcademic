@@ -3,10 +3,12 @@ import { useMemo, useState } from "react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
+import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfEntry } from "@/lib/pf-types";
-import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import {
+  PF, PfBtn, PfCard, PfField, PfInput, PfSelect, PfMoneyInput, PfBadge, PfNote, PfLoading, PfEmpty, PfTextBtn,
+} from "@/components/pf-dc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -65,123 +67,97 @@ export function PfEntryManager({ kind }: { kind: "income" | "expense" }) {
     await mutate();
   }
 
-  const tone = kind === "income" ? "text-emerald-700" : "text-rose-700";
+  const amtColor = kind === "income" ? PF.green : PF.red;
+  const th: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: PF.muted, padding: "9px 14px", borderBottom: `1px solid ${PF.border}`, whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "9px 14px", borderBottom: `1px solid ${PF.hair}`, verticalAlign: "top" };
 
   return (
     <>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold capitalize tracking-tight">{kind}</h1>
-        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : `+ Add ${kind}`}</Button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad, textTransform: "capitalize" }}>{kind}</h1>
+        <PfBtn onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : `+ Add ${kind}`}</PfBtn>
       </div>
 
       {open && (
-        <Card className="mb-5">
-          <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Category" error={fieldErrs.categoryId}>
-                <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+        <PfCard style={{ marginBottom: 16 }}>
+          <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <PfField label="Category" error={fieldErrs.categoryId}>
+                <PfSelect value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
                   <option value="">{categories && categories.length === 0 ? "No categories yet" : "Uncategorised"}</option>
-                  {(categories ?? []).map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Date" error={fieldErrs.occurredOn}>
-                <DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} />
-              </Field>
-              <Field label="Amount" required error={fieldErrs.amount}>
-                <MoneyInput currency={form.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
-              </Field>
-              <Field label="Currency" error={fieldErrs.currency}>
-                <Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                  {(categories ?? []).map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </PfSelect>
+              </PfField>
+              <PfField label="Date" error={fieldErrs.occurredOn}>
+                <PfInput type="date" value={form.occurredOn} onChange={(e) => setForm({ ...form, occurredOn: e.target.value })} />
+              </PfField>
+              <PfField label="Amount" required error={fieldErrs.amount}>
+                <PfMoneyInput currency={form.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} required />
+              </PfField>
+              <PfField label="Currency" error={fieldErrs.currency}>
+                <PfSelect value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
                   {PF_CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-                </Select>
-              </Field>
+                </PfSelect>
+              </PfField>
             </div>
             {form.currency !== "BDT" && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Converted amount (optional)" hint="No automatic conversion — record it if you want." error={fieldErrs.convertedAmount}>
-                  <MoneyInput currency={form.convertedCurrency} value={form.convertedAmount} onChange={(v) => setForm({ ...form, convertedAmount: v })} />
-                </Field>
-                <Field label="Converted currency" error={fieldErrs.convertedCurrency}>
-                  <Select value={form.convertedCurrency} onChange={(e) => setForm({ ...form, convertedCurrency: e.target.value })}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+                <PfField label="Converted amount (optional)" hint="No automatic conversion — record it if you want." error={fieldErrs.convertedAmount}>
+                  <PfMoneyInput currency={form.convertedCurrency} value={form.convertedAmount} onChange={(v) => setForm({ ...form, convertedAmount: v })} />
+                </PfField>
+                <PfField label="Converted currency" error={fieldErrs.convertedCurrency}>
+                  <PfSelect value={form.convertedCurrency} onChange={(e) => setForm({ ...form, convertedCurrency: e.target.value })}>
                     {PF_CURRENCIES.map((c) => (<option key={c} value={c}>{c}</option>))}
-                  </Select>
-                </Field>
+                  </PfSelect>
+                </PfField>
               </div>
             )}
-            <Field label="Note" error={fieldErrs.note}>
-              <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
-            </Field>
-            {err && <ErrorNote message={err} />}
-            <Button type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : `Save ${kind}`}</Button>
+            <PfField label="Note" error={fieldErrs.note}>
+              <PfInput value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+            </PfField>
+            {err && <PfNote tone="red">{err}</PfNote>}
+            <div><PfBtn type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : `Save ${kind}`}</PfBtn></div>
           </form>
-        </Card>
+        </PfCard>
       )}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {entries && (
-        <DataTable<PfEntry>
-          tableId={`pf-${kind}`}
-          exportName={kind}
-          rows={entries}
-          getRowId={(x) => x.id}
-          emptyTitle={`No ${kind} yet`}
-          columns={[
-            {
-              key: "category",
-              header: "Category",
-              sortable: true,
-              filter: "text",
-              render: (x) => (
-                <span>
-                  {x.categoryId ? catName.get(x.categoryId) ?? "—" : "Uncategorised"}
-                  {x.source === "business_payout" && <span className="ml-2"><Badge tone="blue">business payout</Badge></span>}
-                </span>
-              ),
-              value: (x) => (x.categoryId ? catName.get(x.categoryId) ?? "" : "Uncategorised"),
-            },
-            {
-              key: "amount",
-              header: "Amount",
-              align: "right",
-              sortable: true,
-              total: true,
-              // Per-row currency: render with pfMoney; numeric value drives sort/total.
-              render: (x) => <span className={`tabular-nums ${tone}`}>{pfMoney(x.amount, x.currency)}</span>,
-              value: (x) => (x.amount == null ? "" : Number(x.amount)),
-            },
-            { key: "occurredOn", header: "Date", sortable: true, format: "date", value: (x) => x.occurredOn },
-            { key: "note", header: "Note", filter: "text", value: (x) => x.note ?? "" },
-            {
-              key: "flags",
-              header: "",
-              align: "center",
-              render: (x) => (x.reversesId ? <Badge tone="red">reversal</Badge> : reversedIds.has(x.id) ? <Badge tone="gray">reversed</Badge> : null),
-              value: (x) => (x.reversesId ? "reversal" : reversedIds.has(x.id) ? "reversed" : ""),
-            },
-            {
-              key: "action",
-              header: "",
-              align: "right",
-              render: (x) =>
-                !x.reversesId && !reversedIds.has(x.id) && x.source !== "business_payout" ? (
-                  <button
-                    type="button"
-                    aria-label="Reverse entry"
-                    className="text-xs text-red-600 hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      reverse(x.id);
-                    }}
-                  >
-                    delete
-                  </button>
-                ) : null,
-            },
-          ]}
-        />
+      {isLoading && <PfLoading />}
+      {error && <PfNote tone="red">{error.message}</PfNote>}
+      {entries && entries.length === 0 && <PfEmpty title={`No ${kind} yet`} />}
+      {entries && entries.length > 0 && (
+        <div style={{ background: PF.card, border: `1px solid ${PF.border}`, borderRadius: 12, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 12.5 }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, textAlign: "left" }}>Detail</th>
+                <th style={{ ...th, textAlign: "left" }}>Date</th>
+                <th style={{ ...th, textAlign: "right" }}>Amount (BDT)</th>
+                <th style={{ ...th, width: 90 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((x) => {
+                const reversal = !!x.reversesId;
+                const wasReversed = reversedIds.has(x.id);
+                const isPayout = x.source === "business_payout";
+                return (
+                  <tr key={x.id} style={{ opacity: reversal ? 0.55 : 1 }}>
+                    <td style={td}>
+                      <span style={{ fontWeight: 500, color: PF.text }}>{x.categoryId ? catName.get(x.categoryId) ?? "—" : "Uncategorised"}</span>
+                      {isPayout && <span style={{ marginLeft: 8 }}><PfBadge tone="blue">business payout</PfBadge></span>}
+                      {x.note && <span style={{ display: "block", fontSize: 10.5, color: PF.faint }}>{x.note}</span>}
+                    </td>
+                    <td style={{ ...td, color: PF.muted, whiteSpace: "nowrap" }}>{formatDate(x.occurredOn)}</td>
+                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: amtColor }}>{pfMoney(x.amount, x.currency)}</td>
+                    <td style={{ ...td, textAlign: "right", whiteSpace: "nowrap" }}>
+                      {reversal ? <PfBadge tone="red">reversal</PfBadge> : wasReversed ? <PfBadge tone="gray">reversed</PfBadge> : !isPayout ? <PfTextBtn danger ariaLabel="Reverse entry" onClick={() => reverse(x.id)}>delete</PfTextBtn> : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

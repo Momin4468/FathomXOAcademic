@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { clampAmount, remainingToAllocate } from "@/lib/billing";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { can, type Balance, type Invoice, type InvoiceDetail, type PaymentDetail, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyName } from "@/components/PartyName";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, EmptyState, ErrorNote, Money, MoneyInput, Provenance, Spinner, cx } from "@/components/ui";
+import { Money, MoneyInput } from "@/components/ui";
+import { Badge, Card, EmptyBox, GhostButton, GoldButton, Loading, Note, T } from "@/components/dc";
 
 /** A candidate the payment can be allocated to, with the amount entered so far. */
 interface Target {
@@ -179,85 +180,101 @@ export default function PaymentDetailPage() {
     }
   }
 
+  const showRight = !isReversal && canViewBalance;
+  const dlRow: React.CSSProperties = { display: "flex", justifyContent: "space-between", fontSize: 13 };
+
   return (
     <AppShell>
-      <Link href="/payments" className="mb-3 inline-block text-xs text-gray-500 hover:underline">
-        ← Payments
-      </Link>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {!isLoading && !error && !payment && <EmptyState title="Payment not found" />}
-      {payment && (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {/* Left — the payment */}
-          <Card className="h-fit">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold tracking-tight"><Money value={payment.amount} /></h1>
-              <Badge tone={payment.direction === "in" ? "green" : "blue"}>{payment.direction}</Badge>
-              {isReversal && <Badge tone="red">reversal</Badge>}
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              {counterparty ? <PartyName id={counterparty} /> : "no counterparty"} · {formatDate(payment.paidAt)}
-              {payment.medium ? ` · ${payment.medium}` : ""}{payment.trxId ? ` · ${payment.trxId}` : ""}
-            </p>
-            <Provenance items={[{ label: "Created by", name: payment.createdByName, at: payment.createdAt }]} />
-            {amountVisible && !isReversal && (
-              <dl className="mt-3 space-y-1 rounded-lg border border-ink-700 p-3 text-sm">
-                <div className="flex justify-between"><dt className="text-slate-400">Payment</dt><dd className="tabular-nums"><Money value={payment.amount} /></dd></div>
-                <div className="flex justify-between"><dt className="text-slate-400">Allocated</dt><dd className="tabular-nums"><Money value={Number(payment.amount) - remaining} /></dd></div>
-                <div className="mt-1 flex justify-between border-t border-ink-700 pt-1 font-semibold"><dt>Unapplied</dt><dd className={cx("tabular-nums", remaining < 0 && "text-red-600 dark:text-red-400")}><Money value={remaining} /></dd></div>
-              </dl>
-            )}
-            {canApprove && !isReversal && <Button variant="danger" className="mt-3 w-full" disabled={busy} onClick={reverse}>Reverse payment</Button>}
-            {actionError && <div className="mt-2"><ErrorNote message={actionError} /></div>}
-            {okMsg && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{okMsg}</p>}
-          </Card>
-
-          {/* Right — match against open items */}
-          {!isReversal && canViewBalance && (
-            <Card className="p-0 lg:col-span-2">
-              <div className="flex items-center justify-between border-b border-ink-700 px-4 py-2.5">
-                <h2 className="text-sm font-semibold">Match against open items</h2>
-                {canCreate && targets.some((t) => t.due != null) && (
-                  <Button variant="secondary" className="min-h-0 px-2 py-1 text-xs" onClick={suggestSplit}>Suggest split</Button>
-                )}
+      <div style={{ fontFamily: "Inter, sans-serif", color: T.ink }}>
+        <Link href="/payments" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none" }}>
+          ← Payments
+        </Link>
+        {isLoading && <Loading />}
+        {error && <div style={{ marginTop: 12 }}><Note>{error.message}</Note></div>}
+        {!isLoading && !error && !payment && <div style={{ marginTop: 12 }}><EmptyBox title="Payment not found" /></div>}
+        {payment && (
+          <div style={{ marginTop: 12, display: "grid", gap: 20, gridTemplateColumns: showRight ? "minmax(280px, 360px) minmax(0, 1fr)" : "1fr", alignItems: "start" }}>
+            {/* Left — the payment */}
+            <Card style={{ padding: 16, height: "fit-content", maxWidth: showRight ? undefined : 420 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}><Money value={payment.amount} /></span>
+                <Badge tone={payment.direction === "in" ? "green" : "blue"}>{payment.direction}</Badge>
+                {isReversal && <Badge tone="red">reversal</Badge>}
               </div>
-              {!counterparty ? (
-                <div className="p-4"><EmptyState title="No counterparty" hint="Open items derive from the counterparty." /></div>
-              ) : loadingTargets ? (
-                <div className="p-4"><Spinner label="Finding open items…" /></div>
-              ) : targets.length === 0 ? (
-                <div className="p-4"><EmptyState title={direction === "in" ? "Nothing outstanding for this client" : "No payout target"} /></div>
-              ) : (
-                <>
-                  <ul className="divide-y divide-ink-800">
-                    {targets.map((t) => (
-                      <li key={t.key} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                        <div className="min-w-0 text-sm">
-                          <span className="font-medium">{t.label}</span>{t.kind === "charge" && <Badge tone="amber">charge</Badge>}
-                          {t.sub && <div className="text-xs text-slate-500">{t.sub}</div>}
-                        </div>
-                        <div className="w-28 shrink-0">
-                          <MoneyInput placeholder="0" value={t.amount} disabled={!canCreate} onChange={(v) => setAmount(t.key, v)}
-                            onBlur={() => { if (t.due !== undefined && Number(t.amount) > 0) setAmount(t.key, String(clampAmount(t.amount, t.due))); }} />
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {canCreate && (
-                    <div className="flex items-center justify-between border-t border-ink-700 px-4 py-2.5">
-                      <span className="text-xs text-slate-400">Tick several to split across jobs.</span>
-                      <Button disabled={busy || remaining < 0 || targets.every((t) => Number(t.amount) <= 0)} onClick={allocate}>
-                        {busy ? "Applying…" : "Apply allocation"}
-                      </Button>
-                    </div>
-                  )}
-                </>
+              <p style={{ marginTop: 4, fontSize: 11.5, color: T.muted2 }}>
+                {counterparty ? <PartyName id={counterparty} /> : "no counterparty"} · {formatDate(payment.paidAt)}
+                {payment.medium ? ` · ${payment.medium}` : ""}{payment.trxId ? ` · ${payment.trxId}` : ""}
+              </p>
+              {(payment.createdByName || payment.createdAt) && (
+                <div style={{ marginTop: 12, fontSize: 11.5, color: T.muted2, borderTop: `1px solid ${T.hair}`, paddingTop: 8 }}>
+                  Created by <span style={{ color: T.ink2 }}>{payment.createdByName ?? "—"}</span>
+                  {payment.createdAt ? ` · ${formatDateTime(payment.createdAt)}` : ""}
+                </div>
               )}
+              {amountVisible && !isReversal && (
+                <dl style={{ margin: "12px 0 0", display: "grid", gap: 5, border: `1px solid ${T.border}`, borderRadius: 10, padding: 12 }}>
+                  <div style={dlRow}><dt style={{ color: T.muted }}>Payment</dt><dd style={{ margin: 0, fontVariantNumeric: "tabular-nums" }}><Money value={payment.amount} /></dd></div>
+                  <div style={dlRow}><dt style={{ color: T.muted }}>Allocated</dt><dd style={{ margin: 0, fontVariantNumeric: "tabular-nums" }}><Money value={Number(payment.amount) - remaining} /></dd></div>
+                  <div style={{ ...dlRow, marginTop: 4, borderTop: `1px solid ${T.border}`, paddingTop: 6, fontWeight: 700 }}>
+                    <dt>Unapplied</dt><dd style={{ margin: 0, fontVariantNumeric: "tabular-nums", color: remaining < 0 ? T.red : undefined }}><Money value={remaining} /></dd>
+                  </div>
+                </dl>
+              )}
+              {canApprove && !isReversal && (
+                <div style={{ marginTop: 12 }}>
+                  <GhostButton danger disabled={busy} onClick={reverse}>Reverse payment</GhostButton>
+                </div>
+              )}
+              {actionError && <div style={{ marginTop: 8 }}><Note>{actionError}</Note></div>}
+              {okMsg && <div style={{ marginTop: 8 }}><Note tone="green">{okMsg}</Note></div>}
             </Card>
-          )}
-        </div>
-      )}
+
+            {/* Right — match against open items */}
+            {showRight && (
+              <Card>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: `1px solid ${T.eyebrow}` }}>
+                  <h2 style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>Match against open items</h2>
+                  {canCreate && targets.some((t) => t.due != null) && (
+                    <GhostButton onClick={suggestSplit}>Suggest split</GhostButton>
+                  )}
+                </div>
+                {!counterparty ? (
+                  <div style={{ padding: 14 }}><EmptyBox title="No counterparty" hint="Open items derive from the counterparty." /></div>
+                ) : loadingTargets ? (
+                  <Loading label="Finding open items…" />
+                ) : targets.length === 0 ? (
+                  <div style={{ padding: 14 }}><EmptyBox title={direction === "in" ? "Nothing outstanding for this client" : "No payout target"} /></div>
+                ) : (
+                  <>
+                    <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                      {targets.map((t) => (
+                        <li key={t.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${T.hair}` }}>
+                          <div style={{ minWidth: 0, fontSize: 13 }}>
+                            <span style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}>{t.label}{t.kind === "charge" && <Badge tone="amber">charge</Badge>}</span>
+                            {t.sub && <div style={{ fontSize: 11.5, color: T.muted2 }}>{t.sub}</div>}
+                          </div>
+                          <div style={{ width: 112, flexShrink: 0 }}>
+                            <MoneyInput placeholder="0" value={t.amount} disabled={!canCreate} onChange={(v) => setAmount(t.key, v)}
+                              onBlur={() => { if (t.due !== undefined && Number(t.amount) > 0) setAmount(t.key, String(clampAmount(t.amount, t.due))); }} />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {canCreate && (
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 14px", borderTop: `1px solid ${T.eyebrow}` }}>
+                        <span style={{ fontSize: 11.5, color: T.muted }}>Tick several to split across jobs.</span>
+                        <GoldButton disabled={busy || remaining < 0 || targets.every((t) => Number(t.amount) <= 0)} onClick={allocate}>
+                          {busy ? "Applying…" : "Apply allocation"}
+                        </GoldButton>
+                      </div>
+                    )}
+                  </>
+                )}
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
     </AppShell>
   );
 }

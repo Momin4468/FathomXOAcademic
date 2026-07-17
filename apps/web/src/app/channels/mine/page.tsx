@@ -1,9 +1,9 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { type MyProfitShare } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Card, EmptyState, ErrorNote, Money, Spinner } from "@/components/ui";
+import { cell, DGrid, EmptyBox, fmtDay, Loading, money, Note, Page, StatCards, T } from "@/components/dc";
 
 /**
  * A sharer's own profit-share view (§4.4). Channel-scoped cuts are itemised
@@ -11,48 +11,42 @@ import { Card, EmptyState, ErrorNote, Money, Spinner } from "@/components/ui";
  * dividend is shown ONLY as an aggregate total, never per-job, so an individual
  * private-client job's margin can't be isolated.
  */
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
+
 export default function MySharePage() {
   const { data, error, isLoading } = useApi<MyProfitShare>("channels/profit-share/mine");
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">My profit share</h1>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.jobCount === 0 && data.total === 0 && (
-        <EmptyState title="You don't have a profit share yet" hint="Shares appear here once an owner/admin sets one and jobs come in." />
-      )}
-      {data && (data.jobCount > 0 || data.total !== 0) && (
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Card>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total share to date</h2>
-              <p className="mt-1 text-2xl font-semibold"><Money value={data.total} /></p>
-            </Card>
-            <Card>
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Standing dividend (aggregate)</h2>
-              <p className="mt-1 text-2xl font-semibold"><Money value={data.dividendTotal} /></p>
-              <p className="mt-1 text-xs text-slate-500">A net-profit dividend is shown as a total only.</p>
-            </Card>
-          </div>
-
-          <section>
-            <h2 className="mb-2 text-sm font-semibold text-slate-200">Channel-scoped earnings (per job)</h2>
-            {data.channelShares.length === 0 ? (
-              <EmptyState title="No channel-scoped share yet" hint="Channel shares appear here as jobs come in." />
-            ) : (
-              <ul className="divide-y divide-ink-800 rounded-lg border border-ink-800 bg-ink-850 text-sm">
-                {data.channelShares.map((s) => (
-                  <li key={s.workItemId} className="flex items-center justify-between px-3 py-2">
-                    <span className="text-xs text-slate-400">job {s.workItemId.slice(0, 8)} · {formatDate(s.jobDate)}</span>
-                    <Money value={s.amount} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
-      )}
+      <Page title="My profit share" sub="your channel cuts per job; a standing dividend is shown as a total only">
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && data.jobCount === 0 && data.total === 0 && (
+          <EmptyBox title="You don't have a profit share yet" hint="Shares appear here once an owner/admin sets one and jobs come in." />
+        )}
+        {data && (data.jobCount > 0 || data.total !== 0) && (
+          <>
+            <StatCards
+              min={220}
+              items={[
+                { label: "Total share to date", value: money(data.total), tone: "gold" },
+                { label: "Standing dividend (aggregate)", value: money(data.dividendTotal), tone: "purple", note: "a net-profit dividend is shown as a total only" },
+              ]}
+            />
+            <h2 style={sectionH}>Channel-scoped earnings (per job)</h2>
+            <DGrid<MyProfitShare["channelShares"][number]>
+              minWidth={360}
+              rows={data.channelShares}
+              keyOf={(s) => s.workItemId}
+              cols={[
+                { label: "Job", render: (s) => cell(`job ${s.workItemId.slice(0, 8)}`, { mono: true, sub: fmtDay(s.jobDate) }) },
+                { label: "Amount", align: "right", render: (s) => cell(money(s.amount), { nums: true, weight: 600 }) },
+              ]}
+              empty="No channel-scoped share yet — channel shares appear here as jobs come in."
+            />
+          </>
+        )}
+      </Page>
     </AppShell>
   );
 }

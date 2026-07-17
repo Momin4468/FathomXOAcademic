@@ -2,28 +2,32 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { useApi } from "@/lib/api";
 import { can, type PartyDetail, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { PartyForm, type PartyFormInitial } from "@/components/PartyForm";
-import { Register } from "@/components/Register";
-import { Badge, Button, Card, Chip, EmptyState, ErrorNote, Money, Spinner, StateBadge } from "@/components/ui";
+import {
+  Badge, Card, CardHead, cell, DGrid, EmptyBox, GhostButton, Loading, money, Note,
+  Page, StatCards, T, fmtDay, type DCol, type Stat, type Tone,
+} from "@/components/dc";
 
 /**
- * Person record — the consolidated "Team & partners" 360. One party is multi-hat
- * (Khalid sources AND writes), so the record shows a facet PER hat the person
- * wears, each surfacing the fields/activity that matter for that role:
- *   • writer / employee → work log (jobs done), their earnings (money-gated)
- *   • partner / referrer → jobs they sourced + their share (money-gated)
- *   • client           → link to the full Client 360
- *   • vendor           → their claims
- * Money is gated + §4.4 opacity-safe (the work read model only fills money columns
- * the caller may see). Clients keep their own dedicated directory; this is the
- * back-office people view (writers, partners, vendors, referrers, employees).
+ * Person record — the consolidated "Team & partners" 360, recreated to the
+ * `Business OS v5` handoff. One party is multi-hat (Khalid sources AND writes), so
+ * the record shows a facet PER hat: a work log for a writer/employee, sourced jobs
+ * for a partner/referrer, a Client 360 link, vendor claims, and a running-balance
+ * ledger. Money is gated + §4.4 opacity-safe (the read model only fills money the
+ * caller may see; the balance register endpoint is RLS-scoped to visible legs).
  */
-const HAT_TONE: Record<string, "blue" | "green" | "amber" | "gray"> = {
+interface RegRow { date: string; kind: string; ref: string | null; delta: number; running: number }
+interface Reg { rows: RegRow[]; net: number }
+
+const HAT_TONE: Record<string, Tone> = {
   writer: "blue", employee: "blue", partner: "green", referrer: "green", client: "amber", vendor: "gray",
 };
+const STATE_TONE: Record<string, Tone> = { delivered: "green", confirmed: "blue", pending: "amber", draft: "gray" };
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "0 0 10px" };
 
 export default function PersonRecordPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,188 +44,210 @@ export default function PersonRecordPage() {
   const isDoer = hats.includes("writer") || hats.includes("employee");
   const isSource = hats.includes("partner") || hats.includes("referrer");
   const isClient = hats.includes("client");
+  const isVendor = hats.includes("vendor");
 
   const { data: jobsDone } = useApi<WorkListRow[]>(party && canWork && isDoer ? `work?doerPartyId=${id}` : null);
   const { data: jobsSourced } = useApi<WorkListRow[]>(party && canWork && isSource ? `work?sourcePartyId=${id}` : null);
+  const regGate = canMoney && (isDoer || isSource || isVendor);
+  const { data: reg } = useApi<Reg>(party && regGate ? `billing/register/${id}` : null);
 
   const contact = (party?.contact ?? {}) as Record<string, unknown>;
   const email = typeof contact.email === "string" ? contact.email : null;
   const phone = typeof contact.phone === "string" ? contact.phone : null;
-  const initial = (party?.displayName ?? "?").trim()[0]?.toUpperCase() ?? "?";
+
+  const meta = party ? [party.universityCanonical, party.programme, party.externalRef ? `Ref ${party.externalRef}` : null].filter(Boolean).join(" · ") : "";
+
+  const stats: Stat[] = [];
+  if (isDoer) stats.push({ label: "Jobs done", value: jobsDone?.length ?? "—", tone: "blue" });
+  if (isSource) stats.push({ label: "Jobs sourced", value: jobsSourced?.length ?? "—", tone: "green" });
+  if (regGate && reg) stats.push({ label: "Net balance", value: money(reg.net), tone: reg.net < 0 ? "red" : "gold", note: reg.net < 0 ? "they owe / were paid" : "owed to them" });
 
   return (
     <AppShell>
-      <Link href="/people" className="mb-3 inline-block text-xs text-slate-400 hover:underline">‹ Team &amp; partners</Link>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {!isLoading && !error && !party && <EmptyState title="Person not found" />}
+      <Link href="/people" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none", display: "inline-block", marginBottom: 4 }}>← Team &amp; partners</Link>
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
+      {!isLoading && !error && !party && <EmptyBox title="Person not found" />}
 
       {party && (
-        <div className="space-y-5">
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-ink-800 text-lg font-semibold text-slate-200">{initial}</span>
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight">{party.displayName}</h1>
-                <div className="mt-1 flex flex-wrap items-center gap-1">
-                  {hats.map((t) => <Badge key={t} tone={HAT_TONE[t] ?? "gray"}>{t}</Badge>)}
-                  {hats.length === 0 && <span className="text-xs text-slate-500">no type set</span>}
-                </div>
-              </div>
-            </div>
-            {canEdit && !editing && <Button variant="secondary" onClick={() => setEditing(true)}>Edit</Button>}
-          </header>
+        <Page
+          title={party.displayName}
+          sub={meta || undefined}
+          action={canEdit && !editing ? <GhostButton onClick={() => setEditing(true)}>Edit</GhostButton> : undefined}
+        >
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            {hats.map((t) => <Badge key={t} tone={HAT_TONE[t] ?? "gray"}>{t}</Badge>)}
+            {hats.length === 0 && <span style={{ fontSize: 11, color: T.muted2 }}>no type set</span>}
+          </div>
+          <div style={{ fontSize: 12, color: T.muted2, marginBottom: 16 }}>
+            One record per person — each hat they wear surfaces the work and money that matters for that role.
+          </div>
 
           {editing && canEdit ? (
             <Card>
-              <h2 className="mb-3 text-sm font-semibold">Edit person</h2>
-              <PartyForm
-                initial={{
-                  id: party.id,
-                  displayName: party.displayName,
-                  partyType: party.partyType,
-                  externalRef: party.externalRef,
-                  universityId: party.universityId,
-                  programme: party.programme,
-                  contact: party.contact ?? null,
-                  ownerPartyId: party.ownerPartyId ?? null,
-                  ownerName: party.ownerName ?? null,
-                } satisfies PartyFormInitial}
-                onSaved={() => { setEditing(false); void mutate(); }}
-                onCancel={() => setEditing(false)}
-              />
+              <CardHead>Edit person</CardHead>
+              <div style={{ padding: "14px 16px" }}>
+                <PartyForm
+                  initial={{
+                    id: party.id,
+                    displayName: party.displayName,
+                    partyType: party.partyType,
+                    externalRef: party.externalRef,
+                    universityId: party.universityId,
+                    programme: party.programme,
+                    contact: party.contact ?? null,
+                    ownerPartyId: party.ownerPartyId ?? null,
+                    ownerName: party.ownerName ?? null,
+                  } satisfies PartyFormInitial}
+                  onSaved={() => { setEditing(false); void mutate(); }}
+                  onCancel={() => setEditing(false)}
+                />
+              </div>
             </Card>
           ) : (
             <>
+              {stats.length > 0 && <StatCards min={180} items={stats} />}
+
               {/* Identity + contact */}
-              <Card>
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Details</h2>
-                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <Card style={{ marginBottom: 16 }}>
+                <CardHead>Details</CardHead>
+                <div style={{ padding: "12px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                   <Detail label="Ref / student ID" value={party.externalRef} />
                   <Detail label="University" value={party.universityCanonical} />
                   <Detail label="Programme" value={party.programme} />
                   <Detail label="Referred by" value={party.referredByName} />
                   <Detail label="Email" value={email} />
                   <Detail label="Phone" value={phone} />
-                </dl>
+                </div>
                 {party.customFields.length > 0 && (
-                  <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-ink-700 pt-3 text-sm sm:grid-cols-4">
+                  <div style={{ padding: "12px 16px", borderTop: `1px solid ${T.eyebrow}`, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
                     {party.customFields.map((f) => (
                       <Detail key={f.id} label={`${f.fieldName}${f.required ? " *" : ""}`} value={f.value == null || f.value === "" ? null : String(f.value)} />
                     ))}
-                  </dl>
+                  </div>
                 )}
               </Card>
 
               {isClient && (
-                <Card className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-semibold">Client account</h2>
-                    <p className="text-xs text-slate-400">This person is also a client — invoices, balance &amp; portal live on the Client 360.</p>
+                <Card style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Client account</div>
+                      <div style={{ fontSize: 11.5, color: T.muted2, marginTop: 2 }}>This person is also a client — invoices, balance &amp; portal live on the Client 360.</div>
+                    </div>
+                    <GhostButton href={`/clients/${id}`}>Open Client 360 →</GhostButton>
                   </div>
-                  <Link href={`/clients/${id}`}><Button variant="secondary">Open Client 360 →</Button></Link>
                 </Card>
               )}
 
               {isDoer && (
-                <JobsCard
-                  title="Work log — jobs done"
-                  emptyTitle="No jobs done yet"
-                  jobs={jobsDone}
-                  canMoney={canMoney}
-                  moneyLabel="you're owed"
-                  moneyField="writerAmount"
-                />
+                <JobsGrid title="Work log — jobs done" empty="No jobs done yet" jobs={jobsDone} canMoney={canMoney} moneyLabel="you're owed" moneyField="writerAmount" />
               )}
-
               {isSource && (
-                <JobsCard
-                  title="Jobs sourced"
-                  emptyTitle="No sourced jobs yet"
-                  jobs={jobsSourced}
-                  canMoney={canMoney}
-                  moneyLabel="client"
-                  moneyField="clientAmount"
-                />
+                <JobsGrid title="Jobs sourced" empty="No sourced jobs yet" jobs={jobsSourced} canMoney={canMoney} moneyLabel="client" moneyField="clientAmount" />
               )}
 
-              {hats.includes("vendor") && (
-                <Card className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-semibold">Vendor claims</h2>
-                    <p className="text-xs text-slate-400">Handoffs &amp; claims this vendor has billed us for.</p>
+              {isVendor && (
+                <Card style={{ marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 16px" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Vendor claims</div>
+                      <div style={{ fontSize: 11.5, color: T.muted2, marginTop: 2 }}>Handoffs &amp; claims this vendor has billed us for.</div>
+                    </div>
+                    {can(perms, "vendor:approve") && <GhostButton href="/vendor-admin">Open vendor claims →</GhostButton>}
                   </div>
-                  {can(perms, "vendor:approve") && <Link href="/vendor-admin"><Button variant="secondary">Open vendor claims →</Button></Link>}
                 </Card>
               )}
 
               {/* Money — running balance register (gated + RLS-scoped) */}
-              {canMoney && (isDoer || isSource || hats.includes("vendor")) && (
-                <Register path={`billing/register/${id}`} title="Balance register" />
-              )}
+              {regGate && <BalanceRegister reg={reg} />}
             </>
           )}
-        </div>
+        </Page>
       )}
     </AppShell>
   );
 }
 
 function Detail({ label, value }: { label: string; value: string | null | undefined }) {
+  const empty = value == null || value === "";
   return (
     <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="font-medium">{value == null || value === "" ? <span className="text-slate-500">—</span> : value}</dd>
+      <div style={{ fontSize: 10.5, color: T.muted }}>{label}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 500, color: empty ? T.muted2 : T.ink }}>{empty ? "—" : value}</div>
     </div>
   );
 }
 
 /** A compact spreadsheet-style job list; a money column shows only when present. */
-function JobsCard({
-  title, emptyTitle, jobs, canMoney, moneyLabel, moneyField,
+function JobsGrid({
+  title, empty, jobs, canMoney, moneyLabel, moneyField,
 }: {
   title: string;
-  emptyTitle: string;
+  empty: string;
   jobs: WorkListRow[] | undefined;
   canMoney: boolean;
   moneyLabel: string;
   moneyField: "writerAmount" | "clientAmount";
 }) {
+  const cols: DCol<WorkListRow>[] = [
+    { label: "Code", width: 90, render: (j) => j.courseCode ? cell(j.courseCode, { mono: true }) : <span style={{ color: T.muted2 }}>—</span> },
+    {
+      label: "Task",
+      render: (j) => (
+        <Link href={`/work/${j.id}`} style={{ color: T.ink, fontWeight: 500, textDecoration: "none", display: "block" }}>
+          {j.title}
+          <span style={{ display: "block", fontSize: 10.5, color: T.muted2 }}>
+            {[j.wordCount ? `${j.wordCount} words` : null, j.unitLabel].filter(Boolean).join(" · ") || "—"}
+          </span>
+        </Link>
+      ),
+    },
+    { label: "State", align: "center", render: (j) => <Badge tone={STATE_TONE[j.workState] ?? "gray"}>{j.workState}</Badge> },
+  ];
+  if (canMoney) {
+    cols.push({
+      label: moneyLabel,
+      align: "right",
+      render: (j) => {
+        const amt = j[moneyField];
+        return amt != null ? cell(money(amt), { nums: true, weight: 600 }) : <span style={{ color: T.muted2 }}>—</span>;
+      },
+    });
+  }
   return (
-    <Card className="p-0">
-      <h2 className="border-b border-ink-700 px-4 py-2.5 text-sm font-semibold">{title}</h2>
-      {!jobs || jobs.length === 0 ? (
-        <div className="p-4"><EmptyState title={emptyTitle} /></div>
-      ) : (
-        <ul className="divide-y divide-ink-800">
-          {jobs.map((j) => {
-            const amt = j[moneyField];
-            return (
-              <li key={j.id}>
-                <Link href={`/work/${j.id}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-ink-800/60">
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-2">
-                      {j.courseCode && <Chip>{j.courseCode}</Chip>}
-                      <span className="truncate font-medium">{j.title}</span>
-                    </span>
-                    <span className="mt-0.5 block text-xs text-slate-400">
-                      {[j.wordCount ? `${j.wordCount} words` : null, j.unitLabel].filter(Boolean).join(" · ")}
-                    </span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-3">
-                    <StateBadge state={j.workState} />
-                    {canMoney && amt != null && (
-                      <span className="w-28 text-right text-xs text-slate-300">
-                        <span className="text-slate-500">{moneyLabel} </span><Money value={amt} />
-                      </span>
-                    )}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Card>
+    <div style={{ marginBottom: 16 }}>
+      <h2 style={sectionH}>{title}</h2>
+      <DGrid<WorkListRow> cols={cols} rows={jobs ?? []} keyOf={(j) => j.id} minWidth={canMoney ? 520 : 420} empty={empty} />
+    </div>
+  );
+}
+
+/**
+ * QuickBooks-style running-balance register — time-ordered legs with a running
+ * balance. `+` = owed to the party, `−` = they owe / were paid. Opacity-safe (the
+ * endpoint scopes to the caller's visible legs).
+ */
+function BalanceRegister({ reg }: { reg: Reg | undefined }) {
+  const rows = (reg?.rows ?? []).map((r, i) => ({ ...r, _k: String(i) }));
+  type Row = (typeof rows)[number];
+  const cols: DCol<Row>[] = [
+    { label: "Date", width: 96, render: (r) => cell(fmtDay(r.date), { color: T.muted }) },
+    { label: "Entry", render: (r) => <span>{r.kind}{r.ref ? <span style={{ color: T.muted2, marginLeft: 4 }}>· {r.ref}</span> : null}</span> },
+    { label: "Amount", align: "right", render: (r) => cell(`${r.delta < 0 ? "−" : "+"}${money(Math.abs(r.delta))}`, { nums: true, weight: 600, color: r.delta < 0 ? T.red : T.green }) },
+    { label: "Balance", align: "right", render: (r) => cell(money(r.running), { nums: true, weight: 600 }) },
+  ];
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <h2 style={sectionH}>Balance register</h2>
+      <DGrid<Row>
+        cols={cols}
+        rows={rows}
+        keyOf={(r) => r._k}
+        minWidth={480}
+        empty="No ledger entries yet."
+        foot={reg ? <span>Balance <b style={{ color: T.ink }}>{money(reg.net)}</b> · <span style={{ color: T.muted }}>+ owed to them · − they owe or were paid. Appended, never edited.</span></span> : undefined}
+      />
+    </div>
   );
 }

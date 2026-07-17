@@ -1,9 +1,8 @@
 "use client";
 import { apiSend, useApi } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
-import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, ErrorNote, Money, Spinner } from "@/components/ui";
+import { Badge, cell, DGrid, fmtDay, GhostButton, GoldButton, Loading, money, Note, Page, T } from "@/components/dc";
 
 /**
  * Admin review queue for vendor-submitted invoices (audit item 13). Approve/reject
@@ -30,76 +29,40 @@ export default function VendorAdminPage() {
     await mutate();
   }
 
+  const total = (data ?? []).reduce((s, c) => s + Number(c.amount || 0), 0);
+
   return (
     <AppShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Vendor claims</h1>
-      <p className="mb-5 text-xs text-gray-500">
-        Approving is a decision only — post the actual payment leg on the job. The vendor sees the status here.
-      </p>
-
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<ClaimRow>
-          tableId="vendor-admin-claims"
-          exportName="vendor-claims"
-          rows={data}
-          getRowId={(c) => c.id}
-          emptyTitle="No vendor claims"
-          emptyHint="Submitted invoices will appear here."
-          columns={[
-            { key: "vendor", header: "Vendor", sortable: true, value: (c) => c.vendorName ?? c.vendorPartyId },
-            { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (c) => (c.amount == null ? "" : Number(c.amount)) },
-            { key: "note", header: "Note", filter: "text", value: (c) => c.note ?? "" },
-            { key: "createdAt", header: "Date", sortable: true, format: "date", value: (c) => c.createdAt },
-            {
-              key: "status",
-              header: "Status",
-              align: "center",
-              sortable: true,
-              filter: "select",
-              filterOptions: ["proposed", "approved", "rejected"],
-              render: (c) =>
-                c.status === "proposed" ? (
-                  <Badge tone="amber">proposed</Badge>
-                ) : (
-                  <Badge tone={c.status === "approved" ? "green" : "red"}>{c.status}</Badge>
-                ),
-              value: (c) => c.status,
-            },
-            {
-              key: "action",
-              header: "",
-              align: "right",
-              render: (c) =>
-                c.status === "proposed" ? (
-                  <span className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="secondary"
-                      className="px-2 py-1 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        decide(c.id, "approved");
-                      }}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        decide(c.id, "rejected");
-                      }}
-                    >
-                      Reject
-                    </Button>
-                  </span>
-                ) : null,
-            },
-          ]}
-        />
-      )}
+      <Page title="Vendor claims" sub="approving is a decision only — post the actual payment leg on the job; the vendor sees the status here">
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <DGrid<ClaimRow>
+            rows={data}
+            keyOf={(c) => c.id}
+            cols={[
+              { label: "Vendor", render: (c) => cell(c.vendorName ?? c.vendorPartyId, { weight: 500 }) },
+              { label: "Amount", align: "right", render: (c) => cell(money(c.amount), { nums: true, weight: 600 }) },
+              { label: "Note", render: (c) => <span style={{ color: T.ink2 }}>{c.note ?? "—"}</span> },
+              { label: "Date", render: (c) => <span style={{ color: T.muted2 }}>{fmtDay(c.createdAt)}</span> },
+              { label: "Status", align: "center", render: (c) => <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge> },
+              {
+                label: "",
+                align: "right",
+                render: (c) =>
+                  c.status === "proposed" ? (
+                    <span style={{ display: "inline-flex", gap: 8, justifyContent: "flex-end" }}>
+                      <GoldButton onClick={() => void decide(c.id, "approved")}>Approve</GoldButton>
+                      <GhostButton danger onClick={() => void decide(c.id, "rejected")}>Reject</GhostButton>
+                    </span>
+                  ) : null,
+              },
+            ]}
+            empty="No vendor claims — submitted invoices will appear here."
+            foot={<>Total submitted · {money(total)}</>}
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }

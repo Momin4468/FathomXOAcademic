@@ -1,9 +1,8 @@
 "use client";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, Spinner, Textarea } from "@/components/ui";
+import { Badge, Card, CardHead, cell, DGrid, dcInput, Field, fmtDay, GhostButton, Loading, Note, Page, T } from "@/components/dc";
 
 /**
  * Employee work-logging (audit item 12). Log what you did — hours/units, no money
@@ -23,26 +22,25 @@ export default function EmployeeLogPage() {
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">My work log</h1>
-      <LogForm onSaved={mutate} />
+      <Page title="My work log" sub="log what you did — no money here; an admin reviews and converts it into the job">
+        <LogForm onSaved={mutate} />
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No work logged yet" hint="Log what you did above." />}
-      {data && data.length > 0 && (
-        <ul className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-850">
-          {data.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-              <div>
-                <span className="font-medium">{l.title}</span>
-                {l.quantity && <span className="ml-2 text-xs text-slate-400">{l.quantity} hrs/units</span>}
-                <div className="mt-0.5 text-xs text-slate-500">{formatDate(l.loggedOn)}</div>
-              </div>
-              <Badge tone={l.status === "converted" ? "green" : l.status === "rejected" ? "red" : "amber"}>{l.status}</Badge>
-            </li>
-          ))}
-        </ul>
-      )}
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <DGrid<WorkLog>
+            minWidth={420}
+            rows={data}
+            keyOf={(l) => l.id}
+            cols={[
+              { label: "What you did", render: (l) => cell(l.title, { weight: 500, sub: l.quantity ? `${l.quantity} hrs/units` : undefined }) },
+              { label: "Date", render: (l) => <span style={{ color: T.muted2 }}>{fmtDay(l.loggedOn)}</span> },
+              { label: "Status", align: "center", render: (l) => <Badge tone={l.status === "converted" ? "green" : l.status === "rejected" ? "red" : "amber"}>{l.status}</Badge> },
+            ]}
+            empty="No work logged yet — log what you did above."
+          />
+        )}
+      </Page>
     </AppShell>
   );
 }
@@ -79,27 +77,25 @@ function LogForm({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Log work</h2>
-      <form onSubmit={save} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Log work</CardHead>
+      <form onSubmit={save} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <Field label="What did you do?">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Wrote chapter 2" />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Wrote chapter 2" style={dcInput} />
         </Field>
         <Field label="Hours / units (optional)">
-          <Input type="number" min="0" step="0.25" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <input type="number" min="0" step="0.25" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ ...dcInput, textAlign: "right" }} />
         </Field>
         <Field label="Date">
-          <DateInput value={loggedOn} onChange={setLoggedOn} />
+          <input type="date" value={loggedOn} onChange={(e) => setLoggedOn(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Notes (optional)">
-          <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} style={{ ...dcInput, resize: "vertical" }} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !title.trim()}>
-            {busy ? "Saving…" : "Log work"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !title.trim()}>{busy ? "Saving…" : "Log work"}</GhostButton>
         </div>
-        {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
+        {err && <div style={{ gridColumn: "1 / -1" }}><Note>{err}</Note></div>}
       </form>
     </Card>
   );

@@ -4,9 +4,8 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import type { PfCategory } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, ErrorNote, Field, Input, Select, Spinner } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfField, PfInput, PfSelect, PfBadge, PfNote, PfLoading, PfEmpty, PfTextBtn } from "@/components/pf-dc";
 
 export default function PfCategoriesPage() {
   const confirm = useConfirm();
@@ -40,61 +39,47 @@ export default function PfCategoriesPage() {
     await mutate();
   }
 
+  const th: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: PF.muted, padding: "9px 14px", borderBottom: `1px solid ${PF.border}`, whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "9px 14px", borderBottom: `1px solid ${PF.hair}`, verticalAlign: "middle" };
+
   return (
     <PfShell>
-      <h1 className="mb-1 text-lg font-semibold tracking-tight">Categories</h1>
-      <p className="mb-4 text-xs text-slate-400">Your own income & expense categories — add, rename, or archive freely.</p>
+      <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Categories</h1>
+      <p style={{ fontSize: 12, color: PF.onGradSub, margin: "4px 0 16px" }}>Your own income &amp; expense categories — add, rename, or archive freely.</p>
 
-      <Card className="mb-5">
-        <form onSubmit={add} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="sm:w-40"><Field label="Type" error={fieldErrs.kind}><Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="income">income</option><option value="expense">expense</option></Select></Field></div>
-          <div className="flex-1"><Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Groceries" /></Field></div>
-          <Button type="submit" disabled={busy || !form.name.trim()}>{busy ? "Adding…" : "Add"}</Button>
+      <PfCard style={{ marginBottom: 16 }}>
+        <form onSubmit={add} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+          <div style={{ width: 150 }}><PfField label="Type" error={fieldErrs.kind}><PfSelect value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}><option value="income">income</option><option value="expense">expense</option></PfSelect></PfField></div>
+          <div style={{ flex: 1, minWidth: 160 }}><PfField label="Name" error={fieldErrs.name}><PfInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Groceries" /></PfField></div>
+          <PfBtn type="submit" disabled={busy || !form.name.trim()}>{busy ? "Adding…" : "Add"}</PfBtn>
         </form>
-        {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-      </Card>
+        {err && <div style={{ marginTop: 8 }}><PfNote tone="red">{err}</PfNote></div>}
+      </PfCard>
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<PfCategory>
-          tableId="pf-categories"
-          exportName="categories"
-          rows={data}
-          getRowId={(c) => c.id}
-          emptyTitle="No categories yet"
-          columns={[
-            { key: "name", header: "Name", sortable: true, value: (c) => c.name },
-            {
-              key: "kind",
-              header: "Type",
-              align: "center",
-              sortable: true,
-              filter: "select",
-              filterOptions: ["income", "expense"],
-              render: (c) => <Badge tone={c.kind === "income" ? "green" : "gray"}>{c.kind}</Badge>,
-              value: (c) => c.kind,
-            },
-            {
-              key: "action",
-              header: "",
-              align: "right",
-              render: (c) => (
-                <button
-                  type="button"
-                  aria-label="Archive category"
-                  className="text-xs text-red-600 hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    archive(c.id);
-                  }}
-                >
-                  archive
-                </button>
-              ),
-            },
-          ]}
-        />
+      {isLoading && <PfLoading />}
+      {error && <PfNote tone="red">{error.message}</PfNote>}
+      {data && data.length === 0 && <PfEmpty title="No categories yet" />}
+      {data && data.length > 0 && (
+        <div style={{ background: PF.card, border: `1px solid ${PF.border}`, borderRadius: 12, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 360, borderCollapse: "collapse", fontSize: 12.5 }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, textAlign: "left" }}>Name</th>
+                <th style={{ ...th, textAlign: "center" }}>Type</th>
+                <th style={{ ...th, width: 70 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((c) => (
+                <tr key={c.id}>
+                  <td style={{ ...td, fontWeight: 500, color: PF.text }}>{c.name}</td>
+                  <td style={{ ...td, textAlign: "center" }}><PfBadge tone={c.kind === "income" ? "green" : "gray"}>{c.kind}</PfBadge></td>
+                  <td style={{ ...td, textAlign: "right" }}><PfTextBtn danger ariaLabel="Archive category" onClick={() => archive(c.id)}>archive</PfTextBtn></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </PfShell>
   );

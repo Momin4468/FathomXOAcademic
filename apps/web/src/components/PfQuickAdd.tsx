@@ -22,8 +22,8 @@ export function PfQuickAdd() {
         type="button"
         aria-label="Quick add expense"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-3xl leading-none text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-700 active:scale-95 sm:bottom-6 sm:right-6"
-        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+        className="fixed bottom-5 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-full text-3xl leading-none text-white shadow-lg transition active:scale-95 sm:bottom-6 sm:right-6"
+        style={{ marginBottom: "env(safe-area-inset-bottom)", background: "#0E5C50", boxShadow: "0 8px 24px rgba(14,92,80,0.35)" }}
       >
         +
       </button>
@@ -192,8 +192,9 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
               onClick={() => setCategoryId(categoryId === c.id ? "" : c.id)}
               className={cx(
                 "rounded-full border px-3 py-1.5 text-sm transition",
-                categoryId === c.id ? "border-emerald-600 bg-emerald-50 font-medium text-emerald-800" : "border-gray-200 text-gray-700 hover:border-gray-300",
+                categoryId === c.id ? "font-medium" : "border-gray-200 text-gray-700 hover:border-gray-300",
               )}
+              style={categoryId === c.id ? { borderColor: "#0E5C50", background: "#E9F6F2", color: "#0E5C50" } : undefined}
             >
               {c.name}
             </button>
@@ -251,9 +252,15 @@ function QuickAddSheet({ onClose }: { onClose: () => void }) {
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
         <div className="mt-4 flex items-center gap-3">
-          <Button className="flex-1" disabled={busy} onClick={save}>
+          <button
+            type="button"
+            className="flex-1"
+            disabled={busy}
+            onClick={save}
+            style={{ minHeight: 44, borderRadius: 8, background: "#0E5C50", color: "#EAF7F3", fontWeight: 700, fontSize: 14, border: "none", cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 }}
+          >
             {busy ? "Saving…" : saved ? "Saved ✓" : `Add ${kind}`}
-          </Button>
+          </button>
         </div>
         <p className="mt-2 text-center text-[11px] text-gray-400">Stays open for quick multi-entry · Enter to save</p>
       </div>

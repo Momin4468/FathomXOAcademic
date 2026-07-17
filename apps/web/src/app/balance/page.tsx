@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { chargeCategoryLabel } from "@/lib/billing";
+import { sanitizeAmount } from "@/lib/format";
 import { can, type Balance, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { BalanceView } from "@/components/BalanceView";
 import { Register } from "@/components/Register";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
 import { useConfirm } from "@/components/confirm";
-import { Button, Card, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { Card, CardHead, EmptyBox, Field, GoldButton, Loading, Note, Page, T, dcInput } from "@/components/dc";
 
 const CHARGE_CATEGORIES = ["platform_fee", "ai_check", "adjustment", "other"];
 
@@ -85,70 +86,68 @@ export default function BalancePage() {
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Balance</h1>
-
-      {/* The viewer's own two-way position (universal). */}
-      <section className="mb-8 space-y-2">
-        <h2 className="text-sm font-semibold text-slate-200">My position</h2>
-        {!myPartyId ? (
-          <EmptyState title="No personal balance" hint="Your account isn't linked to a party." />
-        ) : myLoading ? (
-          <Spinner />
-        ) : myBalance ? (
-          <>
-            <BalanceView balance={myBalance} perspective="self" />
-            {myPartyId && <Register path="billing/register/me" title="My register" />}
-          </>
-        ) : null}
-      </section>
-
-      {/* Admin: look up any party's balance + manage its charges. */}
-      {isAdmin && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-200">Look up a party</h2>
-          <Card>
-            <Field label="Party">
-              <EntityPicker placeholder="Search party…" search={searchParties} onPick={(i) => setLookupId(i?.id ?? null)} />
-            </Field>
-          </Card>
-
-          {lookupId && lookupLoading && <Spinner />}
-          {lookupId && lookup && (
-            <>
-              <BalanceView balance={lookup} perspective="other" onReverseCharge={canApprove ? reverseCharge : undefined} />
-              <Register path={`billing/register/${encodeURIComponent(lookupId)}`} title="Register" />
-              {actionError && <ErrorNote message={actionError} />}
-              {canCreate && (
-                <Card>
-                  <p className="mb-2 text-sm font-semibold text-slate-200">Add a charge (party owes the business)</p>
-                  <form onSubmit={addCharge} className="space-y-3">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Category">
-                        <Select value={charge.category} onChange={(e) => setCharge({ ...charge, category: e.target.value })}>
-                          {CHARGE_CATEGORIES.map((c) => (
-                            <option key={c} value={c}>
-                              {chargeCategoryLabel(c)}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                      <Field label="Amount">
-                        <MoneyInput value={charge.amount} onChange={(v) => setCharge({ ...charge, amount: v })} required />
-                      </Field>
-                    </div>
-                    <Field label="Reason">
-                      <Input value={charge.reason} onChange={(e) => setCharge({ ...charge, reason: e.target.value })} placeholder="e.g. platform fee June" />
-                    </Field>
-                    <Button type="submit" disabled={busy || !charge.amount}>
-                      {busy ? "Saving…" : "Add charge"}
-                    </Button>
-                  </form>
-                </Card>
-              )}
-            </>
-          )}
+      <Page title="Balance" sub="your two-way position — and, for admins, any party&rsquo;s ledger and dues">
+        {/* The viewer's own two-way position (universal). */}
+        <section style={{ marginBottom: 28 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: T.ink, margin: "0 0 8px" }}>My position</h2>
+          {!myPartyId ? (
+            <EmptyBox title="No personal balance" hint="Your account isn't linked to a party." />
+          ) : myLoading ? (
+            <Loading />
+          ) : myBalance ? (
+            <div style={{ display: "grid", gap: 12 }}>
+              <BalanceView balance={myBalance} perspective="self" />
+              {myPartyId && <Register path="billing/register/me" title="My register" />}
+            </div>
+          ) : null}
         </section>
-      )}
+
+        {/* Admin: look up any party's balance + manage its charges. */}
+        {isAdmin && (
+          <section style={{ display: "grid", gap: 12 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: T.ink, margin: 0 }}>Look up a party</h2>
+            <Card style={{ padding: 16 }}>
+              <Field label="Party">
+                <EntityPicker placeholder="Search party…" search={searchParties} onPick={(i) => setLookupId(i?.id ?? null)} />
+              </Field>
+            </Card>
+
+            {lookupId && lookupLoading && <Loading />}
+            {lookupId && lookup && (
+              <>
+                <BalanceView balance={lookup} perspective="other" onReverseCharge={canApprove ? reverseCharge : undefined} />
+                <Register path={`billing/register/${encodeURIComponent(lookupId)}`} title="Register" />
+                {actionError && <Note>{actionError}</Note>}
+                {canCreate && (
+                  <Card>
+                    <CardHead>Add a charge (party owes the business)</CardHead>
+                    <form onSubmit={addCharge} style={{ padding: 16, display: "grid", gap: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                        <Field label="Category">
+                          <select value={charge.category} onChange={(e) => setCharge({ ...charge, category: e.target.value })} style={dcInput}>
+                            {CHARGE_CATEGORIES.map((c) => (
+                              <option key={c} value={c}>{chargeCategoryLabel(c)}</option>
+                            ))}
+                          </select>
+                        </Field>
+                        <Field label="Amount" required>
+                          <input inputMode="decimal" value={charge.amount} onChange={(e) => setCharge({ ...charge, amount: sanitizeAmount(e.target.value) })} placeholder="৳ amount" style={{ ...dcInput, textAlign: "right" }} />
+                        </Field>
+                      </div>
+                      <Field label="Reason">
+                        <input value={charge.reason} onChange={(e) => setCharge({ ...charge, reason: e.target.value })} placeholder="e.g. platform fee June" style={dcInput} />
+                      </Field>
+                      <div>
+                        <GoldButton type="submit" disabled={busy || !charge.amount}>{busy ? "Saving…" : "Add charge"}</GoldButton>
+                      </div>
+                    </form>
+                  </Card>
+                )}
+              </>
+            )}
+          </section>
+        )}
+      </Page>
     </AppShell>
   );
 }

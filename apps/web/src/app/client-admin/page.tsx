@@ -1,12 +1,14 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
+import Link from "next/link";
 import { apiGet, apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { can, type PartyRow, type WhoAmI } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
 import { EntityPicker, type PickItem } from "@/components/EntityPicker";
-import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Spinner, cx } from "@/components/ui";
+import { Badge, Card, CardHead, cell, DGrid, dcInput, EmptyBox, Field, GhostButton, GoldButton, Loading, Note, Page, T } from "@/components/dc";
 
 interface ClientAccountRow {
   id: string;
@@ -24,6 +26,9 @@ interface AdminMessage {
   createdAt: string;
 }
 
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
+const okMsg: CSSProperties = { margin: 0, fontSize: 11.5, fontWeight: 600, color: T.green };
+
 const searchClients = async (q: string): Promise<PickItem[]> => {
   const rows = await apiGet<PartyRow[]>(`parties?q=${encodeURIComponent(q)}&type=client`);
   return rows.map((r) => ({ id: r.id, label: r.displayName, sub: r.externalRef ?? undefined }));
@@ -36,19 +41,21 @@ export default function ClientAdminPage() {
   if (me && !canManage) {
     return (
       <AppShell>
-        <h1 className="mb-3 text-lg font-semibold tracking-tight">Client portal</h1>
-        <EmptyState title="No access" hint="You don’t have permission to manage client portal logins." />
+        <Page title="Client portal">
+          <EmptyBox title="No access" hint="You don’t have permission to manage client portal logins." />
+        </Page>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">Client portal</h1>
-      <AutoProvision />
-      <Provision />
-      <Accounts />
-      <Messages />
+      <Page title="Client portal" sub="provision portal logins and reply to client messages">
+        <AutoProvision />
+        <Provision />
+        <Accounts />
+        <Messages />
+      </Page>
     </AppShell>
   );
 }
@@ -86,32 +93,26 @@ function AutoProvision() {
   }
 
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Auto-provision from student ID + name</h2>
-      <form onSubmit={run} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Auto-provision from student ID + name</CardHead>
+      <form onSubmit={run} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <Field label="Student ID" error={fieldErrs.studentId}>
-          <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. ICT-701" />
+          <input value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. ICT-701" style={dcInput} />
         </Field>
         <Field label="Name" error={fieldErrs.name}>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" style={dcInput} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !studentId.trim() || !name.trim()}>
-            {busy ? "Creating…" : "Auto-provision"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !studentId.trim() || !name.trim()}>{busy ? "Creating…" : "Auto-provision"}</GhostButton>
         </div>
-        <div className="sm:col-span-2">
-          {err && <ErrorNote message={err} />}
+        <div style={{ gridColumn: "1 / -1" }}>
+          {err && <Note>{err}</Note>}
           {result && (
-            <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm">
-              <p className="font-medium text-green-900">Login created — hand these over now (shown once):</p>
-              <p className="mt-1 font-mono text-xs text-green-900">
-                Login: {result.loginId}
-                <br />
-                Temporary password: {result.initialPassword}
-              </p>
-              <p className="mt-1 text-xs text-green-700">The client must reset this password on first login.</p>
-            </div>
+            <Note tone="green">
+              <div style={{ fontWeight: 700 }}>Login created — hand these over now (shown once):</div>
+              <div style={{ fontFamily: T.mono, fontSize: 11.5, marginTop: 4 }}>Login: {result.loginId}<br />Temporary password: {result.initialPassword}</div>
+              <div style={{ fontSize: 10.5, marginTop: 4 }}>The client must reset this password on first login.</div>
+            </Note>
           )}
         </div>
       </form>
@@ -152,26 +153,24 @@ function Provision() {
   }
 
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Give a client a portal login</h2>
-      <form onSubmit={provision} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Give a client a portal login</CardHead>
+      <form onSubmit={provision} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <Field label="Client" error={fieldErrs.partyId}>
           <EntityPicker key={resetSeq} placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
         </Field>
         <Field label="Login ID (client/student id or email)" error={fieldErrs.loginId}>
-          <Input value={loginId} onChange={(e) => setLoginId(e.target.value)} />
+          <input value={loginId} onChange={(e) => setLoginId(e.target.value)} style={dcInput} />
         </Field>
         <Field label="Temporary password" error={fieldErrs.password}>
-          <Input type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input type="text" value={password} onChange={(e) => setPassword(e.target.value)} style={dcInput} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !partyId || !loginId.trim() || !password}>
-            {busy ? "Creating…" : "Create login"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !partyId || !loginId.trim() || !password}>{busy ? "Creating…" : "Create login"}</GhostButton>
         </div>
-        <div className="sm:col-span-2">
-          {err && <ErrorNote message={err} />}
-          {msg && <p className="text-xs text-green-700">{msg}</p>}
+        <div style={{ gridColumn: "1 / -1" }}>
+          {err && <Note>{err}</Note>}
+          {msg && <p style={okMsg}>{msg}</p>}
         </div>
       </form>
     </Card>
@@ -187,34 +186,32 @@ function Accounts() {
   }
 
   return (
-    <section className="mb-8">
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Logins</h2>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {accounts && accounts.length === 0 && <EmptyState title="No client logins yet" hint="Create one above." />}
-      {accounts && accounts.length > 0 && (
-        <div className="space-y-2">
-          {accounts.map((a) => (
-            <Card key={a.id}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{a.partyName ?? a.partyId}</span>
-                  <span className="text-xs text-slate-500">{a.loginId}</span>
-                  <Badge tone={a.status === "active" ? "green" : a.status === "deactivated" ? "red" : "gray"}>{a.status}</Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  className="px-2 text-xs"
-                  onClick={() => setStatus(a.id, a.status === "deactivated" ? "active" : "deactivated")}
-                >
+    <div style={{ marginBottom: 8 }}>
+      <h2 style={sectionH}>Logins</h2>
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
+      {accounts && (
+        <DGrid<ClientAccountRow>
+          minWidth={420}
+          rows={accounts}
+          keyOf={(a) => a.id}
+          cols={[
+            { label: "Client", render: (a) => cell(a.partyName ?? a.partyId, { weight: 500, sub: a.loginId }) },
+            { label: "Status", align: "center", render: (a) => <Badge tone={a.status === "active" ? "green" : a.status === "deactivated" ? "red" : "gray"}>{a.status}</Badge> },
+            {
+              label: "",
+              align: "right",
+              render: (a) => (
+                <GhostButton onClick={() => void setStatus(a.id, a.status === "deactivated" ? "active" : "deactivated")}>
                   {a.status === "deactivated" ? "Reactivate" : "Deactivate"}
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+                </GhostButton>
+              ),
+            },
+          ]}
+          empty="No client logins yet — create one above."
+        />
       )}
-    </section>
+    </div>
   );
 }
 
@@ -242,41 +239,49 @@ function Messages() {
   }
 
   return (
-    <section>
-      <h2 className="mb-2 text-sm font-semibold text-slate-200">Client messages</h2>
+    <div>
+      <h2 style={sectionH}>Client messages</h2>
       <Card>
-        <Field label="Client">
-          <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
-        </Field>
-        {partyId && (
-          <>
-            <div className="my-3 space-y-2">
-              {(thread ?? []).map((m) => (
-                <div key={m.id} className={cx("flex", m.sender === "admin" ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cx(
-                      "max-w-[80%] rounded-2xl px-3 py-2 text-sm",
-                      m.sender === "admin" ? "bg-gray-800 text-white" : "bg-ink-800 text-slate-200 ring-1 ring-gray-100",
-                    )}
-                  >
-                    <p className="whitespace-pre-wrap">{m.body}</p>
-                    <p className="mt-1 text-[10px] opacity-70">{formatDateTime(m.createdAt)}</p>
+        <div style={{ padding: 14 }}>
+          <Field label="Client">
+            <EntityPicker placeholder="Search client…" search={searchClients} onPick={(i) => setPartyId(i?.id ?? null)} />
+          </Field>
+          {partyId && (
+            <>
+              <div style={{ margin: "14px 0", display: "grid", gap: 8 }}>
+                {(thread ?? []).map((m) => (
+                  <div key={m.id} style={{ display: "flex", justifyContent: m.sender === "admin" ? "flex-end" : "flex-start" }}>
+                    <div
+                      style={{
+                        maxWidth: "80%",
+                        borderRadius: 12,
+                        padding: "8px 11px",
+                        fontSize: 12.5,
+                        background: m.sender === "admin" ? T.ink : T.hair,
+                        color: m.sender === "admin" ? "#FFFFFF" : T.ink,
+                        border: m.sender === "admin" ? "none" : `1px solid ${T.border}`,
+                      }}
+                    >
+                      <div style={{ whiteSpace: "pre-wrap" }}>{m.body}</div>
+                      <div style={{ fontSize: 10, opacity: 0.7, marginTop: 4 }}>{formatDateTime(m.createdAt)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {thread && thread.length === 0 && <p className="text-xs text-slate-500">No messages with this client yet.</p>}
-            </div>
-            <form onSubmit={reply} className="flex gap-2">
-              <Input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Reply…" />
-              <Button type="submit" disabled={busy || !body.trim()}>Send</Button>
-            </form>
-            {err && <div className="mt-2"><ErrorNote message={err} /></div>}
-          </>
-        )}
+                ))}
+                {thread && thread.length === 0 && <p style={{ margin: 0, fontSize: 11.5, color: T.muted }}>No messages with this client yet.</p>}
+              </div>
+              <form onSubmit={reply} style={{ display: "flex", gap: 10 }}>
+                <input value={body} onChange={(e) => setBody(e.target.value)} placeholder="Reply…" style={{ ...dcInput, flex: 1 }} />
+                <GoldButton type="submit" disabled={busy || !body.trim()}>Send</GoldButton>
+              </form>
+              {err && <div style={{ marginTop: 10 }}><Note>{err}</Note></div>}
+            </>
+          )}
+        </div>
       </Card>
-      <p className="mt-3 text-xs text-slate-500">
-        Client-submitted requests appear as drafts in <a className="underline" href="/work">Work</a> — confirm and price them there.
+      <p style={{ marginTop: 12, fontSize: 11.5, color: T.muted }}>
+        Client-submitted requests appear as drafts in{" "}
+        <Link href="/work" style={{ color: T.goldDeep, fontWeight: 600, textDecoration: "none" }}>Work</Link> — confirm and price them there.
       </p>
-    </section>
+    </div>
   );
 }

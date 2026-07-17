@@ -6,9 +6,8 @@ import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfSubscription } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfField, PfInput, PfSelect, PfMoneyInput, PfBadge, PfNote, PfLoading, PfEmpty, PfTextBtn } from "@/components/pf-dc";
 
 export default function PfSubscriptionsPage() {
   const confirm = useConfirm();
@@ -62,85 +61,67 @@ export default function PfSubscriptionsPage() {
     }
   }
 
+  const th: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: PF.muted, padding: "9px 14px", borderBottom: `1px solid ${PF.border}`, whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "9px 14px", borderBottom: `1px solid ${PF.hair}`, verticalAlign: "middle" };
+
   return (
     <PfShell>
-      <div className="mb-4 flex items-center justify-between">
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Subscriptions</h1>
-          <p className="text-xs text-slate-400">An email reminder fires 3 days before each next due date.</p>
+          <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Subscriptions</h1>
+          <p style={{ fontSize: 12, color: PF.onGradSub, margin: "4px 0 0" }}>An email reminder fires 3 days before each next due date.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={runReminders}>Run reminders</Button>
-          <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add"}</Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <PfBtn variant="secondary" onClick={runReminders}>Run reminders</PfBtn>
+          <PfBtn onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add"}</PfBtn>
         </div>
       </div>
-      <div aria-live="polite">{msg && <p className="mb-3 text-xs text-emerald-800">{msg}</p>}</div>
+      <div aria-live="polite">{msg && <p style={{ fontSize: 11, color: PF.light, marginBottom: 12 }}>{msg}</p>}</div>
 
       {open && (
-        <Card className="mb-5">
-          <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Name" error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Netflix" /></Field>
-              <Field label="Next due date" hint="Reminder fires 3 days before." error={fieldErrs.nextDueDate}><DateInput value={form.nextDueDate} onChange={(v) => setForm({ ...form, nextDueDate: v })} /></Field>
-              <Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
-              <Field label="Currency" error={fieldErrs.currency}><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+        <PfCard style={{ marginBottom: 16 }}>
+          <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <PfField label="Name" error={fieldErrs.name}><PfInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Netflix" /></PfField>
+              <PfField label="Next due date" hint="Reminder fires 3 days before." error={fieldErrs.nextDueDate}><PfInput type="date" value={form.nextDueDate} onChange={(e) => setForm({ ...form, nextDueDate: e.target.value })} /></PfField>
+              <PfField label="Amount" error={fieldErrs.amount}><PfMoneyInput currency={form.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></PfField>
+              <PfField label="Currency" error={fieldErrs.currency}><PfSelect value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</PfSelect></PfField>
             </div>
-            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
-            {err && <ErrorNote message={err} />}
-            <Button type="submit" disabled={busy || !form.name.trim() || !form.amount}>{busy ? "Saving…" : "Save subscription"}</Button>
+            <PfField label="Note" error={fieldErrs.note}><PfInput value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></PfField>
+            {err && <PfNote tone="red">{err}</PfNote>}
+            <div><PfBtn type="submit" disabled={busy || !form.name.trim() || !form.amount}>{busy ? "Saving…" : "Save subscription"}</PfBtn></div>
           </form>
-        </Card>
+        </PfCard>
       )}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<PfSubscription>
-          tableId="pf-subscriptions"
-          exportName="subscriptions"
-          rows={data}
-          getRowId={(s) => s.id}
-          emptyTitle="No subscriptions yet"
-          columns={[
-            { key: "name", header: "Name", sortable: true, value: (s) => s.name },
-            {
-              key: "amount",
-              header: "Amount",
-              align: "right",
-              sortable: true,
-              total: true,
-              // Per-row currency: render with pfMoney; numeric value drives sort/total.
-              render: (s) => <span className="tabular-nums">{pfMoney(s.amount, s.currency)}</span>,
-              value: (s) => (s.amount == null ? "" : Number(s.amount)),
-            },
-            {
-              key: "nextDueDate",
-              header: "Next due",
-              sortable: true,
-              render: (s) => (s.nextDueDate ? <Badge tone="amber">{formatDate(s.nextDueDate)}</Badge> : <span className="text-slate-500">—</span>),
-              value: (s) => s.nextDueDate ?? "",
-            },
-            { key: "note", header: "Note", filter: "text", value: (s) => s.note ?? "" },
-            {
-              key: "action",
-              header: "",
-              align: "right",
-              render: (s) => (
-                <button
-                  type="button"
-                  aria-label="Archive subscription"
-                  className="text-xs text-red-600 hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    archive(s.id);
-                  }}
-                >
-                  archive
-                </button>
-              ),
-            },
-          ]}
-        />
+      {isLoading && <PfLoading />}
+      {error && <PfNote tone="red">{error.message}</PfNote>}
+      {data && data.length === 0 && <PfEmpty title="No subscriptions yet" />}
+      {data && data.length > 0 && (
+        <div style={{ background: PF.card, border: `1px solid ${PF.border}`, borderRadius: 12, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontSize: 12.5 }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, textAlign: "left" }}>Name</th>
+                <th style={{ ...th, textAlign: "right" }}>Amount</th>
+                <th style={{ ...th, textAlign: "left" }}>Next due</th>
+                <th style={{ ...th, textAlign: "left" }}>Note</th>
+                <th style={{ ...th, width: 70 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((s) => (
+                <tr key={s.id}>
+                  <td style={{ ...td, fontWeight: 500, color: PF.text }}>{s.name}</td>
+                  <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: PF.text }}>{pfMoney(s.amount, s.currency)}</td>
+                  <td style={td}>{s.nextDueDate ? <PfBadge tone="amber">{formatDate(s.nextDueDate)}</PfBadge> : <span style={{ color: PF.muted2 }}>—</span>}</td>
+                  <td style={{ ...td, color: PF.text2 }}>{s.note ?? ""}</td>
+                  <td style={{ ...td, textAlign: "right" }}><PfTextBtn danger ariaLabel="Archive subscription" onClick={() => archive(s.id)}>archive</PfTextBtn></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </PfShell>
   );

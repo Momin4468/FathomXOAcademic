@@ -7,21 +7,21 @@ import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { pfAttachmentDownloadUrl, pfUploadNoteFile } from "@/lib/pf-upload";
 import { formatDateTime } from "@/lib/format";
-import { NOTE_COLORS, NOTE_COLOR_BG, type PfNote, type PfNoteAttachment, type PfNoteItem } from "@/lib/pf-types";
+import { NOTE_COLORS, type PfNote, type PfNoteAttachment, type PfNoteItem } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, Spinner, Textarea, cx } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfField, PfInput, PfBadge, PfNote as PfBanner, PfLoading, PfTextBtn, NOTE_STRIP, pfInputStyle } from "@/components/pf-dc";
 
 export default function PfNoteEditorPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, isLoading, mutate } = usePfApi<PfNote>(`notes/${id}`);
   return (
     <PfShell>
-      <div className="mb-4">
-        <Link href="/personal-finance/notes" className="text-xs text-slate-400 hover:underline">← All notes</Link>
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/personal-finance/notes" style={{ fontSize: 11, color: PF.onGradSub, textDecoration: "none" }}>← All notes</Link>
       </div>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      {isLoading && <PfLoading />}
+      {error && <PfBanner tone="red">{error.message}</PfBanner>}
       {data && <Editor key={data.id} note={data} onChanged={mutate} />}
     </PfShell>
   );
@@ -104,38 +104,34 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="flex gap-3">
-        <div className={`w-1.5 shrink-0 rounded-full ${NOTE_COLOR_BG[color] ?? NOTE_COLOR_BG.default}`} />
-        <div className="min-w-0 flex-1 space-y-3">
-          <Input aria-label="Note title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="text-base font-medium" />
-          <Textarea aria-label="Note body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write anything…" className="min-h-[140px]" />
+    <div style={{ display: "grid", gap: 16 }}>
+      <PfCard style={{ display: "flex", gap: 12 }}>
+        <div style={{ width: 6, flexShrink: 0, borderRadius: 999, background: NOTE_STRIP[color] ?? NOTE_STRIP.default }} />
+        <div style={{ minWidth: 0, flex: 1, display: "grid", gap: 12 }}>
+          <input aria-label="Note title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" style={{ ...pfInputStyle, fontSize: 15, fontWeight: 600 }} />
+          <textarea aria-label="Note body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write anything…" style={{ ...pfInputStyle, minHeight: 140, resize: "vertical", lineHeight: 1.5 }} />
 
           {/* Checklist */}
-          <div className="space-y-1.5">
+          <div style={{ display: "grid", gap: 6 }}>
             {items.map((it, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input
-                  type="checkbox"
-                  aria-label={`Toggle: ${it.text || "item"}`}
-                  checked={it.done}
+                  type="checkbox" aria-label={`Toggle: ${it.text || "item"}`} checked={it.done}
                   onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, done: e.target.checked } : x)))}
-                  className="h-5 w-5 shrink-0"
+                  style={{ height: 18, width: 18, flexShrink: 0, accentColor: PF.accent }}
                 />
                 <input
-                  aria-label="Checklist item"
-                  className={cx("min-h-[44px] flex-1 rounded-md border border-ink-700 px-2 text-sm outline-none focus:border-gray-900 focus:ring-1 focus:ring-gray-900", it.done && "text-slate-500 line-through")}
-                  value={it.text}
+                  aria-label="Checklist item" value={it.text}
                   onChange={(e) => setItems(items.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
+                  style={{ ...pfInputStyle, flex: 1, textDecoration: it.done ? "line-through" : "none", color: it.done ? PF.muted2 : PF.text }}
                 />
-                <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => setItems(items.filter((_, j) => j !== i))}>remove</button>
+                <PfTextBtn danger onClick={() => setItems(items.filter((_, j) => j !== i))}>remove</PfTextBtn>
               </div>
             ))}
-            <div className="flex items-center gap-2">
-              <span className="w-4" />
-              <Input
-                value={newItem}
-                onChange={(e) => setNewItem(e.target.value)}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 18, flexShrink: 0 }} />
+              <input
+                value={newItem} onChange={(e) => setNewItem(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && newItem.trim()) {
                     e.preventDefault();
@@ -144,49 +140,46 @@ function Editor({ note, onChanged }: { note: PfNote; onChanged: () => void }) {
                   }
                 }}
                 placeholder="+ Add a checklist item (Enter)"
-                className="min-h-[36px] text-sm"
+                style={{ ...pfInputStyle, flex: 1 }}
               />
             </div>
           </div>
 
           {/* Meta row */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Remind me on" hint="An email reminder fires on this day." error={fieldErrs.remindOn}>
-              <DateInput value={remindOn} onChange={setRemindOn} />
-            </Field>
-            <Field label="Colour" error={fieldErrs.color}>
-              <div className="flex items-center gap-2 pt-1">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            <PfField label="Remind me on" hint="An email reminder fires on this day." error={fieldErrs.remindOn}>
+              <PfInput type="date" value={remindOn} onChange={(e) => setRemindOn(e.target.value)} />
+            </PfField>
+            <PfField label="Colour" error={fieldErrs.color}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 2 }}>
                 {NOTE_COLORS.map((c) => (
                   <button
-                    key={c}
-                    type="button"
-                    aria-label={`Colour: ${c}`}
-                    onClick={() => setColor(c)}
-                    className={cx("h-7 w-7 rounded-full ring-offset-2", NOTE_COLOR_BG[c], color === c && "ring-2 ring-gray-900")}
+                    key={c} type="button" aria-label={`Colour: ${c}`} onClick={() => setColor(c)}
+                    style={{ height: 26, width: 26, borderRadius: 999, cursor: "pointer", background: NOTE_STRIP[c], border: color === c ? `2px solid ${PF.accent}` : `2px solid transparent`, outline: color === c ? `1px solid ${PF.accent}` : "none", outlineOffset: 2 }}
                   />
                 ))}
               </div>
-            </Field>
+            </PfField>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} className="h-4 w-4" /> Pin to top
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: PF.text }}>
+              <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} style={{ height: 16, width: 16, accentColor: PF.accent }} /> Pin to top
             </label>
-            {note.archivedAt && <Badge tone="gray">archived</Badge>}
+            {note.archivedAt && <PfBadge tone="gray">archived</PfBadge>}
           </div>
 
-          {err && <ErrorNote message={err} />}
-          <div className="flex items-center gap-3">
-            <Button onClick={save} disabled={busy || !dirty}>{busy ? "Saving…" : dirty ? "Save" : "Saved"}</Button>
-            {saved && <span className="text-xs text-emerald-800">Saved</span>}
-            <Button variant={note.archivedAt ? "ghost" : "danger"} className="ml-auto px-3 text-xs" onClick={archiveToggle}>
-              {note.archivedAt ? "Restore" : "Archive"}
-            </Button>
+          {err && <PfBanner tone="red">{err}</PfBanner>}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <PfBtn onClick={save} disabled={busy || !dirty}>{busy ? "Saving…" : dirty ? "Save" : "Saved"}</PfBtn>
+            {saved && <span style={{ fontSize: 11, color: PF.light }}>Saved</span>}
+            <span style={{ marginLeft: "auto" }}>
+              <PfBtn variant={note.archivedAt ? "secondary" : "danger"} onClick={archiveToggle}>{note.archivedAt ? "Restore" : "Archive"}</PfBtn>
+            </span>
           </div>
-          <p className="text-xs text-slate-500">Updated {formatDateTime(note.updatedAt)}</p>
+          <p style={{ fontSize: 11, color: PF.muted2, margin: 0 }}>Updated {formatDateTime(note.updatedAt)}</p>
         </div>
-      </Card>
+      </PfCard>
 
       <Attachments noteId={note.id} attachments={note.attachments ?? []} onChanged={onChanged} />
     </div>
@@ -242,44 +235,44 @@ function Attachments({ noteId, attachments, onChanged }: { noteId: string; attac
   }
 
   return (
-    <Card>
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-200">Attachments</p>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" className="px-2 text-xs" onClick={() => setLinkOpen((o) => !o)}>{linkOpen ? "Cancel" : "+ Link"}</Button>
-          <Button variant="secondary" className="px-2 text-xs" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "…" : "Upload file"}</Button>
-          <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
+    <PfCard>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <p style={{ fontSize: 12.5, fontWeight: 700, color: PF.text, margin: 0 }}>Attachments</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <PfBtn variant="secondary" onClick={() => setLinkOpen((o) => !o)}>{linkOpen ? "Cancel" : "+ Link"}</PfBtn>
+          <PfBtn variant="ghost" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "…" : "Upload file"}</PfBtn>
+          <input ref={fileRef} type="file" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
         </div>
       </div>
 
       {linkOpen && (
-        <form onSubmit={addLink} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="flex-1"><Field label="URL" error={fieldErrs.url}><Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></Field></div>
-          <div className="sm:w-48"><Field label="Label (optional)" error={fieldErrs.filename}><Input value={linkName} onChange={(e) => setLinkName(e.target.value)} /></Field></div>
-          <Button type="submit" variant="secondary" disabled={busy || !url.trim()}>Add</Button>
+        <form onSubmit={addLink} style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: 200 }}><PfField label="URL" error={fieldErrs.url}><PfInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" /></PfField></div>
+          <div style={{ width: 200 }}><PfField label="Label (optional)" error={fieldErrs.filename}><PfInput value={linkName} onChange={(e) => setLinkName(e.target.value)} /></PfField></div>
+          <PfBtn type="submit" variant="secondary" disabled={busy || !url.trim()}>Add</PfBtn>
         </form>
       )}
-      {err && <div className="mt-2"><ErrorNote message={err} /></div>}
+      {err && <div style={{ marginTop: 8 }}><PfBanner tone="red">{err}</PfBanner></div>}
 
       {attachments.length === 0 ? (
-        <p className="mt-3 text-xs text-slate-500">No attachments. Add a link or upload a file (large files → link).</p>
+        <p style={{ marginTop: 12, fontSize: 11, color: PF.muted2 }}>No attachments. Add a link or upload a file (large files → link).</p>
       ) : (
-        <ul className="mt-3 divide-y divide-ink-800">
-          {attachments.map((a) => (
-            <li key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-              <span className="min-w-0 truncate">
+        <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0 }}>
+          {attachments.map((a, i) => (
+            <li key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: i === 0 ? undefined : `1px solid ${PF.hair}`, fontSize: 12.5 }}>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {a.isLink ? (
-                  <a href={a.url} target="_blank" rel="noreferrer" className="text-blue-700 hover:underline">{a.filename || a.url}</a>
+                  <a href={a.url} target="_blank" rel="noreferrer" style={{ color: PF.blue, textDecoration: "none" }}>{a.filename || a.url}</a>
                 ) : (
-                  <a href={pfAttachmentDownloadUrl(a.id)} target="_blank" rel="noreferrer" className="text-slate-200 hover:underline">{a.filename || "file"}</a>
+                  <a href={pfAttachmentDownloadUrl(a.id)} target="_blank" rel="noreferrer" style={{ color: PF.text, textDecoration: "none" }}>{a.filename || "file"}</a>
                 )}
-                <span className="ml-2 text-xs text-slate-500">{a.isLink ? "link" : a.mime ?? "file"}</span>
+                <span style={{ marginLeft: 8, fontSize: 10.5, color: PF.muted2 }}>{a.isLink ? "link" : a.mime ?? "file"}</span>
               </span>
-              <button type="button" className="shrink-0 text-xs text-red-600 hover:underline" onClick={() => remove(a.id)}>remove</button>
+              <PfTextBtn danger onClick={() => remove(a.id)}>remove</PfTextBtn>
             </li>
           ))}
         </ul>
       )}
-    </Card>
+    </PfCard>
   );
 }

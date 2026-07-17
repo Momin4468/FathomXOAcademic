@@ -1,10 +1,11 @@
 "use client";
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
 import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
+import { sanitizeAmount } from "@/lib/format";
 import { AppShell } from "@/components/AppShell";
-import { DataTable } from "@/components/DataTable";
-import { Badge, Button, Card, ErrorNote, Field, Input, MoneyInput, Money, Spinner } from "@/components/ui";
+import { Badge, Card, CardHead, cell, DGrid, dcInput, Field, fmtDay, GhostButton, Loading, money, Note, Page, StatCards, T, type Stat } from "@/components/dc";
 
 /**
  * The vendor self-view (audit item 13). Shows ONLY this vendor's own slice —
@@ -19,81 +20,59 @@ interface VendorMe {
   claims: VendorClaim[];
 }
 
+const sectionH: CSSProperties = { fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink, margin: "22px 0 10px" };
+
 export default function VendorMePage() {
   const { data, error, isLoading, mutate } = useApi<VendorMe>("vendor/me");
   const earnings = data?.balance?.earnings;
 
+  const stats: Stat[] = [
+    { label: "Earned", value: money(earnings?.owed), tone: "green" },
+    { label: "Paid out", value: money(earnings?.paid), tone: "blue" },
+    { label: "Outstanding", value: money(earnings?.outstanding), tone: "amber" },
+  ];
+
   return (
     <AppShell>
-      <h1 className="mb-5 text-lg font-semibold tracking-tight">My invoices</h1>
+      <Page title="My invoices" sub="your earnings, submitted invoices, and handoffs paid via the ledger">
+        {isLoading && <Loading />}
+        {error && <Note>{error.message}</Note>}
+        {data && (
+          <>
+            <StatCards items={stats} min={180} />
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+            <SubmitClaim onSaved={mutate} />
 
-      {data && (
-        <>
-          <Card className="mb-5">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Your earnings</h2>
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <div className="text-xs text-gray-500">earned</div>
-                <div className="font-semibold"><Money value={earnings?.owed} /></div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">paid out</div>
-                <div className="font-medium"><Money value={earnings?.paid} /></div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500">outstanding</div>
-                <div className="font-medium"><Money value={earnings?.outstanding} /></div>
-              </div>
-            </div>
-          </Card>
-
-          <SubmitClaim onSaved={mutate} />
-
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Submitted invoices</h2>
-          <div className="mb-6">
-            <DataTable<VendorClaim>
-              tableId="vendor-me-claims"
-              exportName="my-claims"
+            <h2 style={sectionH}>Submitted invoices</h2>
+            <DGrid<VendorClaim>
+              minWidth={420}
               rows={data.claims}
-              getRowId={(c) => c.id}
-              emptyTitle="No invoices submitted"
-              emptyHint="Submit one above; an admin will review it."
-              columns={[
-                { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (c) => (c.amount == null ? "" : Number(c.amount)) },
-                { key: "note", header: "Note", filter: "text", value: (c) => c.note ?? "" },
-                { key: "createdAt", header: "Date", sortable: true, format: "date", value: (c) => c.createdAt },
-                {
-                  key: "status",
-                  header: "Status",
-                  align: "center",
-                  sortable: true,
-                  filter: "select",
-                  filterOptions: ["proposed", "approved", "rejected"],
-                  render: (c) => <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge>,
-                  value: (c) => c.status,
-                },
+              keyOf={(c) => c.id}
+              cols={[
+                { label: "Amount", align: "right", render: (c) => cell(money(c.amount), { nums: true, weight: 600 }) },
+                { label: "Note", render: (c) => <span style={{ color: T.ink2 }}>{c.note ?? "—"}</span> },
+                { label: "Date", render: (c) => <span style={{ color: T.muted2 }}>{fmtDay(c.createdAt)}</span> },
+                { label: "Status", align: "center", render: (c) => <Badge tone={c.status === "approved" ? "green" : c.status === "rejected" ? "red" : "amber"}>{c.status}</Badge> },
               ]}
+              empty="No invoices submitted — submit one above; an admin will review it."
+              foot={data.claims.length ? <>Total submitted · {money(data.claims.reduce((s, c) => s + Number(c.amount || 0), 0))}</> : undefined}
             />
-          </div>
 
-          <h2 className="mb-2 text-sm font-semibold text-gray-700">Your handoffs (paid via the ledger)</h2>
-          <DataTable<VendorHandoff>
-            tableId="vendor-me-handoffs"
-            exportName="my-handoffs"
-            rows={data.handoffs}
-            getRowId={(h) => h.id}
-            emptyTitle="No handoffs yet"
-            emptyHint="Jobs paid to you will appear here."
-            columns={[
-              { key: "createdAt", header: "Date", sortable: true, format: "date", value: (h) => h.createdAt },
-              { key: "amount", header: "Amount", align: "right", sortable: true, format: "money", total: true, value: (h) => (h.amount == null ? "" : Number(h.amount)) },
-            ]}
-          />
-        </>
-      )}
+            <h2 style={sectionH}>Your handoffs (paid via the ledger)</h2>
+            <DGrid<VendorHandoff>
+              minWidth={320}
+              rows={data.handoffs}
+              keyOf={(h) => h.id}
+              cols={[
+                { label: "Date", render: (h) => <span style={{ color: T.muted2 }}>{fmtDay(h.createdAt)}</span> },
+                { label: "Amount", align: "right", render: (h) => cell(money(h.amount), { nums: true, weight: 600 }) },
+              ]}
+              empty="No handoffs yet — jobs paid to you will appear here."
+              foot={data.handoffs.length ? <>Total paid · {money(data.handoffs.reduce((s, h) => s + Number(h.amount || 0), 0))}</> : undefined}
+            />
+          </>
+        )}
+      </Page>
     </AppShell>
   );
 }
@@ -126,21 +105,19 @@ function SubmitClaim({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <Card className="mb-5">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Submit an invoice</h2>
-      <form onSubmit={submit} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <Card style={{ marginBottom: 16 }}>
+      <CardHead>Submit an invoice</CardHead>
+      <form onSubmit={submit} style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
         <Field label="Amount (৳)" error={fieldErrs.amount}>
-          <MoneyInput value={amount} onChange={(v) => setAmount(v)} />
+          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(sanitizeAmount(e.target.value))} placeholder="৳ amount" style={{ ...dcInput, textAlign: "right" }} />
         </Field>
         <Field label="Note (optional)" error={fieldErrs.note}>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What it's for" />
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What it's for" style={dcInput} />
         </Field>
-        <div className="flex items-end">
-          <Button type="submit" variant="secondary" disabled={busy || !(Number(amount) > 0)}>
-            {busy ? "Submitting…" : "Submit invoice"}
-          </Button>
+        <div style={{ display: "flex", alignItems: "flex-end" }}>
+          <GhostButton type="submit" disabled={busy || !(Number(amount) > 0)}>{busy ? "Submitting…" : "Submit invoice"}</GhostButton>
         </div>
-        {err && <div className="sm:col-span-2"><ErrorNote message={err} /></div>}
+        {err && <div style={{ gridColumn: "1 / -1" }}><Note>{err}</Note></div>}
       </form>
     </Card>
   );

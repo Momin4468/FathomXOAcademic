@@ -3,30 +3,30 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { apiSend, useApi } from "@/lib/api";
-import { formatDate } from "@/lib/format";
-import {
-  can,
-  type PartyDetail,
-  type VaultItem,
-  type WhoAmI,
-  type WorkListRow,
-} from "@/lib/types";
+import { can, type PartyDetail, type VaultItem, type WhoAmI, type WorkListRow } from "@/lib/types";
 import { AppShell } from "@/components/AppShell";
-import { Badge, Button, Card, Chip, EmptyState, ErrorNote, Money, MoneyInput, Spinner, StateBadge } from "@/components/ui";
+import {
+  Badge, Card, CardHead, cell, DGrid, dcInput, GhostButton, GoldButton, Loading,
+  money, Note, Page, StatCards, T, fmtDay, type DCol, type Tone,
+} from "@/components/dc";
 
 interface ClientAr { billed: number; collected: number; outstanding: number; openLines: Array<{ invoiceLineId: string; due: number }> }
 interface PaymentRow { id: string; direction: string; amount: string; paidAt: string; medium: string | null; reversesPaymentId?: string | null }
 interface BillableLine { id: string; workItemId: string; title: string; courseCode: string | null; amount: number }
 interface InvoiceModalLine { id: string; note: string | null; amount: string | number }
+interface LedgerRow { job: WorkListRow; amount: number | null; running: number | null }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const STATE_TONE: Record<string, Tone> = { delivered: "green", confirmed: "blue", pending: "amber", draft: "gray" };
 
 /**
- * Client 360 (the "Mujahid" layout). Left: jobs as spreadsheet-style rows —
- * course-code chip, words @ rate, status, client amount, writer, and the DERIVED
- * margin (money-gated, §4.4). Right: a Billed/Collected/Outstanding card + an
- * inline "record a payment" that FIFO-allocates against the client's open invoice
- * lines (QuickBooks "receive payment"). Every money figure is redaction-safe.
+ * Client 360, recreated to the `Business OS v5` handoff. One page = the client's
+ * whole account: an AR summary (Total expected / Paid / Remaining), a "Ledger"
+ * grid auto-pulled from the task pool (client price + running total — money-gated,
+ * §4.4 opacity-safe), an inline "record payment" that FIFO-allocates against open
+ * invoice lines, and a "Bill from the pool" picker that mints a screenshot-ready
+ * invoice popup from the selected work. Every money figure is redaction-safe: the
+ * read model omits what the caller may not see, and the UI never renders it.
  */
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -103,199 +103,222 @@ export default function ClientDetailPage() {
     }
   }
 
-  const initial = (party?.displayName ?? "?").trim()[0]?.toUpperCase() ?? "?";
+  // Ledger = the client's work, auto-pulled from the pool, with a derived running
+  // total. `amount`/`running` stay null unless money is visible (opacity-safe).
+  let run = 0;
+  const ledgerRows: LedgerRow[] = (jobs ?? []).map((j) => {
+    const amt = canMoney && j.clientAmount != null ? j.clientAmount : null;
+    if (amt != null) run = round2(run + amt);
+    return { job: j, amount: amt, running: amt != null ? run : null };
+  });
+
+  const ledgerCols: DCol<LedgerRow>[] = [
+    { label: "Date", width: 96, render: ({ job }) => cell(fmtDay(job.deliveryDate ?? job.submissionDate), { color: T.muted }) },
+    {
+      label: "Line",
+      render: ({ job }) => (
+        <Link href={`/work/${job.id}`} style={{ color: T.ink, fontWeight: 500, textDecoration: "none", display: "block" }}>
+          {job.title}
+          <span style={{ display: "block", fontSize: 10.5, color: T.muted2 }}>
+            {[job.courseCode, job.wordCount ? `${job.wordCount} words` : null, job.doerName].filter(Boolean).join(" · ") || "—"}
+          </span>
+        </Link>
+      ),
+    },
+    { label: "State", align: "center", render: ({ job }) => <Badge tone={STATE_TONE[job.workState] ?? "gray"}>{job.workState}</Badge> },
+  ];
+  if (canMoney) {
+    ledgerCols.push({ label: "Amount", align: "right", render: (r) => r.amount != null ? cell(money(r.amount), { nums: true, weight: 600, sub: r.job.margin != null ? `margin ${money(r.job.margin)}` : undefined }) : <span style={{ color: T.muted2 }}>—</span> });
+    ledgerCols.push({ label: "Running", align: "right", render: (r) => r.running != null ? cell(money(r.running), { nums: true, color: T.muted }) : <span style={{ color: T.muted2 }}>—</span> });
+  }
+
+  const meta = party ? [party.universityCanonical, party.programme, party.externalRef ? `ID ${party.externalRef}` : null, party.referredByName ? `referral ${party.referredByName}` : null].filter(Boolean).join(" · ") : "";
+  const portalTone: Tone = portal?.status === "active" ? "green" : portal?.status === "lead" ? "amber" : "gray";
 
   return (
     <AppShell>
-      <Link href="/clients" className="mb-3 inline-block text-xs text-slate-400 hover:underline">‹ All clients</Link>
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      <Link href="/clients" style={{ fontSize: 12, fontWeight: 600, color: T.goldDeep, textDecoration: "none", display: "inline-block", marginBottom: 4 }}>← All clients</Link>
+      {isLoading && <Loading />}
+      {error && <Note>{error.message}</Note>}
+
       {party && (
-        <div className="space-y-5">
-          {/* header */}
-          <header className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-ink-800 text-lg font-semibold text-slate-200">{initial}</span>
+        <Page
+          title={party.displayName}
+          sub={meta || undefined}
+          action={
+            <span style={{ display: "flex", gap: 8 }}>
+              {canBill && <GhostButton href="/invoices">Create invoice</GhostButton>}
+              {can(perms, "work:create") && <GoldButton href="/work/new">+ Add job</GoldButton>}
+            </span>
+          }
+        >
+          {canPortal && portal && <div style={{ marginBottom: 8 }}><Badge tone={portalTone}>{portal.status}</Badge></div>}
+          <div style={{ fontSize: 12, color: T.muted2, marginBottom: 16 }}>
+            One page = this client&apos;s whole account. Tasks flow in from the pool automatically; record payments and screenshot an invoice from here.
+          </div>
+
+          {canMoney && ar && (
+            <StatCards
+              min={180}
+              items={[
+                { label: "Total expected", value: money(ar.billed) },
+                { label: "Paid", value: money(ar.collected), tone: "green" },
+                { label: "Remaining", value: money(ar.outstanding), tone: "red" },
+              ]}
+            />
+          )}
+
+          <div style={{ display: "grid", gridTemplateColumns: canMoney ? "1fr 320px" : "1fr", gap: 16, alignItems: "start" }}>
+            {/* Left: ledger + bill-from-pool */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <h1 className="text-lg font-semibold tracking-tight">{party.displayName}</h1>
-                <p className="mt-0.5 text-xs text-slate-400">
-                  {[party.universityCanonical, party.programme, party.externalRef ? `ID ${party.externalRef}` : null, party.referredByName ? `referral ${party.referredByName}` : null]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600, color: T.ink }}>Ledger</span>
+                  <span style={{ fontSize: 11, color: T.muted2 }}>auto-pulled from the task pool</span>
+                </div>
+                <DGrid<LedgerRow>
+                  cols={ledgerCols}
+                  rows={ledgerRows}
+                  keyOf={(r) => r.job.id}
+                  minWidth={canMoney ? 620 : 420}
+                  empty="No work on this account yet."
+                  foot={canMoney && ar ? <span>Total expected <b style={{ color: T.ink }}>{money(ar.billed)}</b> · <span style={{ color: T.red, fontWeight: 700 }}>{money(ar.outstanding)} due</span></span> : undefined}
+                />
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {canBill && <Link href="/invoices"><Button variant="secondary">Create invoice</Button></Link>}
-              {can(perms, "work:create") && <Link href="/work/new"><Button>+ Add job</Button></Link>}
-            </div>
-          </header>
 
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            {/* Jobs & work lines */}
-            <section className="lg:col-span-2">
-              <Card className="p-0">
-                <h2 className="border-b border-ink-700 px-4 py-2.5 text-sm font-semibold">Jobs &amp; work lines</h2>
-                {!jobs || jobs.length === 0 ? (
-                  <div className="p-4"><EmptyState title="No jobs yet" hint="Add a job to get started." /></div>
-                ) : (
-                  <ul className="divide-y divide-ink-800">
-                    {jobs.map((j) => (
-                      <li key={j.id}>
-                        <Link href={`/work/${j.id}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm hover:bg-ink-800/60">
-                          <span className="min-w-0">
-                            <span className="flex items-center gap-2">
-                              {j.courseCode && <Chip>{j.courseCode}</Chip>}
-                              <span className="truncate font-medium">{j.title}</span>
-                            </span>
-                            <span className="mt-0.5 block text-xs text-slate-400">
-                              {[j.wordCount ? `${j.wordCount} words` : null, j.clientRate ? `@ ${Number(j.clientRate)}` : null].filter(Boolean).join(" ")}
-                            </span>
-                          </span>
-                          <span className="flex shrink-0 items-center gap-3">
-                            <StateBadge state={j.workState} />
-                            {canMoney && j.clientAmount != null && (
-                              <span className="w-24 text-right font-medium"><Money value={j.clientAmount} /></span>
-                            )}
-                            {j.doerName && <span className="hidden w-20 truncate text-right text-xs text-slate-400 sm:inline">{j.doerName}</span>}
-                            {canMoney && j.margin != null && (
-                              <span className="w-24 text-right text-xs text-emerald-600 dark:text-emerald-400">margin <Money value={j.margin} /></span>
-                            )}
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Card>
-            </section>
-
-            {/* Money column */}
-            {canMoney && (
-              <section className="space-y-4">
-                <Card className="bg-nav-surface text-nav-bright">
-                  <div className="flex items-center justify-between text-sm text-nav-muted"><span>Billed</span><span className="tabular-nums text-nav-bright"><Money value={ar?.billed ?? 0} /></span></div>
-                  <div className="mt-1 flex items-center justify-between text-sm text-nav-muted"><span>Collected</span><span className="tabular-nums text-emerald-300"><Money value={ar?.collected ?? 0} /></span></div>
-                  <div className="mt-3 border-t border-nav-border pt-3">
-                    <div className="text-xs text-nav-muted">Outstanding</div>
-                    <div className="text-2xl font-semibold tabular-nums text-gold-400"><Money value={ar?.outstanding ?? 0} /></div>
+              {canMoney && canBill && billable && billable.length > 0 && (
+                <Card>
+                  <CardHead>Bill from the pool</CardHead>
+                  <div style={{ padding: "12px 14px" }}>
+                    <p style={{ margin: "0 0 10px", fontSize: 11.5, color: T.muted }}>Tick the delivered work to invoice, then generate a screenshot-ready invoice.</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {billable.map((l) => (
+                        <label key={l.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, cursor: "pointer" }}>
+                          <input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} aria-label={`Select ${l.title}`} style={{ accentColor: T.goldDeep, cursor: "pointer" }} />
+                          {l.courseCode && <span style={{ fontFamily: T.mono, fontSize: 10.5, fontWeight: 600, background: T.codeBg, color: T.codeText, borderRadius: 6, padding: "2px 6px" }}>{l.courseCode}</span>}
+                          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title}</span>
+                          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(l.amount)}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <GoldButton type="button" disabled={genBusy || sel.size === 0} onClick={genInvoice}>{genBusy ? "Generating…" : `Generate invoice (${sel.size})`}</GoldButton>
+                    </div>
                   </div>
                 </Card>
+              )}
+            </div>
 
+            {/* Right: record payment + payments received (money-gated) */}
+            {canMoney && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {canBill && (
-                  <Card>
-                    <h2 className="mb-3 text-sm font-semibold">Record a payment</h2>
-                    <form onSubmit={addPayment} className="space-y-3">
-                      <div className="flex gap-2">
-                        <div className="flex-1"><MoneyInput value={amount} onChange={setAmount} /></div>
-                        <select value={medium} onChange={(e) => setMedium(e.target.value)} className="min-h-[44px] rounded-lg border border-ink-700 bg-ink-850 px-3 text-sm text-slate-100 outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400">
+                  <form onSubmit={addPayment}>
+                    <Card>
+                      <CardHead>Record payment received</CardHead>
+                      <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount ৳" inputMode="decimal" style={{ ...dcInput, textAlign: "right", fontVariantNumeric: "tabular-nums" }} />
+                        <select value={medium} onChange={(e) => setMedium(e.target.value)} style={dcInput}>
                           {["Bank", "Bkash", "Nagad", "DBBL", "MTB", "USDT", "cash"].map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
+                        {payErr && <Note>{payErr}</Note>}
+                        <GoldButton type="submit" disabled={busy || !(Number(amount) > 0)}>{busy ? "Saving…" : "Record payment"}</GoldButton>
                       </div>
-                      {payErr && <ErrorNote message={payErr} />}
-                      <Button type="submit" className="w-full" disabled={busy || !(Number(amount) > 0)}>{busy ? "Saving…" : "Add payment"}</Button>
-                    </form>
-                    <ul className="mt-3 space-y-1.5">
-                      {(payments ?? []).slice(0, 6).map((p) => (
-                        <li key={p.id} className="flex items-center justify-between text-sm">
-                          <span className="text-xs text-slate-400">{formatDate(p.paidAt)} · {p.medium ?? "—"}{p.reversesPaymentId ? " · reversal" : ""}</span>
-                          <span className={p.direction === "in" ? "tabular-nums text-emerald-600 dark:text-emerald-400" : "tabular-nums text-slate-400"}>
-                            {p.direction === "in" ? "+" : "−"}<Money value={Math.abs(Number(p.amount))} />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                    <p className="mt-3 text-[11px] text-slate-500">Created records are <strong>appended (never edited)</strong> — corrections are reversals only.</p>
-                  </Card>
+                    </Card>
+                  </form>
                 )}
 
-                {canBill && billable && billable.length > 0 && (
-                  <Card>
-                    <h2 className="mb-1 text-sm font-semibold">Bill from the pool</h2>
-                    <p className="mb-2 text-[11px] text-slate-500">Tick the delivered work to invoice, then generate a screenshot-ready invoice.</p>
-                    <ul className="space-y-1.5">
-                      {billable.map((l) => (
-                        <li key={l.id} className="flex items-center gap-2 text-sm">
-                          <input type="checkbox" checked={sel.has(l.id)} onChange={() => toggleSel(l.id)} className="accent-gold-500" aria-label={`Select ${l.title}`} />
-                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                            {l.courseCode && <Chip>{l.courseCode}</Chip>}
-                            <span className="truncate">{l.title}</span>
-                          </span>
-                          <span className="shrink-0 tabular-nums"><Money value={l.amount} /></span>
-                        </li>
-                      ))}
-                    </ul>
-                    <Button className="mt-3 w-full" disabled={genBusy || sel.size === 0} onClick={genInvoice}>{genBusy ? "Generating…" : `Generate invoice (${sel.size})`}</Button>
-                  </Card>
-                )}
-              </section>
+                <Card>
+                  <CardHead>Payments received</CardHead>
+                  <div style={{ padding: "4px 14px 12px" }}>
+                    {(payments ?? []).length === 0 ? (
+                      <p style={{ margin: "10px 0", fontSize: 11.5, color: T.muted2 }}>No payments yet.</p>
+                    ) : (payments ?? []).slice(0, 6).map((p) => (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 0", borderTop: `1px solid ${T.hair}` }}>
+                        <span style={{ fontSize: 12, color: T.ink2 }}>{fmtDay(p.paidAt)} · {p.medium ?? "—"}{p.reversesPaymentId ? " · reversal" : ""}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: p.direction === "in" ? T.green : T.muted }}>
+                          {p.direction === "in" ? "+" : "−"}{money(Math.abs(Number(p.amount)))}
+                        </span>
+                      </div>
+                    ))}
+                    <p style={{ margin: "10px 0 0", fontSize: 10.5, color: T.muted2 }}>Records are appended, never edited — corrections are reversals only.</p>
+                  </div>
+                </Card>
+              </div>
             )}
           </div>
 
           {/* Secondary: portal access + custom fields + credentials */}
           {canPortal && (
-            <Card>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Portal access</h2>
-              {portal ? (
-                <p className="text-sm">Login <span className="font-mono text-slate-100">{portal.loginId}</span>{" "}
-                  <Badge tone={portal.status === "active" ? "green" : portal.status === "lead" ? "amber" : "gray"}>{portal.status}</Badge></p>
-              ) : (
-                <p className="text-sm text-slate-400">No portal login yet. <Link href="/client-admin" className="text-gold-600 hover:underline dark:text-gold-400">Provision one →</Link></p>
-              )}
+            <Card style={{ marginTop: 16 }}>
+              <CardHead>Portal access</CardHead>
+              <div style={{ padding: "12px 14px", fontSize: 12.5 }}>
+                {portal ? (
+                  <span>Login <span style={{ fontFamily: T.mono, fontWeight: 600 }}>{portal.loginId}</span>{" "}<Badge tone={portalTone}>{portal.status}</Badge></span>
+                ) : (
+                  <span style={{ color: T.muted }}>No portal login yet. <Link href="/client-admin" style={{ color: T.goldDeep, fontWeight: 600, textDecoration: "none" }}>Provision one →</Link></span>
+                )}
+              </div>
             </Card>
           )}
           {party.customFields.length > 0 && (
-            <Card>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Details</h2>
-              <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-                {party.customFields.map((f) => (
-                  <div key={f.id}>
-                    <dt className="text-xs text-slate-500">{f.fieldName}{f.required ? " *" : ""}</dt>
-                    <dd className="font-medium">{f.value == null || f.value === "" ? <span className="text-slate-500">—</span> : String(f.value)}</dd>
-                  </div>
-                ))}
-              </dl>
+            <Card style={{ marginTop: 16 }}>
+              <CardHead>Details</CardHead>
+              <div style={{ padding: "12px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
+                {party.customFields.map((f) => {
+                  const empty = f.value == null || f.value === "";
+                  return (
+                    <div key={f.id}>
+                      <div style={{ fontSize: 10.5, color: T.muted }}>{f.fieldName}{f.required ? " *" : ""}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: empty ? T.muted2 : T.ink }}>{empty ? "—" : String(f.value)}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           )}
           {creds && creds.length > 0 && (
-            <Card>
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Credentials</h2>
-              <ul className="divide-y divide-ink-800">
+            <Card style={{ marginTop: 16 }}>
+              <CardHead>Credentials</CardHead>
+              <div style={{ padding: "4px 14px 8px" }}>
                 {creds.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="font-medium">{c.name} <Badge tone="blue">{c.type}</Badge></span>
-                    <Link href="/vault" className="text-xs text-slate-400 hover:underline">reveal in Vault →</Link>
-                  </li>
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", borderTop: `1px solid ${T.hair}` }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 500 }}>{c.name} <Badge tone="blue">{c.type}</Badge></span>
+                    <Link href="/vault" style={{ fontSize: 11, color: T.muted, textDecoration: "none" }}>reveal in Vault →</Link>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </Card>
           )}
-        </div>
+        </Page>
       )}
 
       {/* Screenshot-ready invoice popup (a document — stays light in both themes). */}
       {invModal && (
-        <div onClick={() => setInvModal(null)} className="fixed inset-0 z-[120] flex items-start justify-center bg-black/55 p-4 pt-[8vh]">
-          <div onClick={(e) => e.stopPropagation()} className="w-[460px] max-w-full overflow-hidden rounded-2xl bg-white text-ink-950 shadow-2xl">
-            <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
-              <span className="font-display text-base font-semibold">X-Factor AS · Invoice</span>
-              <span className="text-xs text-gray-500">{party?.displayName}</span>
-              <div className="flex-1" />
-              <button type="button" onClick={() => setInvModal(null)} aria-label="Close" className="text-gray-400 hover:text-gray-600">✕</button>
+        <div onClick={() => setInvModal(null)} style={{ position: "fixed", inset: 0, background: "rgba(7,10,20,0.55)", zIndex: 120, display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: "8vh" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "calc(100% - 32px)", background: T.card, borderRadius: 14, boxShadow: "0 24px 64px rgba(11,16,32,0.35)", overflow: "hidden" }}>
+            <div style={{ padding: "18px 22px", borderBottom: `1px solid ${T.eyebrow}`, display: "flex", alignItems: "center", gap: 10 }}>
+              <svg viewBox="0 0 40 40" width="26" height="26" fill="none" aria-hidden><rect x="0.5" y="0.5" width="39" height="39" rx="9" stroke={T.border} /><path d="M11 11 L29 29 M29 11 L11 29" stroke={T.gold} strokeWidth="3" strokeLinecap="round" /></svg>
+              <span style={{ lineHeight: 1.2 }}>
+                <span style={{ display: "block", fontFamily: "Fraunces, Georgia, serif", fontSize: 15, fontWeight: 600 }}>X-Factor AS · Invoice</span>
+                <span style={{ display: "block", fontSize: 11, color: T.muted2 }}>{party?.displayName}</span>
+              </span>
+              <div style={{ flex: 1 }} />
+              <button type="button" onClick={() => setInvModal(null)} aria-label="Close" style={{ cursor: "pointer", color: T.muted2, fontSize: 18, background: "none", border: "none" }}>✕</button>
             </div>
-            <div className="px-5 py-2">
+            <div style={{ padding: "8px 22px 4px" }}>
               {invModal.lines.map((l) => (
-                <div key={l.id} className="flex items-baseline justify-between gap-3 border-b border-gray-50 py-2 text-sm">
-                  <span>{l.note ?? "Billable line"}</span>
-                  <span className="font-medium tabular-nums"><Money value={Number(l.amount)} /></span>
+                <div key={l.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: `1px solid ${T.hair}` }}>
+                  <span style={{ fontSize: 12.5 }}>{l.note ?? "Billable line"}</span>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{money(Number(l.amount))}</span>
                 </div>
               ))}
             </div>
-            <div className="flex items-baseline justify-between px-5 py-4">
-              <span className="text-sm font-semibold">Total due</span>
-              <span className="font-display text-xl font-semibold"><Money value={invModal.total} /></span>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "14px 22px 20px" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Total due</span>
+              <span style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, color: T.ink }}>{money(invModal.total)}</span>
             </div>
-            <p className="px-5 pb-4 text-xs text-gray-400">Screenshot this and send it on WhatsApp — only the selected work is shown.</p>
+            <div style={{ padding: "0 22px 18px", fontSize: 11, color: T.muted2 }}>Screenshot this and send it on WhatsApp — only the selected work is shown.</div>
           </div>
         </div>
       )}

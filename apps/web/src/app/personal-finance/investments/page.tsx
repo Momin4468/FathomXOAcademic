@@ -7,7 +7,7 @@ import { formatDate } from "@/lib/format";
 import { pfMoney, PF_CURRENCIES, type PfCategory, type PfInvestment, type PfInvestmentEvent } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, EmptyState, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfField, PfInput, PfSelect, PfMoneyInput, PfBadge, PfNote, PfLoading, PfEmpty, PfTextBtn } from "@/components/pf-dc";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -19,18 +19,18 @@ export default function PfInvestmentsPage() {
 
   return (
     <PfShell>
-      <div className="mb-1 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Investments</h1>
-        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add holding"}</Button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Investments</h1>
+        <PfBtn onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add holding"}</PfBtn>
       </div>
-      <p className="mb-4 text-xs text-slate-400">Current value & profit/loss are derived from your value updates — never stored.</p>
+      <p style={{ fontSize: 12, color: PF.onGradSub, margin: "0 0 16px" }}>Current value & profit/loss are derived from your value updates — never stored.</p>
       {open && <AddInvestment onDirtyChange={setFormDirty} onDone={() => { setOpen(false); void mutate(); }} />}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && data.length === 0 && <EmptyState title="No investments yet" hint="Add a holding, then log value updates." />}
+      {isLoading && <PfLoading />}
+      {error && <PfNote tone="red">{error.message}</PfNote>}
+      {data && data.length === 0 && <PfEmpty title="No investments yet" hint="Add a holding, then log value updates." />}
       {data && data.length > 0 && (
-        <ul className="space-y-3">{data.map((i) => <InvestmentRow key={i.id} inv={i} onChanged={mutate} />)}</ul>
+        <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 12 }}>{data.map((i) => <InvestmentRow key={i.id} inv={i} onChanged={mutate} />)}</ul>
       )}
     </PfShell>
   );
@@ -74,25 +74,25 @@ function AddInvestment({ onDone, onDirtyChange }: { onDone: () => void; onDirtyC
   }
 
   return (
-    <Card className="mb-5">
-      <form onSubmit={submit} className="space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="Name" required error={fieldErrs.name}><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Acme shares" /></Field>
-          <Field label="Type" error={fieldErrs.categoryId}>
-            <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+    <PfCard style={{ marginBottom: 16 }}>
+      <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <PfField label="Name" required error={fieldErrs.name}><PfInput value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Acme shares" /></PfField>
+          <PfField label="Type" error={fieldErrs.categoryId}>
+            <PfSelect value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
               <option value="">Uncategorised</option>
               {(types ?? []).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="Amount invested (principal)" required error={fieldErrs.principal}><MoneyInput value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></Field>
-          <Field label="Currency" error={fieldErrs.currency}><Select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-          <Field label="Started on" error={fieldErrs.startedOn}><DateInput value={form.startedOn} onChange={(v) => setForm({ ...form, startedOn: v })} /></Field>
-          <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
+            </PfSelect>
+          </PfField>
+          <PfField label="Amount invested (principal)" required error={fieldErrs.principal}><PfMoneyInput currency={form.currency} value={form.principal} onChange={(v) => setForm({ ...form, principal: v })} /></PfField>
+          <PfField label="Currency" error={fieldErrs.currency}><PfSelect value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>{PF_CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}</PfSelect></PfField>
+          <PfField label="Started on" error={fieldErrs.startedOn}><PfInput type="date" value={form.startedOn} onChange={(e) => setForm({ ...form, startedOn: e.target.value })} /></PfField>
+          <PfField label="Note" error={fieldErrs.note}><PfInput value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></PfField>
         </div>
-        {err && <ErrorNote message={err} />}
-        <Button type="submit" disabled={busy || !form.name.trim() || !form.principal}>{busy ? "Saving…" : "Add holding"}</Button>
+        {err && <PfNote tone="red">{err}</PfNote>}
+        <div><PfBtn type="submit" disabled={busy || !form.name.trim() || !form.principal}>{busy ? "Saving…" : "Add holding"}</PfBtn></div>
       </form>
-    </Card>
+    </PfCard>
   );
 }
 
@@ -136,56 +136,56 @@ function InvestmentRow({ inv, onChanged }: { inv: PfInvestment; onChanged: () =>
 
   return (
     <li>
-      <Card>
-        <div className="flex items-start justify-between gap-3">
-          <div className="text-sm font-medium">{inv.name}</div>
-          <div className="text-right">
-            <div className="text-xs text-slate-400">current value</div>
-            <div className="font-semibold tabular-nums">{pfMoney(inv.currentValue, inv.currency)}</div>
-            <div className={`text-xs tabular-nums ${gain ? "text-emerald-700" : "text-rose-700"}`}>
+      <PfCard>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: PF.text }}>{inv.name}</div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10.5, color: PF.muted }}>current value</div>
+            <div style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: PF.text }}>{pfMoney(inv.currentValue, inv.currency)}</div>
+            <div style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", color: gain ? PF.green : PF.red }}>
               {gain ? "▲" : "▼"} {pfMoney(Math.abs(inv.unrealizedPl), inv.currency)} vs {pfMoney(inv.costBasis, inv.currency)} in
             </div>
           </div>
         </div>
-        <div className="mt-2 flex justify-end">
-          <Button variant="ghost" className="px-2 text-xs" onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Value updates"}</Button>
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+          <PfTextBtn onClick={() => setOpen((o) => !o)}>{open ? "Close" : "Value updates"}</PfTextBtn>
         </div>
 
         {open && (
-          <div className="mt-3 space-y-3">
+          <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             {events && events.length > 0 && (
-              <ul className="divide-y divide-ink-800">
+              <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
                 {events.map((ev) => (
-                  <li key={ev.id} className={`flex items-center justify-between py-1.5 text-sm ${ev.reversesId ? "opacity-50" : ""}`}>
+                  <li key={ev.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderTop: `1px solid ${PF.hair}`, fontSize: 12.5, opacity: ev.reversesId ? 0.5 : 1 }}>
                     <span>
-                      <Badge tone={ev.kind === "valuation" ? "blue" : ev.kind === "contribution" ? "green" : "amber"}>{ev.kind}</Badge>
-                      <span className="ml-1 text-xs text-slate-400">{formatDate(ev.occurredOn)}</span>
+                      <PfBadge tone={ev.kind === "valuation" ? "blue" : ev.kind === "contribution" ? "green" : "amber"}>{ev.kind}</PfBadge>
+                      <span style={{ marginLeft: 6, fontSize: 11, color: PF.muted }}>{formatDate(ev.occurredOn)}</span>
                     </span>
-                    <span className="flex items-center gap-3">
-                      <span className="tabular-nums">{pfMoney(ev.amount, inv.currency)}</span>
-                      {!ev.reversesId && <button type="button" aria-label="Reverse update" className="text-xs text-red-600 hover:underline" onClick={() => reverse(ev.id)}>reverse</button>}
+                    <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontVariantNumeric: "tabular-nums", color: PF.text }}>{pfMoney(ev.amount, inv.currency)}</span>
+                      {!ev.reversesId && <PfTextBtn danger ariaLabel="Reverse update" onClick={() => reverse(ev.id)}>reverse</PfTextBtn>}
                     </span>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="sm:w-44"><Field label="Update" error={fieldErrs.kind}>
-                <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" }}>
+              <div style={{ width: 190 }}><PfField label="Update" error={fieldErrs.kind}>
+                <PfSelect value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })}>
                   <option value="valuation">valuation (mark value)</option>
                   <option value="contribution">contribution (add money)</option>
                   <option value="withdrawal">withdrawal (take out)</option>
-                </Select>
-              </Field></div>
-              <div className="flex-1"><Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field></div>
-              <div className="sm:w-40"><Field label="Date" error={fieldErrs.occurredOn}><DateInput value={form.occurredOn} onChange={(v) => setForm({ ...form, occurredOn: v })} /></Field></div>
-              <Button variant="secondary" disabled={busy || !form.amount} onClick={addEvent}>Add</Button>
+                </PfSelect>
+              </PfField></div>
+              <div style={{ flex: 1, minWidth: 140 }}><PfField label="Amount" error={fieldErrs.amount}><PfMoneyInput currency={inv.currency} value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></PfField></div>
+              <div style={{ width: 150 }}><PfField label="Date" error={fieldErrs.occurredOn}><PfInput type="date" value={form.occurredOn} onChange={(e) => setForm({ ...form, occurredOn: e.target.value })} /></PfField></div>
+              <PfBtn variant="secondary" disabled={busy || !form.amount} onClick={addEvent}>Add</PfBtn>
             </div>
-            <p className="text-xs text-slate-500">A <b>valuation</b> sets the current worth (latest wins). <b>Contribution</b>/<b>withdrawal</b> move your cost basis.</p>
-            {err && <ErrorNote message={err} />}
+            <p style={{ fontSize: 11, color: PF.muted2, margin: 0 }}>A <b>valuation</b> sets the current worth (latest wins). <b>Contribution</b>/<b>withdrawal</b> move your cost basis.</p>
+            {err && <PfNote tone="red">{err}</PfNote>}
           </div>
         )}
-      </Card>
+      </PfCard>
     </li>
   );
 }

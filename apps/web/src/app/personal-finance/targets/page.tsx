@@ -5,9 +5,8 @@ import { fieldErrorMap, bannerMessage } from "@/lib/field-errors";
 import { useUnsavedGuard } from "@/lib/useUnsavedGuard";
 import { pfMoney, type PfCategory, type PfTarget } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { DataTable } from "@/components/DataTable";
 import { useConfirm } from "@/components/confirm";
-import { Badge, Button, Card, DateInput, ErrorNote, Field, Input, MoneyInput, Select, Spinner } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfField, PfInput, PfSelect, PfMoneyInput, PfBadge, PfNote, PfLoading, PfEmpty, PfProgress, PfTextBtn } from "@/components/pf-dc";
 
 const monthStart = () => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)).toISOString().slice(0, 10); };
 const KIND_LABEL: Record<string, string> = { budget_cap: "Budget cap", income_goal: "Income goal", savings_target: "Savings target" };
@@ -62,117 +61,89 @@ export default function PfTargetsPage() {
     await mutate();
   }
 
+  const th: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: PF.muted, padding: "9px 14px", borderBottom: `1px solid ${PF.border}`, whiteSpace: "nowrap" };
+  const td: React.CSSProperties = { padding: "9px 14px", borderBottom: `1px solid ${PF.hair}`, verticalAlign: "middle" };
+
   return (
     <PfShell>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold tracking-tight">Targets & budgets</h1>
-        <Button onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add target"}</Button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Targets &amp; budgets</h1>
+        <PfBtn onClick={() => (open ? confirmClose(() => setOpen(false)) : setOpen(true))}>{open ? "Close" : "+ Add target"}</PfBtn>
       </div>
 
       {open && (
-        <Card className="mb-5">
-          <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Type" error={fieldErrs.kind}>
-                <Select value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, categoryId: "" })}>
+        <PfCard style={{ marginBottom: 16 }}>
+          <form onSubmit={submit} style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+              <PfField label="Type" error={fieldErrs.kind}>
+                <PfSelect value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value, categoryId: "" })}>
                   <option value="budget_cap">Budget cap (expense)</option>
                   <option value="income_goal">Income goal</option>
                   <option value="savings_target">Savings target</option>
-                </Select>
-              </Field>
-              <Field label="Period" error={fieldErrs.period}>
-                <Select value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })}><option value="month">Monthly</option><option value="year">Yearly</option></Select>
-              </Field>
+                </PfSelect>
+              </PfField>
+              <PfField label="Period" error={fieldErrs.period}>
+                <PfSelect value={form.period} onChange={(e) => setForm({ ...form, period: e.target.value })}><option value="month">Monthly</option><option value="year">Yearly</option></PfSelect>
+              </PfField>
               {form.kind !== "savings_target" && (
-                <Field label="Category (optional)" error={fieldErrs.categoryId}>
-                  <Select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                <PfField label="Category (optional)" error={fieldErrs.categoryId}>
+                  <PfSelect value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
                     <option value="">All categories</option>
                     {relevantCats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Select>
-                </Field>
+                  </PfSelect>
+                </PfField>
               )}
-              <Field label="Starts" error={fieldErrs.periodStart}><DateInput value={form.periodStart} onChange={(v) => setForm({ ...form, periodStart: v })} /></Field>
-              <Field label="Amount" error={fieldErrs.amount}><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
+              <PfField label="Starts" error={fieldErrs.periodStart}><PfInput type="date" value={form.periodStart} onChange={(e) => setForm({ ...form, periodStart: e.target.value })} /></PfField>
+              <PfField label="Amount" error={fieldErrs.amount}><PfMoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></PfField>
             </div>
-            <Field label="Note" error={fieldErrs.note}><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></Field>
-            {err && <ErrorNote message={err} />}
-            <Button type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : "Save target"}</Button>
+            <PfField label="Note" error={fieldErrs.note}><PfInput value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></PfField>
+            {err && <PfNote tone="red">{err}</PfNote>}
+            <div><PfBtn type="submit" disabled={busy || !form.amount}>{busy ? "Saving…" : "Save target"}</PfBtn></div>
           </form>
-        </Card>
+        </PfCard>
       )}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
-      {data && (
-        <DataTable<PfTarget>
-          tableId="pf-targets"
-          exportName="targets"
-          rows={data}
-          getRowId={(t) => t.id}
-          emptyTitle="No targets yet"
-          emptyHint="Set a budget cap, an income goal, or a savings target."
-          columns={[
-            {
-              key: "kind",
-              header: "Type",
-              sortable: true,
-              filter: "select",
-              filterOptions: ["budget_cap", "income_goal", "savings_target"],
-              render: (t) => KIND_LABEL[t.kind],
-              value: (t) => t.kind,
-            },
-            {
-              key: "period",
-              header: "Period",
-              align: "center",
-              sortable: true,
-              render: (t) => <Badge tone="gray">{t.period === "year" ? "yearly" : "monthly"}</Badge>,
-              value: (t) => t.period,
-            },
-            { key: "amount", header: "Amount", align: "right", sortable: true, render: (t) => pfMoney(t.amount, t.currency), value: (t) => (t.amount == null ? "" : Number(t.amount)) },
-            { key: "current", header: "Current", align: "right", sortable: true, render: (t) => pfMoney(t.current, t.currency), value: (t) => (t.current == null ? "" : Number(t.current)) },
-            {
-              key: "progress",
-              header: "Progress",
-              render: (t) => {
+      {isLoading && <PfLoading />}
+      {error && <PfNote tone="red">{error.message}</PfNote>}
+      {data && data.length === 0 && <PfEmpty title="No targets yet" hint="Set a budget cap, an income goal, or a savings target." />}
+      {data && data.length > 0 && (
+        <div style={{ background: PF.card, border: `1px solid ${PF.border}`, borderRadius: 12, overflowX: "auto" }}>
+          <table style={{ width: "100%", minWidth: 620, borderCollapse: "collapse", fontSize: 12.5 }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, textAlign: "left" }}>Type</th>
+                <th style={{ ...th, textAlign: "center" }}>Period</th>
+                <th style={{ ...th, textAlign: "right" }}>Amount</th>
+                <th style={{ ...th, textAlign: "right" }}>Current</th>
+                <th style={{ ...th, textAlign: "left" }}>Progress</th>
+                <th style={{ ...th, width: 70 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((t) => {
                 const amount = Number(t.amount);
                 const current = Number(t.current);
                 const pct = amount > 0 ? Math.min(100, Math.round((current / amount) * 100)) : 0;
                 const over = t.kind === "budget_cap" && current > amount;
                 return (
-                  <div className="min-w-[8rem]">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-ink-800">
-                      <div className={`h-full rounded-full ${over ? "bg-rose-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="mt-1 text-xs text-slate-400">{over ? "over!" : `${pct}%`}</div>
-                  </div>
+                  <tr key={t.id}>
+                    <td style={{ ...td, color: PF.text }}>{KIND_LABEL[t.kind]}</td>
+                    <td style={{ ...td, textAlign: "center" }}><PfBadge tone="gray">{t.period === "year" ? "yearly" : "monthly"}</PfBadge></td>
+                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: PF.text }}>{pfMoney(t.amount, t.currency)}</td>
+                    <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: PF.text }}>{pfMoney(t.current, t.currency)}</td>
+                    <td style={td}>
+                      <div style={{ minWidth: 120 }}>
+                        <PfProgress pct={pct} over={over} />
+                        <div style={{ marginTop: 4, fontSize: 10.5, color: over ? PF.red : PF.muted }}>{over ? "over!" : `${pct}%`}</div>
+                      </div>
+                    </td>
+                    <td style={{ ...td, textAlign: "right" }}><PfTextBtn danger ariaLabel="Archive target" onClick={() => archive(t.id)}>archive</PfTextBtn></td>
+                  </tr>
                 );
-              },
-              value: (t) => {
-                const amount = Number(t.amount);
-                return amount > 0 ? Math.round((Number(t.current) / amount) * 100) : 0;
-              },
-            },
-            {
-              key: "action",
-              header: "",
-              align: "right",
-              render: (t) => (
-                <button
-                  type="button"
-                  aria-label="Archive target"
-                  className="text-xs text-red-600 hover:underline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    archive(t.id);
-                  }}
-                >
-                  archive
-                </button>
-              ),
-            },
-          ]}
-        />
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </PfShell>
   );

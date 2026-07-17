@@ -5,9 +5,9 @@ import { useState } from "react";
 import { Pin } from "lucide-react";
 import { pfApiSend, usePfApi } from "@/lib/pf-api";
 import { formatDate } from "@/lib/format";
-import { NOTE_COLOR_BG, type PfNote } from "@/lib/pf-types";
+import { type PfNote } from "@/lib/pf-types";
 import { PfShell } from "@/components/PfShell";
-import { Badge, Button, Card, EmptyState, ErrorNote, Input, Spinner } from "@/components/ui";
+import { PF, PfBtn, PfCard, PfBadge, PfNote as PfBanner, PfEmpty, PfLoading, NOTE_STRIP } from "@/components/pf-dc";
 
 export default function PfNotesPage() {
   const router = useRouter();
@@ -32,26 +32,27 @@ export default function PfNotesPage() {
 
   return (
     <PfShell>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="text-lg font-semibold tracking-tight">Notes</h1>
-        <Button onClick={newNote} disabled={busy}>{busy ? "…" : "+ New note"}</Button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
+        <h1 style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 22, fontWeight: 600, margin: 0, color: PF.onGrad }}>Notes</h1>
+        <PfBtn onClick={newNote} disabled={busy}>{busy ? "…" : "+ New note"}</PfBtn>
       </div>
 
-      <div className="mb-4 flex items-center gap-2">
-        <div className="flex-1"><Input aria-label="Search notes" placeholder="Search notes…" value={q} onChange={(e) => setQ(e.target.value)} /></div>
-        <Button variant={archived ? "primary" : "secondary"} className="shrink-0" onClick={() => setArchived((a) => !a)}>
-          {archived ? "Archived" : "Active"}
-        </Button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <input
+          aria-label="Search notes" placeholder="Search notes…" value={q} onChange={(e) => setQ(e.target.value)}
+          style={{ flex: 1, border: `1px solid ${PF.border}`, borderRadius: 8, padding: "9px 12px", fontSize: 12.5, background: PF.card, color: PF.text, outlineColor: PF.accentDeep }}
+        />
+        <PfBtn variant={archived ? "solid" : "secondary"} onClick={() => setArchived((a) => !a)}>{archived ? "Archived" : "Active"}</PfBtn>
       </div>
-      {createErr && <div className="mb-3"><ErrorNote message={createErr} /></div>}
+      {createErr && <div style={{ marginBottom: 12 }}><PfBanner tone="red">{createErr}</PfBanner></div>}
 
-      {isLoading && <Spinner />}
-      {error && <ErrorNote message={error.message} />}
+      {isLoading && <PfLoading />}
+      {error && <PfBanner tone="red">{error.message}</PfBanner>}
       {data && data.length === 0 && (
-        <EmptyState title={archived ? "No archived notes" : "No notes yet"} hint={archived ? undefined : "Create one — a list, a reminder, or just a thought."} />
+        <PfEmpty title={archived ? "No archived notes" : "No notes yet"} hint={archived ? undefined : "Create one — a list, a reminder, or just a thought."} />
       )}
       {data && data.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
           {data.map((n) => <NoteCard key={n.id} note={n} />)}
         </div>
       )}
@@ -64,21 +65,21 @@ function NoteCard({ note }: { note: PfNote }) {
   const done = items.filter((i) => i.done).length;
   const snippet = (note.body ?? "").trim().slice(0, 140);
   return (
-    <Link href={`/personal-finance/notes/${note.id}`} className="block">
-      <Card className="flex gap-3 transition hover:border-ink-700">
-        <div className={`w-1.5 shrink-0 rounded-full ${NOTE_COLOR_BG[note.color ?? "default"] ?? NOTE_COLOR_BG.default}`} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-medium">{note.title?.trim() || "(untitled)"}</span>
-            {note.pinned && <Pin aria-label="Pinned" className="h-4 w-4 shrink-0 fill-amber-400 text-amber-500" />}
+    <Link href={`/personal-finance/notes/${note.id}`} style={{ textDecoration: "none", display: "block" }}>
+      <PfCard style={{ display: "flex", gap: 12 }}>
+        <div style={{ width: 6, flexShrink: 0, borderRadius: 999, background: NOTE_STRIP[note.color ?? "default"] ?? NOTE_STRIP.default }} />
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 12.5, fontWeight: 600, color: PF.text }}>{note.title?.trim() || "(untitled)"}</span>
+            {note.pinned && <Pin aria-label="Pinned" style={{ height: 15, width: 15, flexShrink: 0, fill: PF.light, color: PF.accentDeep }} />}
           </div>
-          {snippet && <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{snippet}</p>}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            {items.length > 0 && <Badge tone="gray">{done}/{items.length} done</Badge>}
-            {note.remindOn && <Badge tone="amber">remind {formatDate(note.remindOn)}</Badge>}
+          {snippet && <p style={{ margin: "3px 0 0", fontSize: 11, color: PF.muted, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{snippet}</p>}
+          <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            {items.length > 0 && <PfBadge tone="gray">{done}/{items.length} done</PfBadge>}
+            {note.remindOn && <PfBadge tone="amber">remind {formatDate(note.remindOn)}</PfBadge>}
           </div>
         </div>
-      </Card>
+      </PfCard>
     </Link>
   );
 }
